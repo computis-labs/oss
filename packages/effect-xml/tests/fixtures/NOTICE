@@ -1,0 +1,39 @@
+Third-party files in this folder
+
+These test fixtures are not covered by the MIT license of @computis/effect-xml.
+They are not part of the published npm package, which ships only src and dist.
+Every invoice in them is a sample with fictitious parties: none is a real invoice.
+
+FatturaPA, by Agenzia delle Entrate (Italian Revenue Agency)
+Source: https://www.fatturapa.gov.it/it/norme-e-regole/documentazione-fattura-elettronica/formato-fatturapa/
+Retrieved and compared with the published files on 2026-10-07.
+
+- xsd/Schema_VFPR12_v1.2.3.xsd
+  From https://www.fatturapa.gov.it/export/documenti/fatturapa/v1.4/Schema_VFPR12_v1.2.3.xsd
+  Changed: the xs:import of the XML Signature namespace points to the local
+  xmldsig-core-schema.xsd instead of
+  http://www.w3.org/TR/2002/REC-xmldsig-core-20020212/xmldsig-core-schema.xsd,
+  so that validation never reads the network.
+
+- fatturapa/IT01234567890_FPA01.xml, FPA02, FPA03, FPR01, FPR02, FPR03
+  From https://www.fatturapa.gov.it/export/documenti/fatturapa/v1.2/
+  The sample invoices published with the format. Unchanged except for line
+  endings and the byte order mark.
+
+XML Signature Syntax and Processing, by W3C
+
+- xsd/xmldsig-core-schema.xsd
+  From http://www.w3.org/TR/2002/REC-xmldsig-core-20020212/xmldsig-core-schema.xsd
+  Unchanged except for line endings. Copyright 2001 The Internet Society and W3C
+  (Massachusetts Institute of Technology, Institut National de Recherche en
+  Informatique et en Automatique, Keio University). All Rights Reserved.
+  Governed by the W3C Software License:
+  http://www.w3.org/Consortium/Legal/copyright-software-19980720
+
+Files written for these tests
+
+fattura-1-linea.xml, fattura-20-linee.xml and their .expected.xml variants,
+fattura.ts, jit-documento.ts, messages.ts and the xsd-codegen folder were written
+for this package, with fictitious parties ("Fornitore Esempio S.r.l.",
+"Cliente Esempio S.p.A."), and are covered by its MIT license.
+fattura-xsd.gen.ts is generated from the FatturaPA schema above.

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+*.tgz
+packages/effect-xml/tests/fixtures/**/*.gen.ts
+prompts.gen.ts

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="Facets">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="T0" type="T0" minOccurs="0"/>
+        <xs:element name="T1" type="T1" minOccurs="0"/>
+        <xs:element name="T2" type="T2" minOccurs="0"/>
+        <xs:element name="T3" type="T3" minOccurs="0"/>
+        <xs:element name="T4" type="T4" minOccurs="0"/>
+        <xs:element name="T5" type="T5" minOccurs="0"/>
+        <xs:element name="T6" type="T6" minOccurs="0"/>
+        <xs:element name="T7" type="T7" minOccurs="0"/>
+        <xs:element name="T8" type="T8" minOccurs="0"/>
+        <xs:element name="T9" type="T9" minOccurs="0"/>
+        <xs:element name="T10" type="T10" minOccurs="0"/>
+        <xs:element name="T11" type="T11" minOccurs="0"/>
+        <xs:element name="T12" type="T12" minOccurs="0"/>
+        <xs:element name="T13" type="T13" minOccurs="0"/>
+        <xs:element name="T14" type="T14" minOccurs="0"/>
+        <xs:element name="T15" type="T15" minOccurs="0"/>
+        <xs:element name="T16" type="T16" minOccurs="0"/>
+        <xs:element name="T17" type="T17" minOccurs="0"/>
+        <xs:element name="T18" type="T18" minOccurs="0"/>
+        <xs:element name="T19" type="T19" minOccurs="0"/>
+        <xs:element name="T20" type="T20" minOccurs="0"/>
+        <xs:element name="T21" type="T21" minOccurs="0"/>
+        <xs:element name="T22" type="T22" minOccurs="0"/>
+        <xs:element name="T23" type="T23" minOccurs="0"/>
+        <xs:element name="T24" type="T24" minOccurs="0"/>
+        <xs:element name="T25" type="T25" minOccurs="0"/>
+        <xs:element name="T26" type="T26" minOccurs="0"/>
+        <xs:element name="T27" type="T27" minOccurs="0"/>
+        <xs:element name="T28" type="T28" minOccurs="0"/>
+        <xs:element name="T29" type="T29" minOccurs="0"/>
+        <xs:element name="T30" type="T30" minOccurs="0"/>
+        <xs:element name="T31" type="T31" minOccurs="0"/>
+        <xs:element name="T32" type="T32" minOccurs="0"/>
+        <xs:element name="T33" type="T33" minOccurs="0"/>
+        <xs:element name="T34" type="T34" minOccurs="0"/>
+        <xs:element name="T35" type="T35" minOccurs="0"/>
+        <xs:element name="T36" type="T36" minOccurs="0"/>
+        <xs:element name="T37" type="T37" minOccurs="0"/>
+        <xs:element name="T38" type="T38" minOccurs="0"/>
+        <xs:element name="T39" type="T39" minOccurs="0"/>
+        <xs:element name="T40" type="T40" minOccurs="0"/>
+        <xs:element name="T41" type="T41" minOccurs="0"/>
+        <xs:element name="T42" type="T42" minOccurs="0"/>
+        <xs:element name="T43" type="T43" minOccurs="0"/>
+        <xs:element name="T44" type="T44" minOccurs="0"/>
+        <xs:element name="T45" type="T45" minOccurs="0"/>
+        <xs:element name="T46" type="T46" minOccurs="0"/>
+        <xs:element name="T47" type="T47" minOccurs="0"/>
+        <xs:element name="T48" type="T48" minOccurs="0"/>
+        <xs:element name="T49" type="T49" minOccurs="0"/>
+        <xs:element name="T50" type="T50" minOccurs="0"/>
+        <xs:element name="T51" type="T51" minOccurs="0"/>
+        <xs:element name="T52" type="T52" minOccurs="0"/>
+        <xs:element name="T53" type="T53" minOccurs="0"/>
+        <xs:element name="T54" type="T54" minOccurs="0"/>
+        <xs:element name="T55" type="T55" minOccurs="0"/>
+        <xs:element name="T56" type="T56" minOccurs="0"/>
+        <xs:element name="T57" type="T57" minOccurs="0"/>
+        <xs:element name="T58" type="T58" minOccurs="0"/>
+        <xs:element name="T59" type="T59" minOccurs="0"/>
+        <xs:element name="T60" type="T60" minOccurs="0"/>
+        <xs:element name="T61" type="T61" minOccurs="0"/>
+        <xs:element name="T62" type="T62" minOccurs="0"/>
+        <xs:element name="T63" type="T63" minOccurs="0"/>
+        <xs:element name="T64" type="T64" minOccurs="0"/>
+        <xs:element name="T65" type="T65" minOccurs="0"/>
+        <xs:element name="T66" type="T66" minOccurs="0"/>
+        <xs:element name="T67" type="T67" minOccurs="0"/>
+        <xs:element name="T68" type="T68" minOccurs="0"/>
+        <xs:element name="T69" type="T69" minOccurs="0"/>
+        <xs:element name="T70" type="T70" minOccurs="0"/>
+        <xs:element name="T71" type="T71" minOccurs="0"/>
+        <xs:element name="T72" type="T72" minOccurs="0"/>
+        <xs:element name="T73" type="T73" minOccurs="0"/>
+        <xs:element name="T74" type="T74" minOccurs="0"/>
+        <xs:element name="T75" type="T75" minOccurs="0"/>
+        <xs:element name="T76" type="T76" minOccurs="0"/>
+        <xs:element name="T77" type="T77" minOccurs="0"/>
+        <xs:element name="T78" type="T78" minOccurs="0"/>
+        <xs:element name="T79" type="T79" minOccurs="0"/>
+        <xs:element name="T80" type="T80" minOccurs="0"/>
+        <xs:element name="T81" type="T81" minOccurs="0"/>
+        <xs:element name="T82" type="T82" minOccurs="0"/>
+        <xs:element name="T83" type="T83" minOccurs="0"/>
+        <xs:element name="T84" type="T84" minOccurs="0"/>
+        <xs:element name="T85" type="T85" minOccurs="0"/>
+        <xs:element name="T86" type="T86" minOccurs="0"/>
+        <xs:element name="T87" type="T87" minOccurs="0"/>
+        <xs:element name="T88" type="T88" minOccurs="0"/>
+        <xs:element name="T89" type="T89" minOccurs="0"/>
+        <xs:element name="T90" type="T90" minOccurs="0"/>
+        <xs:element name="T91" type="T91" minOccurs="0"/>
+        <xs:element name="T92" type="T92" minOccurs="0"/>
+        <xs:element name="T93" type="T93" minOccurs="0"/>
+        <xs:element name="Base64" type="Base64" minOccurs="0"/>
+        <xs:element name="T95" type="T95" minOccurs="0"/>
+        <xs:element name="T96" type="T96" minOccurs="0"/>
+        <xs:element name="T97" type="T97" minOccurs="0"/>
+        <xs:element name="T98" type="T98" minOccurs="0"/>
+        <xs:element name="T99" type="T99" minOccurs="0"/>
+        <xs:element name="T100" type="T100" minOccurs="0"/>
+        <xs:element name="T101" type="T101" minOccurs="0"/>
+        <xs:element name="T102" type="T102" minOccurs="0"/>
+        <xs:element name="T103" type="T103" minOccurs="0"/>
+        <xs:element name="T104" type="T104" minOccurs="0"/>
+        <xs:element name="T105" type="T105" minOccurs="0"/>
+        <xs:element name="T106" type="T106" minOccurs="0"/>
+        <xs:element name="T107" type="T107" minOccurs="0"/>
+        <xs:element name="T108" type="T108" minOccurs="0"/>
+        <xs:element name="T109" type="T109" minOccurs="0"/>
+        <xs:element name="T110" type="T110" minOccurs="0"/>
+        <xs:element name="T111" type="T111" minOccurs="0"/>
+        <xs:element name="T112" type="T112" minOccurs="0"/>
+        <xs:element name="T113" type="T113" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:simpleType name="T0"><xs:restriction base="xs:string"><xs:pattern value="[A-Z0-9]{6,7}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T1"><xs:restriction base="xs:normalizedString"><xs:pattern value="[A-Z0-9]{6,7}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T2"><xs:restriction base="xs:token"><xs:pattern value="[A-Z0-9]{6,7}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T3"><xs:restriction base="xs:string"><xs:pattern value="(\p{IsBasicLatin}{1,10})"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T4"><xs:restriction base="xs:normalizedString"><xs:pattern value="(\p{IsBasicLatin}{1,10})"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T5"><xs:restriction base="xs:token"><xs:pattern value="(\p{IsBasicLatin}{1,10})"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T6"><xs:restriction base="xs:string"><xs:pattern value="[\p{IsBasicLatin}\p{IsLatin-1Supplement}]{1,6}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T7"><xs:restriction base="xs:normalizedString"><xs:pattern value="[\p{IsBasicLatin}\p{IsLatin-1Supplement}]{1,6}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T8"><xs:restriction base="xs:token"><xs:pattern value="[\p{IsBasicLatin}\p{IsLatin-1Supplement}]{1,6}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T9"><xs:restriction base="xs:string"><xs:pattern value="[\-]?[0-9]{1,11}\.[0-9]{2,8}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T10"><xs:restriction base="xs:normalizedString"><xs:pattern value="[\-]?[0-9]{1,11}\.[0-9]{2,8}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T11"><xs:restriction base="xs:token"><xs:pattern value="[\-]?[0-9]{1,11}\.[0-9]{2,8}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T12"><xs:restriction base="xs:string"><xs:pattern value="[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3}){0,1}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T13"><xs:restriction base="xs:normalizedString"><xs:pattern value="[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3}){0,1}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T14"><xs:restriction base="xs:token"><xs:pattern value="[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3}){0,1}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T15"><xs:restriction base="xs:string"><xs:pattern value=".+@.+[.]+.+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T16"><xs:restriction base="xs:normalizedString"><xs:pattern value=".+@.+[.]+.+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T17"><xs:restriction base="xs:token"><xs:pattern value=".+@.+[.]+.+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T18"><xs:restriction base="xs:string"><xs:pattern value="([!#-'*+/-9=?A-Z^-~-]+(\.[!#-'*+/-9=?A-Z^-~-]+)*|&quot;(\[\]!#-[^-~ \t]|(\\[\t -~]))+&quot;)@([!#-'*+/-9=?A-Z^-~-]+(\.[!#-'*+/-9=?A-Z^-~-]+)*|\[[\t -Z^-~]*\])"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T19"><xs:restriction base="xs:normalizedString"><xs:pattern value="([!#-'*+/-9=?A-Z^-~-]+(\.[!#-'*+/-9=?A-Z^-~-]+)*|&quot;(\[\]!#-[^-~ \t]|(\\[\t -~]))+&quot;)@([!#-'*+/-9=?A-Z^-~-]+(\.[!#-'*+/-9=?A-Z^-~-]+)*|\[[\t -Z^-~]*\])"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T20"><xs:restriction base="xs:token"><xs:pattern value="([!#-'*+/-9=?A-Z^-~-]+(\.[!#-'*+/-9=?A-Z^-~-]+)*|&quot;(\[\]!#-[^-~ \t]|(\\[\t -~]))+&quot;)@([!#-'*+/-9=?A-Z^-~-]+(\.[!#-'*+/-9=?A-Z^-~-]+)*|\[[\t -Z^-~]*\])"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T21"><xs:restriction base="xs:string"><xs:pattern value="a|"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T22"><xs:restriction base="xs:normalizedString"><xs:pattern value="a|"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T23"><xs:restriction base="xs:token"><xs:pattern value="a|"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T24"><xs:restriction base="xs:string"><xs:pattern value="[a-z-[aeiou]]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T25"><xs:restriction base="xs:normalizedString"><xs:pattern value="[a-z-[aeiou]]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T26"><xs:restriction base="xs:token"><xs:pattern value="[a-z-[aeiou]]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T27"><xs:restriction base="xs:string"><xs:pattern value="\s*x\S?"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T28"><xs:restriction base="xs:normalizedString"><xs:pattern value="\s*x\S?"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T29"><xs:restriction base="xs:token"><xs:pattern value="\s*x\S?"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T30"><xs:restriction base="xs:string"><xs:pattern value="[^a-c]{2}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T31"><xs:restriction base="xs:normalizedString"><xs:pattern value="[^a-c]{2}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T32"><xs:restriction base="xs:token"><xs:pattern value="[^a-c]{2}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T33"><xs:restriction base="xs:string"><xs:pattern value="a b"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T34"><xs:restriction base="xs:normalizedString"><xs:pattern value="a b"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T35"><xs:restriction base="xs:token"><xs:pattern value="a b"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T36"><xs:restriction base="xs:string"><xs:pattern value="[\^\-\[\]]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T37"><xs:restriction base="xs:normalizedString"><xs:pattern value="[\^\-\[\]]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T38"><xs:restriction base="xs:token"><xs:pattern value="[\^\-\[\]]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T39"><xs:restriction base="xs:string"><xs:pattern value="a{2,}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T40"><xs:restriction base="xs:normalizedString"><xs:pattern value="a{2,}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T41"><xs:restriction base="xs:token"><xs:pattern value="a{2,}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T42"><xs:restriction base="xs:string"><xs:pattern value="(ab)*"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T43"><xs:restriction base="xs:normalizedString"><xs:pattern value="(ab)*"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T44"><xs:restriction base="xs:token"><xs:pattern value="(ab)*"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T45"><xs:restriction base="xs:string"><xs:pattern value="$^}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T46"><xs:restriction base="xs:normalizedString"><xs:pattern value="$^}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T47"><xs:restriction base="xs:token"><xs:pattern value="$^}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T48"><xs:restriction base="xs:string"><xs:pattern value="\P{IsBasicLatin}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T49"><xs:restriction base="xs:normalizedString"><xs:pattern value="\P{IsBasicLatin}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T50"><xs:restriction base="xs:token"><xs:pattern value="\P{IsBasicLatin}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T51"><xs:restriction base="xs:string"><xs:pattern value="\p{IsLatin-1Supplement}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T52"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsLatin-1Supplement}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T53"><xs:restriction base="xs:token"><xs:pattern value="\p{IsLatin-1Supplement}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T54"><xs:restriction base="xs:string"><xs:pattern value="\p{IsLatinExtended-A}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T55"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsLatinExtended-A}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T56"><xs:restriction base="xs:token"><xs:pattern value="\p{IsLatinExtended-A}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T57"><xs:restriction base="xs:string"><xs:pattern value="\p{IsLatinExtended-B}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T58"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsLatinExtended-B}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T59"><xs:restriction base="xs:token"><xs:pattern value="\p{IsLatinExtended-B}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T60"><xs:restriction base="xs:string"><xs:pattern value="\p{IsIPAExtensions}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T61"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsIPAExtensions}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T62"><xs:restriction base="xs:token"><xs:pattern value="\p{IsIPAExtensions}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T63"><xs:restriction base="xs:string"><xs:pattern value="\p{IsSpacingModifierLetters}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T64"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsSpacingModifierLetters}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T65"><xs:restriction base="xs:token"><xs:pattern value="\p{IsSpacingModifierLetters}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T66"><xs:restriction base="xs:string"><xs:pattern value="\p{IsCombiningDiacriticalMarks}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T67"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsCombiningDiacriticalMarks}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T68"><xs:restriction base="xs:token"><xs:pattern value="\p{IsCombiningDiacriticalMarks}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T69"><xs:restriction base="xs:string"><xs:pattern value="\p{IsGreek}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T70"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsGreek}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T71"><xs:restriction base="xs:token"><xs:pattern value="\p{IsGreek}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T72"><xs:restriction base="xs:string"><xs:pattern value="\p{IsCyrillic}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T73"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsCyrillic}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T74"><xs:restriction base="xs:token"><xs:pattern value="\p{IsCyrillic}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T75"><xs:restriction base="xs:string"><xs:pattern value="\p{IsLatinExtendedAdditional}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T76"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsLatinExtendedAdditional}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T77"><xs:restriction base="xs:token"><xs:pattern value="\p{IsLatinExtendedAdditional}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T78"><xs:restriction base="xs:string"><xs:pattern value="\p{IsGeneralPunctuation}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T79"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsGeneralPunctuation}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T80"><xs:restriction base="xs:token"><xs:pattern value="\p{IsGeneralPunctuation}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T81"><xs:restriction base="xs:string"><xs:pattern value="\p{IsCurrencySymbols}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T82"><xs:restriction base="xs:normalizedString"><xs:pattern value="\p{IsCurrencySymbols}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T83"><xs:restriction base="xs:token"><xs:pattern value="\p{IsCurrencySymbols}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T84"><xs:restriction base="xs:string"><xs:minLength value="2"/><xs:maxLength value="4"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T85"><xs:restriction base="xs:normalizedString"><xs:minLength value="2"/><xs:maxLength value="4"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T86"><xs:restriction base="xs:token"><xs:minLength value="2"/><xs:maxLength value="4"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T87"><xs:restriction base="xs:token"><xs:maxLength value="5"/><xs:pattern value="[a-z ]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T88"><xs:restriction base="xs:normalizedString"><xs:whiteSpace value="collapse"/><xs:pattern value="(\p{IsBasicLatin}{2,10})"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T89"><xs:restriction base="xs:decimal"></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T90"><xs:restriction base="xs:decimal"><xs:maxInclusive value="100.00"/><xs:pattern value="[0-9]{1,3}\.[0-9]{2}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T91"><xs:restriction base="xs:integer"><xs:minInclusive value="1"/><xs:maxInclusive value="9999"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T92"><xs:restriction base="xs:date"><xs:minInclusive value="1970-01-01"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T93"><xs:restriction base="xs:dateTime"></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Base64"><xs:restriction base="xs:base64Binary"></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T95"><xs:restriction base="xs:string"><xs:length value="2"/><xs:enumeration value="SI"/><xs:enumeration value="NO"/><xs:enumeration value="ABC"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T96"><xs:restriction base="xs:token"><xs:enumeration value="SI"/><xs:enumeration value="a  b"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T97"><xs:restriction base="xs:normalizedString"><xs:enumeration value="SI"/><xs:enumeration value="a b"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T98"><xs:restriction base="xs:normalizedString"><xs:enumeration value="SI"/><xs:enumeration value="NO"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T99"><xs:restriction base="xs:string"><xs:whiteSpace value="collapse"/><xs:enumeration value="SI"/><xs:enumeration value=" x  y "/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T100"><xs:restriction base="xs:decimal"><xs:enumeration value="1.0"/><xs:enumeration value="-12.340"/><xs:enumeration value="0"/><xs:enumeration value=".5"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T101"><xs:restriction base="xs:integer"><xs:enumeration value="1"/><xs:enumeration value="-0001"/><xs:enumeration value="+9999"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T102"><xs:restriction base="xs:decimal"><xs:pattern value="[0-9]+\.[0-9]{2}"/><xs:enumeration value="1.00"/><xs:enumeration value="2.5"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T103"><xs:restriction base="xs:date"><xs:enumeration value="2024-02-29"/><xs:enumeration value="2024-01-01Z"/><xs:enumeration value="1970-01-01+14:00"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T104"><xs:restriction base="xs:dateTime"><xs:enumeration value="2024-01-01T12:00:00Z"/><xs:enumeration value="2024-01-01T12:00:00.50"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T105"><xs:restriction base="T100"><xs:enumeration value="1"/><xs:enumeration value="0.50"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T106"><xs:restriction base="xs:decimal"><xs:pattern value="[\-]?[0-9]{1,11}\.[0-9]{2}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T107"><xs:restriction base="xs:decimal"><xs:pattern value="-?[0-9]{1,4}(\.[0-9]{1,2})?"/><xs:maxInclusive value="99.5"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T108"><xs:restriction base="xs:decimal"><xs:pattern value="[0-9.]{1,5}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T109"><xs:restriction base="xs:integer"><xs:pattern value="[0-9]{2,4}"/><xs:minInclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T110"><xs:restriction base="xs:integer"><xs:pattern value="[0-9+]{1,3}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T111"><xs:restriction base="xs:decimal"><xs:pattern value="\+?[0-9]+|[0-9]*\.[0-9]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T112"><xs:restriction base="xs:decimal"><xs:pattern value="[0-9]*"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T113"><xs:restriction base="xs:integer"><xs:pattern value="[0-9]+\.[0-9]"/></xs:restriction></xs:simpleType>
+</xs:schema>

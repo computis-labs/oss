@@ -1,0 +1,79 @@
+{
+  "name": "@computis/effect-md",
+  "version": "0.0.0",
+  "description": "Write LLM prompts as Markdown files and use them as typed Effect AI prompts.",
+  "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-md#readme",
+  "bugs": "https://github.com/computis-labs/oss/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/computis-labs/oss.git",
+    "directory": "packages/effect-md"
+  },
+  "bin": {
+    "effect-md": "./src/cli.ts"
+  },
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map"
+  ],
+  "type": "module",
+  "exports": {
+    "./ast": "./src/ast.ts",
+    "./compile-error": "./src/compile-error.ts",
+    "./compiler": "./src/compiler.ts",
+    "./errors": "./src/errors.ts",
+    "./parser": "./src/parser.ts",
+    "./project": "./src/project.ts",
+    "./project-error": "./src/project-error.ts",
+    "./runtime": "./src/runtime.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "bin": {
+      "effect-md": "./dist/cli.js"
+    },
+    "exports": {
+      "./ast": "./dist/ast.js",
+      "./compile-error": "./dist/compile-error.js",
+      "./compiler": "./dist/compiler.js",
+      "./errors": "./dist/errors.js",
+      "./parser": "./dist/parser.js",
+      "./project": "./dist/project.js",
+      "./project-error": "./dist/project-error.js",
+      "./runtime": "./dist/runtime.js",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "fixtures:generate": "node src/cli.ts generate --root tests/fixtures/prompts --runtime ../../../src/runtime.ts --format \"oxfmt --stdin-filepath={file}\"",
+    "test": "pnpm fixtures:generate && vitest run",
+    "lint:prepare": "pnpm fixtures:generate",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@computis/config": "workspace:*",
+    "@effect/platform-node": "4.0.0",
+    "@effect/vitest": "4.0.0",
+    "effect": "4.0.0",
+    "vitest": "5.0.1"
+  },
+  "peerDependencies": {
+    "@effect/platform-node": "^4.0.0",
+    "effect": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

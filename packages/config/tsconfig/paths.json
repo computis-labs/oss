@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["${configDir}/src/*"],
+      "@computis/design-system/*": ["${configDir}/../../packages/ds/src/*"]
+    }
+  }
+}

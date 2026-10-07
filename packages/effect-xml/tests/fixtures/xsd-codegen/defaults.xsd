@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="Address" type="AddressType"/>
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="City" type="xs:string"/>
+      <xs:element name="Country" type="CountryType" default="IT"/>
+      <xs:element name="Currency" type="CurrencyType" minOccurs="0" default="EUR"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="unbounded" default="home"/>
+      <xs:element name="Note" type="xs:string" minOccurs="0" default="none"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="CountryType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="CurrencyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="EUR"/>
+      <xs:enumeration value="USD"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

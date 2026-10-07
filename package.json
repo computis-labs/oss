@@ -1,0 +1,24 @@
+{
+  "name": "computis-oss",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r lint:prepare && pnpm -r typecheck",
+    "oss:check": "node scripts/oss-check.ts"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@effect/platform-node": "4.0.0",
+    "@types/node": "26.1.2",
+    "effect": "4.0.0",
+    "oxfmt": "0.65.0",
+    "publint": "0.3.24",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "packageManager": "pnpm@10.33.4"
+}

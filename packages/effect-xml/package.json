@@ -1,0 +1,88 @@
+{
+  "name": "@computis/effect-xml",
+  "version": "0.0.0",
+  "description": "XML decoding and encoding with Effect Schema, XSD validation, and an XSD to Effect Schema code generator.",
+  "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-xml#readme",
+  "bugs": "https://github.com/computis-labs/oss/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/computis-labs/oss.git",
+    "directory": "packages/effect-xml"
+  },
+  "bin": {
+    "effect-xml": "./src/cli.ts"
+  },
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./errors/*": "./src/errors/*.ts",
+    "./xsd": "./src/xsd.ts",
+    "./xsd-codegen": "./src/xsd-codegen/generate.ts",
+    "./xsd-codegen/runtime": "./src/xsd-codegen/runtime.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "bin": {
+      "effect-xml": "./dist/cli.js"
+    },
+    "exports": {
+      ".": "./dist/index.js",
+      "./errors/*": "./dist/errors/*.js",
+      "./xsd": "./dist/xsd.js",
+      "./xsd-codegen": "./dist/xsd-codegen/generate.js",
+      "./xsd-codegen/runtime": "./dist/xsd-codegen/runtime.js",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "bench": "node --expose-gc bench/main.ts",
+    "fixtures:generate": "pnpm fixtures:generate:fattura && pnpm fixtures:generate:order && pnpm fixtures:generate:signed && pnpm fixtures:generate:qualified && pnpm fixtures:generate:facets && pnpm fixtures:generate:defaults && pnpm fixtures:generate:domain",
+    "fixtures:generate:fattura": "node src/cli.ts generate --xsd tests/fixtures/xsd/Schema_VFPR12_v1.2.3.xsd --root FatturaElettronica --prefix p --out tests/fixtures/fattura-xsd.gen.ts --runtime ../../src/xsd-codegen/runtime.ts --format oxfmt --format-arg=--stdin-filepath={file}",
+    "fixtures:generate:order": "node src/cli.ts generate --xsd tests/fixtures/xsd-codegen/order.xsd --root Order --out tests/fixtures/xsd-codegen/order.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --format oxfmt --format-arg=--stdin-filepath={file}",
+    "fixtures:generate:signed": "node src/cli.ts generate --xsd tests/fixtures/xsd-codegen/signed-order.xsd --root Order --prefix o --out tests/fixtures/xsd-codegen/signed-order.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --format oxfmt --format-arg=--stdin-filepath={file}",
+    "fixtures:generate:qualified": "node src/cli.ts generate --xsd tests/fixtures/xsd-codegen/qualified-order.xsd --root Order --out tests/fixtures/xsd-codegen/qualified-order.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --format oxfmt --format-arg=--stdin-filepath={file}",
+    "fixtures:generate:facets": "node src/cli.ts generate --xsd tests/fixtures/xsd-codegen/facets.xsd --root Facets --out tests/fixtures/xsd-codegen/facets.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --format oxfmt --format-arg=--stdin-filepath={file}",
+    "fixtures:generate:defaults": "node src/cli.ts generate --xsd tests/fixtures/xsd-codegen/defaults.xsd --root Address --out tests/fixtures/xsd-codegen/defaults.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --format oxfmt --format-arg=--stdin-filepath={file}",
+    "fixtures:generate:domain": "node src/cli.ts generate --xsd tests/fixtures/xsd-codegen/order.xsd --root Order --out tests/fixtures/xsd-codegen/order-domain.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --domain ./order-domain.ts#domain --format oxfmt --format-arg=--stdin-filepath={file}",
+    "test": "pnpm fixtures:generate && vitest run",
+    "lint:prepare": "pnpm fixtures:generate",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "import-meta-resolve": "4.2.0",
+    "libxml2-wasm": "0.7.2"
+  },
+  "devDependencies": {
+    "@computis/config": "workspace:*",
+    "@effect/platform-node": "4.0.0",
+    "@effect/vitest": "4.0.0",
+    "@eksml/xml": "0.2.0",
+    "effect": "4.0.0",
+    "fast-xml-builder": "1.3.1",
+    "fast-xml-parser": "5.10.1",
+    "tinybench": "6.2.0",
+    "txml": "6.0.3",
+    "vitest": "5.0.1",
+    "xmllint-wasm": "5.3.0"
+  },
+  "peerDependencies": {
+    "@effect/platform-node": "^4.0.0",
+    "effect": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
