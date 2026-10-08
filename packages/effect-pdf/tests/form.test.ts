@@ -2,7 +2,8 @@ import { expect, layer } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { PDFSignature } from "pdf-lib";
 import { pdfEngineLayer } from "./fixtures/layer.ts";
-import { formPdf, jpegScanPdf, loadWithPdfLib, textPdf } from "./fixtures/pdfs.ts";
+import { formPdf, loadWithPdfLib, textPdf } from "./fixtures/forms.ts";
+import { jpegScanPdf } from "./fixtures/scans.ts";
 import { PdfFormError } from "#effect-pdf/errors/pdf-form-error";
 import { form, open } from "#effect-pdf/index";
 import { pdfFieldTypes } from "#effect-pdf/types";
@@ -24,7 +25,7 @@ layer(pdfEngineLayer)("fields", (it) => {
       const fields = yield* document.fields;
 
       expect(fields.map(({ name, type, value }) => ({ name, type, value }))).toStrictEqual([
-        { name: "ragioneSociale", type: pdfFieldTypes.text, value: "Bianchi Software S.r.l." },
+        { name: "ragioneSociale", type: pdfFieldTypes.text, value: "Azienda di Prova S.r.l." },
         { name: "privacy", type: pdfFieldTypes.checkbox, value: false },
         { name: "provincia", type: pdfFieldTypes.combobox, value: "MI" },
         { name: "pagamento", type: pdfFieldTypes.radio, value: undefined },
@@ -41,14 +42,14 @@ layer(pdfEngineLayer)("fields", (it) => {
         pagamento: "contanti",
         privacy: true,
         provincia: "RM",
-        ragioneSociale: "Rossi & Associati — Società tra professionisti",
+        ragioneSociale: "Studio di Prova & Partner — Società tra professionisti",
       });
       const saved = yield* document.save();
 
       const reread = yield* loadWithPdfLib(saved);
       const fields = reread.getForm();
       expect(fields.getTextField("ragioneSociale").getText()).toBe(
-        "Rossi & Associati — Società tra professionisti",
+        "Studio di Prova & Partner — Società tra professionisti",
       );
       expect(fields.getCheckBox("privacy").isChecked()).toBe(true);
       expect(fields.getDropdown("provincia").getSelected()).toStrictEqual(["RM"]);
@@ -57,7 +58,7 @@ layer(pdfEngineLayer)("fields", (it) => {
   );
 
   it.effect.each([
-    ["an unknown field", { codiceFiscale: "RSSMRA80A01H501U" }, "codiceFiscale"],
+    ["an unknown field", { codiceFiscale: "non presente nel modulo" }, "codiceFiscale"],
     ["a value of the wrong type", { privacy: "sì" }, "privacy"],
     ["a radio option that does not exist", { pagamento: "assegno" }, "pagamento"],
   ] as const)("rejects %s", ([, values, field]) =>
@@ -85,13 +86,13 @@ layer(pdfEngineLayer)("form codec", (it) => {
       expect(read).toStrictEqual({
         privacy: false,
         provincia: "MI",
-        ragioneSociale: "Bianchi Software S.r.l.",
+        ragioneSociale: "Azienda di Prova S.r.l.",
       });
       expect(yield* codec.read(reopened)).toStrictEqual({
         pagamento: "bonifico",
         privacy: true,
         provincia: "MI",
-        ragioneSociale: "Bianchi Software S.r.l.",
+        ragioneSociale: "Azienda di Prova S.r.l.",
       });
     }),
   );
@@ -141,6 +142,19 @@ layer(pdfEngineLayer)("signature fields", (it) => {
           widgets: [{ page: 0, rect: signatureRect }],
         },
       ]);
+    }),
+  );
+
+  it.effect("reads a rectangle back as the decimals the PDF holds", () =>
+    Effect.gen(function* () {
+      const rect = { bottom: 712.589, left: 56.8, right: 220.8, top: 757.589 } as const;
+      const document = yield* open(yield* textPdf([["Contratto"]]));
+
+      yield* document.addSignatureField({ name: "cliente-0-0", page: 0, rect });
+      const reopened = yield* open(yield* document.save());
+      const [field] = yield* reopened.fields;
+
+      expect(field?.widgets).toStrictEqual([{ page: 0, rect }]);
     }),
   );
 

@@ -10,7 +10,7 @@ export const invoicePdf = async (lineCount: number) => {
   const font = await document.embedFont(StandardFonts.Helvetica);
   for (let first = 0; first < lineCount; first += LINES_PER_PAGE) {
     const page = document.addPage([...A4]);
-    page.drawText("Fattura n. 2026/0042 — Bianchi Software S.r.l. — P.IVA IT01234567890", {
+    page.drawText("Fattura n. 2026/0042 — Azienda di Prova S.r.l. — P.IVA IT00000000000", {
       font,
       size: 11,
       x: 40,

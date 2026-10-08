@@ -132,14 +132,16 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
                   const size = readFloats(pdfium, 2, (target) =>
                     pdfium.FPDF_GetPageSizeByIndexF(handle, index, target),
                   );
+                  const quarterTurns = pdfium.EPDF_GetPageRotationByIndex(handle, index);
+                  const [shownWidth = 0, shownHeight = 0] = size ?? [];
+                  const sideways = quarterTurns % 2 === 1;
                   return size === null
                     ? Result.fail(PdfPageError.unreadable(index))
                     : Result.succeed({
-                        height: size[1] ?? 0,
+                        height: sideways ? shownWidth : shownHeight,
                         index,
-                        rotation:
-                          pdfium.EPDF_GetPageRotationByIndex(handle, index) * QUARTER_TURN_DEGREES,
-                        width: size[0] ?? 0,
+                        rotation: quarterTurns * QUARTER_TURN_DEGREES,
+                        width: sideways ? shownHeight : shownWidth,
                       });
                 }),
               );
@@ -172,7 +174,8 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
         onDocument(document, ({ handle, signatureFields }) =>
           setFieldValues(handle, signatureFields, values),
         ),
-      Text: ({ document, pages }) => eachPage(document, pages, pageText),
+      Text: ({ document, layout, pages }) =>
+        eachPage(document, pages, (handle, page) => pageText(handle, page, layout)),
     };
   }),
 );

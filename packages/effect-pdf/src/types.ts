@@ -68,9 +68,12 @@ export const PdfPageTextSchema = Schema.Struct({
 });
 export type PdfPageText = typeof PdfPageTextSchema.Type;
 
+export const PdfPointSchema = Schema.Struct({ x: Schema.Finite, y: Schema.Finite });
+
 export const PdfTextMatchSchema = Schema.Struct({
   box: PdfRectSchema,
   groups: Schema.Record(Schema.String, Schema.String),
+  origin: PdfPointSchema,
   page: Schema.Int,
   text: Schema.String,
 });
@@ -109,6 +112,10 @@ export interface PageSelection {
   readonly pages?: readonly number[];
 }
 
+export interface TextOptions extends PageSelection {
+  readonly layout?: boolean;
+}
+
 export const PdfRenderSizeSchema = Schema.Struct({
   dpi: Schema.optionalKey(Schema.Finite),
   width: Schema.optionalKey(Schema.Int),
@@ -141,6 +148,6 @@ export interface PdfDocument {
     values: Readonly<Record<string, PdfFieldValue>>,
   ) => Effect.Effect<void, PdfEngineError | PdfFormError | PdfPageError>;
   readonly text: (
-    selection?: PageSelection,
+    options?: TextOptions,
   ) => Effect.Effect<readonly PdfPageText[], PdfEngineError | PdfPageError>;
 }

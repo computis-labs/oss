@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./engine": "./src/engine.ts",
     "./errors/*": "./src/errors/*.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "bench": "node --expose-gc bench/main.ts && node bench/pool.ts && node bench/startup.ts && oxfmt bench/results",

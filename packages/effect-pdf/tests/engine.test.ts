@@ -2,17 +2,11 @@ import { NodeServices, NodeWorker } from "@effect/platform-node";
 import { Worker } from "node:worker_threads";
 import { describe, expect, layer } from "@effect/vitest";
 import { Effect, Layer, Result } from "effect";
-import {
-  LONG_FORM_LAST_PAGE,
-  bilevelScanPdf,
-  fixture,
-  formPdf,
-  longFormPdf,
-  textPdf,
-} from "./fixtures/pdfs.ts";
+import { LONG_FORM_LAST_PAGE, fixture, formPdf, longFormPdf, textPdf } from "./fixtures/forms.ts";
 import { PdfEngine, pdfWorkerEntry } from "#effect-pdf/engine";
 import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
 import { open } from "#effect-pdf/index";
+import { scanPdf } from "#effect-pdf/testing";
 import { PdfiumRuntime } from "#effect-pdf/pdfium";
 import { PdfiumWasm } from "#effect-pdf/pdfium-wasm";
 import { pdfPageKinds } from "#effect-pdf/types";
@@ -64,14 +58,14 @@ layer(
 layer(recordedWorkers)("worker pool", (it) => {
   it.effect("replaces a worker that died and fails only the documents it held", () =>
     Effect.gen(function* () {
-      const before = yield* open(bilevelScanPdf());
+      const before = yield* open(scanPdf());
       const startedWith = spawned.length;
 
       yield* fixture(
         async () => await Promise.all(spawned.map(async (worker) => await worker.terminate())),
       );
       const lost = yield* Effect.flip(before.classify);
-      const after = yield* open(bilevelScanPdf());
+      const after = yield* open(scanPdf());
 
       expect(lost).toBeInstanceOf(PdfEngineError);
       expect((yield* after.classify).kind).toBe(pdfPageKinds.image);
@@ -102,7 +96,7 @@ layer(recordedWorkers)("worker pool", (it) => {
       yield* document.text();
       const before = yield* document.render(LONG_FORM_LAST_PAGE, { dpi: 72 });
 
-      yield* document.setFields({ ragioneSociale: "Rossi & Associati" });
+      yield* document.setFields({ ragioneSociale: "Studio di Prova & Partner" });
       yield* document.text();
       const after = yield* document.render(LONG_FORM_LAST_PAGE, { dpi: 72 });
       const reopened = yield* open(yield* document.save());
@@ -117,10 +111,12 @@ layer(recordedWorkers)("worker pool", (it) => {
     Effect.gen(function* () {
       const document = yield* open(yield* formPdf);
 
-      yield* document.setFields({ ragioneSociale: "Rossi & Associati" });
+      yield* document.setFields({ ragioneSociale: "Studio di Prova & Partner" });
       const fields = yield* document.fields;
 
-      expect(fields.find(({ name }) => name === "ragioneSociale")?.value).toBe("Rossi & Associati");
+      expect(fields.find(({ name }) => name === "ragioneSociale")?.value).toBe(
+        "Studio di Prova & Partner",
+      );
     }),
   );
 });

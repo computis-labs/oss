@@ -2,7 +2,7 @@ import type { Pdfium } from "#effect-pdf/pdfium";
 
 export const BYTES_PER_UTF16_UNIT = 2;
 const BYTES_PER_FLOAT = 4;
-const BYTES_PER_DOUBLE = 8;
+export const BYTES_PER_DOUBLE = 8;
 
 export const bitmapFormats = { bgr: 2, bgra: 4, gray: 1 } as const;
 
@@ -39,6 +39,8 @@ export const readUtf16 = (
       });
 };
 
+const FLOAT_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+
 export const readFloats = (
   lib: Pdfium,
   count: number,
@@ -46,7 +48,15 @@ export const readFloats = (
 ): readonly number[] | null =>
   withAllocation(lib, count * BYTES_PER_FLOAT, (pointer): readonly number[] | null => {
     const start = pointer / BYTES_PER_FLOAT;
-    return fill(pointer) ? [...lib.pdfium.HEAPF32.subarray(start, start + count)] : null;
+    return fill(pointer)
+      ? Array.from(
+          lib.pdfium.HEAPF32.subarray(start, start + count),
+          (single) =>
+            FLOAT_DIGITS.map((digits) => Number(single.toPrecision(digits))).find(
+              (candidate) => Math.fround(candidate) === single,
+            ) ?? single,
+        )
+      : null;
   });
 
 export const readDoubles = (

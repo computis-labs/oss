@@ -152,11 +152,19 @@ export const readWidgets = (
 export const readFields = (handle: PdfHandle, signatureFields: ReadonlySet<number>) =>
   withFormEnvironment(handle, (form) => readWidgets(handle, signatureFields, form)).pipe(
     Result.map((widgets) =>
-      Object.values(Arr.groupBy(widgets, (widget) => widget.name)).map((group): PdfField => ({
-        name: group[0].name,
-        type: group[0].type,
-        value: group.find((widget) => widget.value !== undefined)?.value,
-        widgets: group.map(({ page, rect }) => ({ page, rect })),
-      })),
+      Arr.dedupe(widgets.map(({ name }) => name)).flatMap((name): PdfField[] => {
+        const group = widgets.filter((widget) => widget.name === name);
+        const [first] = group;
+        return first === undefined
+          ? []
+          : [
+              {
+                name,
+                type: first.type,
+                value: group.find((widget) => widget.value !== undefined)?.value,
+                widgets: group.map(({ page, rect }) => ({ page, rect })),
+              },
+            ];
+      }),
     ),
   );

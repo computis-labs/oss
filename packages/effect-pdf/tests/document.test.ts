@@ -1,21 +1,14 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
 import { pdfEngineLayer } from "./fixtures/layer.ts";
-import {
-  PAGE,
-  SIGNATURE_TOKEN,
-  bilevelScanPdf,
-  emptyPdf,
-  formPlacedScanPdf,
-  ocrScanPdf,
-  SMILEY_TEXT,
-  stampedScanPdf,
-  textPdf,
-  unmappedFontPdf,
-} from "./fixtures/pdfs.ts";
+import { SIGNATURE_TOKEN, textPdf } from "./fixtures/forms.ts";
+import { logoInvoicePdf } from "./fixtures/scans.ts";
+import { SMILEY_TEXT, rotatedTokenPdf, emptyPdf, unmappedFontPdf } from "./fixtures/text.ts";
 import { PdfOpenError, pdfOpenFailures } from "#effect-pdf/errors/pdf-open-error";
 import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
+import { PdfEngine } from "#effect-pdf/engine";
 import { open } from "#effect-pdf/index";
+import { A4, scanPdf, scansPdf, scanPageKinds } from "#effect-pdf/testing";
 import { pdfPageKinds } from "#effect-pdf/types";
 
 layer(pdfEngineLayer)("open", (it) => {
@@ -25,9 +18,30 @@ layer(pdfEngineLayer)("open", (it) => {
 
       expect(document.pageCount).toBe(2);
       expect(document.pages).toStrictEqual([
-        { height: PAGE.height, index: 0, rotation: 0, width: PAGE.width },
-        { height: PAGE.height, index: 1, rotation: 0, width: PAGE.width },
+        { height: A4.height, index: 0, rotation: 0, width: A4.width },
+        { height: A4.height, index: 1, rotation: 0, width: A4.width },
       ]);
+    }),
+  );
+
+  it.effect("reports a turned page in the same space as the coordinates it returns", () =>
+    Effect.gen(function* () {
+      const document = yield* open(rotatedTokenPdf());
+
+      const [match] = yield* document.find(/SIGFIELD/u);
+
+      expect(document.pages).toStrictEqual([{ height: 792, index: 0, rotation: 90, width: 612 }]);
+      expect(match?.origin).toStrictEqual({ x: 72, y: 600 });
+    }),
+  );
+
+  it.effect("opens a document through the engine a service holds", () =>
+    Effect.gen(function* () {
+      const engine = yield* PdfEngine;
+
+      const document = yield* engine.open(scanPdf());
+
+      expect(document.pageCount).toBe(1);
     }),
   );
 
@@ -42,7 +56,7 @@ layer(pdfEngineLayer)("open", (it) => {
 
   it.effect("opens and closes many documents in a row without leaking engine memory", () =>
     Effect.gen(function* () {
-      const bytes = bilevelScanPdf();
+      const bytes = scanPdf();
       yield* Effect.forEach(
         Array.from({ length: 200 }, (_, index) => index),
         () => Effect.scoped(Effect.flatMap(open(bytes), (document) => document.classify)),
@@ -53,7 +67,7 @@ layer(pdfEngineLayer)("open", (it) => {
 
   it.effect("rejects a page outside the document", () =>
     Effect.gen(function* () {
-      const document = yield* open(bilevelScanPdf());
+      const document = yield* open(scanPdf());
 
       const error = yield* Effect.flip(document.text({ pages: [1] }));
 
@@ -66,10 +80,23 @@ describe("classify", () => {
   layer(pdfEngineLayer)((it) => {
     it.effect.each([
       ["text", textPdf([["Fattura n. 7"]]), pdfPageKinds.text],
-      ["bilevel scan", Effect.succeed(bilevelScanPdf()), pdfPageKinds.image],
-      ["scan with a hidden OCR layer", Effect.succeed(ocrScanPdf()), pdfPageKinds.image],
-      ["scan with a visible stamp", Effect.succeed(stampedScanPdf()), pdfPageKinds.mixed],
-      ["image placed by a form matrix", Effect.succeed(formPlacedScanPdf()), pdfPageKinds.image],
+      ["bilevel scan", Effect.succeed(scanPdf()), pdfPageKinds.image],
+      [
+        "scan with a hidden OCR layer",
+        Effect.succeed(scanPdf({ hiddenText: "Testo OCR nascosto" })),
+        pdfPageKinds.image,
+      ],
+      [
+        "scan with a visible stamp",
+        Effect.succeed(scanPdf({ visibleText: "Timbro visibile" })),
+        pdfPageKinds.mixed,
+      ],
+      ["digital invoice with a small logo", Effect.succeed(logoInvoicePdf()), pdfPageKinds.text],
+      [
+        "image placed by a form matrix",
+        Effect.succeed(scansPdf([scanPageKinds.form])),
+        pdfPageKinds.image,
+      ],
       ["empty page", Effect.succeed(emptyPdf()), pdfPageKinds.empty],
     ] as const)("classifies a %s", ([, bytes, kind]) =>
       Effect.gen(function* () {
@@ -83,7 +110,7 @@ describe("classify", () => {
 
     it.effect("reports hidden text and the image coverage of an OCR scan", () =>
       Effect.gen(function* () {
-        const document = yield* open(ocrScanPdf());
+        const document = yield* open(scanPdf({ hiddenText: "Testo OCR nascosto" }));
 
         const { pages } = yield* document.classify;
 
@@ -157,6 +184,8 @@ layer(pdfEngineLayer)("text", (it) => {
       expect(match?.box.left).toBeCloseTo(SIGNATURE_TOKEN.x, 0);
       expect(match?.box.bottom).toBeGreaterThanOrEqual(SIGNATURE_TOKEN.y - 1);
       expect(match?.box.top).toBeLessThanOrEqual(SIGNATURE_TOKEN.y + 4);
+      expect(match?.origin.x).toBeCloseTo(SIGNATURE_TOKEN.x, 3);
+      expect(match?.origin.y).toBeCloseTo(SIGNATURE_TOKEN.y, 3);
     }),
   );
 });

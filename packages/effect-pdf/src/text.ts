@@ -4,6 +4,7 @@ import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
 import { withPage } from "#effect-pdf/handle";
 import type { PdfHandle } from "#effect-pdf/handle";
 import { BYTES_PER_UTF16_UNIT, readDoubles, withAllocation } from "#effect-pdf/memory";
+import { charOrigin, layoutText } from "#effect-pdf/text-layout";
 import { rectBetween } from "#effect-pdf/objects";
 import type { PdfPageText, PdfTextMatch } from "#effect-pdf/types";
 
@@ -38,15 +39,19 @@ const withTextPage = <A>(
     }
   });
 
-export const pageText = (handle: PdfHandle, page: number) =>
+export const pageText = (handle: PdfHandle, page: number, layout: boolean) =>
   withTextPage(handle, page, (lib, textPage, { characters, count }) =>
-    Result.succeed<PdfPageText>({
+    Result.map((text: string): PdfPageText => ({
       page,
-      text: characters.replaceAll(CARRIAGE_RETURNS, "\n"),
+      text,
       unicodeMapErrors: Array.from({ length: count }, (_, index) =>
         lib.FPDFText_HasUnicodeMapError(textPage, index),
       ).filter((flag) => flag === UNMAPPED).length,
-    }),
+    }))(
+      layout
+        ? layoutText(lib, textPage, { count, page, stream: characters })
+        : Result.succeed(characters.replaceAll(CARRIAGE_RETURNS, "\n")),
+    ),
   );
 
 export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
@@ -70,7 +75,9 @@ export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
         ),
       );
       const measured = boxes.flatMap((box) => (box === null ? [] : [box]));
-      return measured.length === 0 || measured.length < boxes.length
+      const [first] = glyphs;
+      const origin = first === undefined ? null : charOrigin(lib, textPage, first);
+      return origin === null || measured.length === 0 || measured.length < boxes.length
         ? null
         : {
             box: rectBetween(
@@ -80,6 +87,7 @@ export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
               Math.max(...measured.map((edges) => edges[3] ?? 0)),
             ),
             groups: { ...match.groups },
+            origin: { x: origin[0] ?? 0, y: origin[1] ?? 0 },
             page,
             text: match[0],
           };

@@ -2,25 +2,19 @@ import { expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
 import { decode } from "fast-png";
 import { pdfEngineLayer } from "./fixtures/layer.ts";
+import { formPdf, textPdf } from "./fixtures/forms.ts";
 import {
   COLOR_SCAN_PIXELS,
-  PAGE,
-  SCAN,
-  bilevelRows,
-  bilevelScanPdf,
   cmykJpegScanPdf,
   colorScanPdf,
-  formPdf,
   jpegScanPdf,
   mrcScanPdf,
-  ocrScanPdf,
   redPagePdf,
   scanJpeg,
-  stampedScanPdf,
-  textPdf,
-} from "./fixtures/pdfs.ts";
+} from "./fixtures/scans.ts";
 import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
 import { open } from "#effect-pdf/index";
+import { A4, bilevelScan, scanPageKinds, scanPdf, scansPdf } from "#effect-pdf/testing";
 import { pdfImageMediaTypes, pdfImageOrigins } from "#effect-pdf/types";
 
 const darkShare = (png: Uint8Array) => {
@@ -33,6 +27,22 @@ const darkShare = (png: Uint8Array) => {
 };
 
 layer(pdfEngineLayer)("pageImages", (it) => {
+  it.effect.each([
+    [scanPageKinds.picture, pdfImageOrigins.embedded],
+    [scanPageKinds.form, pdfImageOrigins.embedded],
+    [scanPageKinds.inline, pdfImageOrigins.embedded],
+    [scanPageKinds.oversized, pdfImageOrigins.embedded],
+    [scanPageKinds.strips, pdfImageOrigins.rendered],
+  ] as const)("gives a %s scan page one image, %s", ([kind, origin]) =>
+    Effect.gen(function* () {
+      const document = yield* open(scansPdf([kind]));
+
+      const images = yield* document.pageImages();
+
+      expect(images.map((image) => image.origin)).toStrictEqual([origin]);
+    }),
+  );
+
   it.effect("hands a JPEG scan over unchanged", () =>
     Effect.gen(function* () {
       const document = yield* open(yield* jpegScanPdf);
@@ -87,8 +97,8 @@ layer(pdfEngineLayer)("pageImages", (it) => {
   );
 
   it.effect.each([
-    ["bilevel scan", bilevelScanPdf],
-    ["scan under a hidden OCR layer", ocrScanPdf],
+    ["bilevel scan", () => scanPdf()],
+    ["scan under a hidden OCR layer", () => scanPdf({ hiddenText: "Testo OCR nascosto" })],
   ] as const)("encodes a %s as a 1-bit PNG with the scanned pixels", ([, build]) =>
     Effect.gen(function* () {
       const document = yield* open(build());
@@ -96,14 +106,14 @@ layer(pdfEngineLayer)("pageImages", (it) => {
       const [image] = yield* document.pageImages();
 
       expect(image).toMatchObject({
-        height: SCAN.height,
+        height: bilevelScan.height,
         mediaType: pdfImageMediaTypes.png,
         origin: pdfImageOrigins.embedded,
-        width: SCAN.width,
+        width: bilevelScan.width,
       });
       const decoded = decode(image?.bytes ?? new Uint8Array());
       expect(decoded.depth).toBe(1);
-      expect(decoded.data).toStrictEqual(bilevelRows);
+      expect(decoded.data).toStrictEqual(bilevelScan.rows);
     }),
   );
 
@@ -114,17 +124,17 @@ layer(pdfEngineLayer)("pageImages", (it) => {
       const [image] = yield* document.pageImages({ dpi: 72 });
 
       expect(image).toMatchObject({
-        height: PAGE.height,
+        height: A4.height,
         mediaType: pdfImageMediaTypes.png,
         origin: pdfImageOrigins.rendered,
-        width: PAGE.width,
+        width: A4.width,
       });
       expect(darkShare(image?.bytes ?? new Uint8Array())).toBeGreaterThan(0.1);
     }),
   );
 
   it.effect.each([
-    ["scan with a visible stamp", Effect.succeed(stampedScanPdf())],
+    ["scan with a visible stamp", Effect.succeed(scanPdf({ visibleText: "Timbro visibile" }))],
     ["text page", textPdf([["Fattura"]])],
   ] as const)("renders a %s at the requested resolution", ([, bytes]) =>
     Effect.gen(function* () {
@@ -133,9 +143,9 @@ layer(pdfEngineLayer)("pageImages", (it) => {
       const [image] = yield* document.pageImages({ dpi: 144 });
 
       expect(image).toMatchObject({
-        height: PAGE.height * 2,
+        height: A4.height * 2,
         origin: pdfImageOrigins.rendered,
-        width: PAGE.width * 2,
+        width: A4.width * 2,
       });
     }),
   );
@@ -158,8 +168,8 @@ const darkInBox = (
   }).filter((value) => value < 128).length;
 };
 
-const CHECKBOX_BOX = { height: 12, left: 50, top: PAGE.height - 672, width: 12 } as const;
-const COMPANY_BOX = { height: 20, left: 50, top: PAGE.height - 720, width: 240 } as const;
+const CHECKBOX_BOX = { height: 12, left: 50, top: A4.height - 672, width: 12 } as const;
+const COMPANY_BOX = { height: 20, left: 50, top: A4.height - 720, width: 240 } as const;
 
 layer(pdfEngineLayer)("render", (it) => {
   it.effect("draws form fields with the values written to them", () =>
@@ -189,7 +199,7 @@ layer(pdfEngineLayer)("render", (it) => {
       const decoded = decode(image.bytes);
       expect([decoded.width, decoded.height, decoded.channels]).toStrictEqual([
         900,
-        Math.round((PAGE.height / PAGE.width) * 900),
+        Math.round((A4.height / A4.width) * 900),
         3,
       ]);
       expect(darkShare(image.bytes)).toBeGreaterThan(0);
@@ -209,7 +219,7 @@ layer(pdfEngineLayer)("render", (it) => {
 
   it.effect("refuses a render larger than the pixel limit", () =>
     Effect.gen(function* () {
-      const document = yield* open(bilevelScanPdf());
+      const document = yield* open(scanPdf());
 
       const error = yield* Effect.flip(document.render(0, { width: 20_000 }));
 

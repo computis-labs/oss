@@ -6,11 +6,12 @@ import * as Layer from "effect/Layer";
 import * as SynchronizedRef from "effect/SynchronizedRef";
 import type * as Result from "effect/Result";
 import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
+import type { WasmModule } from "./types/webassembly.d.ts";
 import { PdfiumWasm } from "#effect-pdf/pdfium-wasm";
 
 export type Pdfium = WrappedPdfiumModule;
 
-const boot = Effect.fn("PdfiumRuntime.boot")(function* bootPdfium(module: WebAssembly.Module) {
+const boot = Effect.fn("PdfiumRuntime.boot")(function* bootPdfium(module: WasmModule) {
   return yield* Effect.tryPromise({
     catch: (cause) => new PdfEngineError({ cause, message: "PDFium could not start." }),
     try: async () => {

@@ -17,6 +17,7 @@ import {
 import { RpcClient, RpcClientError, RpcTest, RpcWorker } from "effect/rpc";
 import type { RpcGroup } from "effect/rpc";
 import { Worker } from "effect/workers";
+import { openDocument } from "#effect-pdf/document";
 import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
 import { PdfWorkerGone } from "#effect-pdf/errors/pdf-worker-gone";
 import { PdfiumRuntime } from "#effect-pdf/pdfium";
@@ -249,14 +250,24 @@ const connectToWorker = Effect.fn("PdfEngine.connectToWorker")(function* connect
   );
 });
 
-export class PdfEngine extends Context.Service<
-  PdfEngine,
-  Effect.Success<ReturnType<typeof makePool>>
->()("@computis/effect-pdf/engine/PdfEngine") {
+export type PdfPool = Effect.Success<ReturnType<typeof makePool>>;
+
+const withOpen = (pool: PdfPool) => ({ ...pool, open: openDocument(pool) });
+
+export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof withOpen>>()(
+  "@computis/effect-pdf/engine/PdfEngine",
+) {
   static readonly layerWorkers = ({
     size = Math.max(1, Math.min(MAX_DEFAULT_WORKERS, availableParallelism() - 1)),
-  }: { readonly size?: number } = {}) =>
-    Layer.effect(PdfEngine, makePool(Math.max(1, Math.floor(size)), connectToWorker)).pipe(
+  }: { readonly size?: number } = {}): Layer.Layer<
+    PdfEngine,
+    PdfEngineError,
+    Worker.WorkerPlatform | Worker.Spawner
+  > =>
+    Layer.effect(
+      PdfEngine,
+      Effect.map(makePool(Math.max(1, Math.floor(size)), connectToWorker), withOpen),
+    ).pipe(
       Layer.provide(
         RpcWorker.layerInitialMessage(
           PdfWorkerInit,
@@ -270,14 +281,19 @@ export class PdfEngine extends Context.Service<
       Layer.provide(NodeServices.layer),
     );
 
-  static readonly layer = (options: { readonly size?: number } = {}) =>
+  static readonly layer = (
+    options: { readonly size?: number } = {},
+  ): Layer.Layer<PdfEngine, PdfEngineError> =>
     PdfEngine.layerWorkers(options).pipe(
       Layer.provide(NodeWorker.layer(() => new WorkerThread(pdfWorkerEntry))),
     );
 
-  static readonly layerInProcess = Layer.effect(
+  static readonly layerInProcess: Layer.Layer<PdfEngine, PdfEngineError> = Layer.effect(
     PdfEngine,
-    makePool(1, (scope) => RpcTest.makeClient(PdfRpcs).pipe(Scope.provide(scope))),
+    Effect.map(
+      makePool(1, (scope) => RpcTest.makeClient(PdfRpcs).pipe(Scope.provide(scope))),
+      withOpen,
+    ),
   ).pipe(
     Layer.provide(PdfRpcHandlers),
     Layer.provide(PdfiumRuntime.layer),

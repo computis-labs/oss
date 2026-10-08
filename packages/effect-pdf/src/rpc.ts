@@ -38,7 +38,7 @@ export class PdfRpcs extends RpcGroup.make(
   }),
   Rpc.make("Text", {
     error: PageFailure,
-    payload: { document: DocumentId, pages: Pages },
+    payload: { document: DocumentId, layout: Schema.Boolean, pages: Pages },
     success: Schema.Array(PdfPageTextSchema),
   }),
   Rpc.make("Find", {
