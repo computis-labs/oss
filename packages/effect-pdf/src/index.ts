@@ -1,8 +1,8 @@
 import { Effect, Schema } from "effect";
-import { PdfEngine } from "#effect-pdf/engine";
-import { PdfFormError } from "#effect-pdf/errors/pdf-form-error";
-import { pdfFieldTypes } from "#effect-pdf/types";
-import type { PdfDocument, PdfFieldValue } from "#effect-pdf/types";
+import { PdfEngine } from "./engine.ts";
+import { PdfFormError } from "./errors/pdf-form-error.ts";
+import { pdfFieldTypes } from "./types.ts";
+import type { PdfDocument, PdfFieldValue } from "./types.ts";
 
 const valuelessFieldTypes: ReadonlySet<string> = new Set([
   pdfFieldTypes.button,

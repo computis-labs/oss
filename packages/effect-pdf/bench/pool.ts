@@ -4,9 +4,9 @@ import { monitorEventLoopDelay } from "node:perf_hooks";
 import { Console, Effect, FileSystem, ManagedRuntime, Path } from "effect";
 import { bilevelScanPdf, invoicePdf } from "./fixtures.ts";
 import { attempt, formatNumber, median } from "./support.ts";
-import { PdfEngine } from "#effect-pdf/engine";
-import { open } from "#effect-pdf/index";
-import type { PdfDocument } from "#effect-pdf/types";
+import { PdfEngine } from "../src/engine.ts";
+import { open } from "../src/index.ts";
+import type { PdfDocument } from "../src/types.ts";
 
 const CONCURRENT_DOCUMENTS = 16;
 const LONG_DOCUMENT_LINES = 48 * 48;

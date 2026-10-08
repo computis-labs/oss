@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { pdfEngineLayer } from "./fixtures/layer.ts";
 import { placedTextPdf } from "./fixtures/text.ts";
 import type { PlacedText } from "./fixtures/text.ts";
-import { open } from "#effect-pdf/index";
+import { open } from "../src/index.ts";
 
 const ROW_Y = 600;
 

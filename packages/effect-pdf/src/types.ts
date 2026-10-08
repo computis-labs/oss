@@ -1,10 +1,10 @@
 import * as Schema from "effect/Schema";
 import type * as Effect from "effect/Effect";
 import * as Transferable from "effect/workers/Transferable";
-import type { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
-import type { PdfFormError } from "#effect-pdf/errors/pdf-form-error";
-import type { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import type { PdfSaveError } from "#effect-pdf/errors/pdf-save-error";
+import type { PdfEngineError } from "./errors/pdf-engine-error.ts";
+import type { PdfFormError } from "./errors/pdf-form-error.ts";
+import type { PdfPageError } from "./errors/pdf-page-error.ts";
+import type { PdfSaveError } from "./errors/pdf-save-error.ts";
 
 export const pdfPageKinds = {
   empty: "empty",

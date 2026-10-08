@@ -1,4 +1,4 @@
-import { A4, assemblePdf, latin1, onePagePdf, pdfStream } from "#effect-pdf/testing";
+import { A4, assemblePdf, latin1, onePagePdf, pdfStream } from "../../src/testing.ts";
 
 export const SMILEY_TEXT = "\u{1F600}";
 

@@ -1,12 +1,12 @@
 import * as Result from "effect/Result";
-import { embeddedImage } from "#effect-pdf/embedded-image";
-import type { PlacedImage } from "#effect-pdf/embedded-image";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { withFormEnvironment, withFormPage } from "#effect-pdf/handle";
-import { withAllocation } from "#effect-pdf/memory";
-import type { PdfHandle } from "#effect-pdf/handle";
-import { areaOf, overlapArea, pageBox, pageObjects, pageObjectTypes } from "#effect-pdf/objects";
-import { MAX_RENDER_PIXELS, renderPng, renderedSize } from "#effect-pdf/render";
+import { embeddedImage } from "./embedded-image.ts";
+import type { PlacedImage } from "./embedded-image.ts";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
+import { withFormEnvironment, withFormPage } from "./handle.ts";
+import { withAllocation } from "./memory.ts";
+import type { PdfHandle } from "./handle.ts";
+import { areaOf, overlapArea, pageBox, pageObjects, pageObjectTypes } from "./objects.ts";
+import { MAX_RENDER_PIXELS, renderPng, renderedSize } from "./render.ts";
 
 export const DEFAULT_PAGE_IMAGE_DPI = 200;
 

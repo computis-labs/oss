@@ -1,6 +1,6 @@
 import * as Result from "effect/Result";
-import { PdfSaveError } from "#effect-pdf/errors/pdf-save-error";
-import type { PdfHandle } from "#effect-pdf/handle";
+import { PdfSaveError } from "./errors/pdf-save-error.ts";
+import type { PdfHandle } from "./handle.ts";
 
 const INCREMENTAL = 1;
 const NO_INCREMENTAL = 2;

@@ -4,9 +4,9 @@ import { PDFSignature } from "pdf-lib";
 import { pdfEngineLayer } from "./fixtures/layer.ts";
 import { formPdf, loadWithPdfLib, textPdf } from "./fixtures/forms.ts";
 import { jpegScanPdf } from "./fixtures/scans.ts";
-import { PdfFormError } from "#effect-pdf/errors/pdf-form-error";
-import { form, open } from "#effect-pdf/index";
-import { pdfFieldTypes } from "#effect-pdf/types";
+import { PdfFormError } from "../src/errors/pdf-form-error.ts";
+import { form, open } from "../src/index.ts";
+import { pdfFieldTypes } from "../src/types.ts";
 
 const Iscrizione = Schema.Struct({
   pagamento: Schema.optionalKey(Schema.Literals(["bonifico", "contanti"])),

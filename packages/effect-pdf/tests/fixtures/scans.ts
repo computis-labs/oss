@@ -7,7 +7,7 @@ import {
   fullPage,
   onePagePdf,
   pdfStream,
-} from "#effect-pdf/testing";
+} from "../../src/testing.ts";
 
 const readFixture = (name: string) =>
   Effect.gen(function* readFixtureFile() {

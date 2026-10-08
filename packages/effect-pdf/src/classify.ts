@@ -1,10 +1,10 @@
 import * as Match from "effect/Match";
 import * as Result from "effect/Result";
-import { withPage } from "#effect-pdf/handle";
-import type { PdfHandle } from "#effect-pdf/handle";
-import { areaOf, overlapArea, pageBox, pageObjects, pageObjectTypes } from "#effect-pdf/objects";
-import { pdfPageKinds } from "#effect-pdf/types";
-import type { PdfClassification, PdfPageClassification, PdfPageKind } from "#effect-pdf/types";
+import { withPage } from "./handle.ts";
+import type { PdfHandle } from "./handle.ts";
+import { areaOf, overlapArea, pageBox, pageObjects, pageObjectTypes } from "./objects.ts";
+import { pdfPageKinds } from "./types.ts";
+import type { PdfClassification, PdfPageClassification, PdfPageKind } from "./types.ts";
 
 const IMAGE_COVERAGE_THRESHOLD = 0.5;
 

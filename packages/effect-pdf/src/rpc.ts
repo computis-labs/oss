@@ -2,11 +2,11 @@ import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as Transferable from "effect/workers/Transferable";
-import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
-import { PdfFormError } from "#effect-pdf/errors/pdf-form-error";
-import { PdfOpenError } from "#effect-pdf/errors/pdf-open-error";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { PdfSaveError } from "#effect-pdf/errors/pdf-save-error";
+import { PdfEngineError } from "./errors/pdf-engine-error.ts";
+import { PdfFormError } from "./errors/pdf-form-error.ts";
+import { PdfOpenError } from "./errors/pdf-open-error.ts";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
+import { PdfSaveError } from "./errors/pdf-save-error.ts";
 import {
   PdfFieldSchema,
   PdfFieldValuesSchema,
@@ -17,7 +17,7 @@ import {
   PdfRenderSizeSchema,
   PdfSignatureFieldSchema,
   PdfTextMatchSchema,
-} from "#effect-pdf/types";
+} from "./types.ts";
 
 const DocumentId = Schema.Int;
 const Pages = Schema.Array(Schema.Int);

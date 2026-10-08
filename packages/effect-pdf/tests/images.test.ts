@@ -12,10 +12,10 @@ import {
   redPagePdf,
   scanJpeg,
 } from "./fixtures/scans.ts";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { open } from "#effect-pdf/index";
-import { A4, bilevelScan, scanPageKinds, scanPdf, scansPdf } from "#effect-pdf/testing";
-import { pdfImageMediaTypes, pdfImageOrigins } from "#effect-pdf/types";
+import { PdfPageError } from "../src/errors/pdf-page-error.ts";
+import { open } from "../src/index.ts";
+import { A4, bilevelScan, scanPageKinds, scanPdf, scansPdf } from "../src/testing.ts";
+import { pdfImageMediaTypes, pdfImageOrigins } from "../src/types.ts";
 
 const darkShare = (png: Uint8Array) => {
   const { channels, data } = decode(png);

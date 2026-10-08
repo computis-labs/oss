@@ -2,9 +2,9 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Order from "effect/Order";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { BYTES_PER_DOUBLE, readDoubles, readFloats } from "#effect-pdf/memory";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
+import type { Pdfium } from "./pdfium.ts";
+import { BYTES_PER_DOUBLE, readDoubles, readFloats } from "./memory.ts";
 
 const ROW_TOLERANCE = 0.5;
 const BASELINE_TOLERANCE = 0.1;

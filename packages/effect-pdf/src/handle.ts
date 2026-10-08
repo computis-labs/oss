@@ -1,6 +1,6 @@
 import * as Result from "effect/Result";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
+import type { Pdfium } from "./pdfium.ts";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
 
 export interface PdfHandle {
   readonly document: number;

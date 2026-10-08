@@ -4,8 +4,8 @@ import { Console, Effect, FileSystem, ManagedRuntime, Path, Schema } from "effec
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { bilevelScanPdf } from "./fixtures.ts";
 import { attempt, formatNumber, median } from "./support.ts";
-import { PdfEngine } from "#effect-pdf/engine";
-import { open } from "#effect-pdf/index";
+import { PdfEngine } from "../src/engine.ts";
+import { open } from "../src/index.ts";
 
 const SIZES = [1, 2, 4] as const;
 const RUNS = 3;

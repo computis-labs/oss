@@ -1,10 +1,10 @@
 import { Effect, Scope, SynchronizedRef } from "effect";
 import type { RpcClientError } from "effect/rpc";
-import { documentKind } from "#effect-pdf/classify";
-import type { PdfPool, PdfRpcClient, PdfWorkerLease } from "#effect-pdf/engine";
-import { selectedPages } from "#effect-pdf/handle";
-import { DEFAULT_PAGE_IMAGE_DPI } from "#effect-pdf/page-images";
-import type { PdfDocument } from "#effect-pdf/types";
+import { documentKind } from "./classify.ts";
+import type { PdfPool, PdfRpcClient, PdfWorkerLease } from "./engine.ts";
+import { selectedPages } from "./handle.ts";
+import { DEFAULT_PAGE_IMAGE_DPI } from "./page-images.ts";
+import type { PdfDocument } from "./types.ts";
 
 const FAN_OUT_PAGES_PER_WORKER = 4;
 

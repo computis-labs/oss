@@ -1,4 +1,4 @@
-import type { Pdfium } from "#effect-pdf/pdfium";
+import type { Pdfium } from "./pdfium.ts";
 
 export const BYTES_PER_UTF16_UNIT = 2;
 const BYTES_PER_FLOAT = 4;

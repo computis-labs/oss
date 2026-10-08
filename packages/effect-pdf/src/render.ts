@@ -1,12 +1,12 @@
 import * as Result from "effect/Result";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { withFormEnvironment, withFormPage } from "#effect-pdf/handle";
-import type { PdfHandle } from "#effect-pdf/handle";
-import { bitmapFormats } from "#effect-pdf/memory";
-import { encodePng } from "#effect-pdf/png";
-import { pdfImageMediaTypes, pdfImageOrigins } from "#effect-pdf/types";
-import type { PdfImage, PdfRenderSize } from "#effect-pdf/types";
+import type { Pdfium } from "./pdfium.ts";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
+import { withFormEnvironment, withFormPage } from "./handle.ts";
+import type { PdfHandle } from "./handle.ts";
+import { bitmapFormats } from "./memory.ts";
+import { encodePng } from "./png.ts";
+import { pdfImageMediaTypes, pdfImageOrigins } from "./types.ts";
+import type { PdfImage, PdfRenderSize } from "./types.ts";
 
 export const MAX_RENDER_PIXELS = 40_000_000;
 

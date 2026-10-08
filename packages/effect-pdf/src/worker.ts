@@ -4,10 +4,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as RpcServer from "effect/rpc/RpcServer";
 import * as RpcWorker from "effect/rpc/RpcWorker";
-import { PdfiumRuntime } from "#effect-pdf/pdfium";
-import { PdfiumWasm, PdfWorkerInit } from "#effect-pdf/pdfium-wasm";
-import { PdfRpcs } from "#effect-pdf/rpc";
-import { PdfRpcHandlers } from "#effect-pdf/server";
+import { PdfiumRuntime } from "./pdfium.ts";
+import { PdfiumWasm, PdfWorkerInit } from "./pdfium-wasm.ts";
+import { PdfRpcs } from "./rpc.ts";
+import { PdfRpcHandlers } from "./server.ts";
 
 const protocol = RpcServer.layerProtocolWorkerRunner.pipe(Layer.provide(NodeWorkerRunner.layer));
 

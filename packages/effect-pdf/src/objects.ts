@@ -1,8 +1,8 @@
 import * as Result from "effect/Result";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { readFloats } from "#effect-pdf/memory";
-import type { PdfRect } from "#effect-pdf/types";
+import type { Pdfium } from "./pdfium.ts";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
+import { readFloats } from "./memory.ts";
+import type { PdfRect } from "./types.ts";
 
 export const pageObjectTypes = {
   form: 5,

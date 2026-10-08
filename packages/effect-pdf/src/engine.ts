@@ -17,13 +17,13 @@ import {
 import { RpcClient, RpcClientError, RpcTest, RpcWorker } from "effect/rpc";
 import type { RpcGroup } from "effect/rpc";
 import { Worker } from "effect/workers";
-import { openDocument } from "#effect-pdf/document";
-import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
-import { PdfWorkerGone } from "#effect-pdf/errors/pdf-worker-gone";
-import { PdfiumRuntime } from "#effect-pdf/pdfium";
-import { PdfiumWasm, PdfWorkerInit } from "#effect-pdf/pdfium-wasm";
-import { PdfRpcs } from "#effect-pdf/rpc";
-import { PdfRpcHandlers } from "#effect-pdf/server";
+import { openDocument } from "./document.ts";
+import { PdfEngineError } from "./errors/pdf-engine-error.ts";
+import { PdfWorkerGone } from "./errors/pdf-worker-gone.ts";
+import { PdfiumRuntime } from "./pdfium.ts";
+import { PdfiumWasm, PdfWorkerInit } from "./pdfium-wasm.ts";
+import { PdfRpcs } from "./rpc.ts";
+import { PdfRpcHandlers } from "./server.ts";
 
 const MAX_DEFAULT_WORKERS = 4;
 

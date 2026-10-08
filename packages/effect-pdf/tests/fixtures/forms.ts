@@ -1,6 +1,6 @@
 import { Data, Effect } from "effect";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { A4 } from "#effect-pdf/testing";
+import { A4 } from "../../src/testing.ts";
 
 export class FixtureError extends Data.TaggedError("FixtureError")<{ readonly cause: unknown }> {
   readonly code = "FIXTURE";

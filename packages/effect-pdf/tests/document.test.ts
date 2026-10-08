@@ -4,12 +4,12 @@ import { pdfEngineLayer } from "./fixtures/layer.ts";
 import { SIGNATURE_TOKEN, textPdf } from "./fixtures/forms.ts";
 import { logoInvoicePdf } from "./fixtures/scans.ts";
 import { SMILEY_TEXT, rotatedTokenPdf, emptyPdf, unmappedFontPdf } from "./fixtures/text.ts";
-import { PdfOpenError, pdfOpenFailures } from "#effect-pdf/errors/pdf-open-error";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { PdfEngine } from "#effect-pdf/engine";
-import { open } from "#effect-pdf/index";
-import { A4, scanPdf, scansPdf, scanPageKinds } from "#effect-pdf/testing";
-import { pdfPageKinds } from "#effect-pdf/types";
+import { PdfOpenError, pdfOpenFailures } from "../src/errors/pdf-open-error.ts";
+import { PdfPageError } from "../src/errors/pdf-page-error.ts";
+import { PdfEngine } from "../src/engine.ts";
+import { open } from "../src/index.ts";
+import { A4, scanPdf, scansPdf, scanPageKinds } from "../src/testing.ts";
+import { pdfPageKinds } from "../src/types.ts";
 
 layer(pdfEngineLayer)("open", (it) => {
   it.effect("reads the page count and the size of every page", () =>

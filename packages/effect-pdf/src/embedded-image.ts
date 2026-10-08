@@ -1,11 +1,11 @@
 import * as Match from "effect/Match";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { bitmapFormats, withAllocation } from "#effect-pdf/memory";
-import type { PageObject } from "#effect-pdf/objects";
-import { bgrToRgb, encodePng, packBilevel } from "#effect-pdf/png";
-import type { Raster } from "#effect-pdf/png";
-import { pdfImageMediaTypes, pdfImageOrigins } from "#effect-pdf/types";
-import type { PdfImage } from "#effect-pdf/types";
+import type { Pdfium } from "./pdfium.ts";
+import { bitmapFormats, withAllocation } from "./memory.ts";
+import type { PageObject } from "./objects.ts";
+import { bgrToRgb, encodePng, packBilevel } from "./png.ts";
+import type { Raster } from "./png.ts";
+import { pdfImageMediaTypes, pdfImageOrigins } from "./types.ts";
+import type { PdfImage } from "./types.ts";
 
 const JPEG_FILTER = "DCTDecode";
 const PASSTHROUGH_COLORSPACES: ReadonlySet<number> = new Set([1, 2, 4, 5, 7]);

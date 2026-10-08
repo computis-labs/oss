@@ -5,9 +5,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SynchronizedRef from "effect/SynchronizedRef";
 import type * as Result from "effect/Result";
-import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
+import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import type { WasmModule } from "./types/webassembly.d.ts";
-import { PdfiumWasm } from "#effect-pdf/pdfium-wasm";
+import { PdfiumWasm } from "./pdfium-wasm.ts";
 
 export type Pdfium = WrappedPdfiumModule;
 

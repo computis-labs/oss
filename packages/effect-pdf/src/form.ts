@@ -2,15 +2,15 @@ import * as Arr from "effect/Array";
 import * as Match from "effect/Match";
 import * as Result from "effect/Result";
 import { constUndefined } from "effect/Function";
-import { PdfFormError } from "#effect-pdf/errors/pdf-form-error";
-import type { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { withAnnotation, withFormEnvironment, withFormPage } from "#effect-pdf/handle";
-import type { PdfHandle } from "#effect-pdf/handle";
-import { readFloats, readUtf16 } from "#effect-pdf/memory";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { rectBetween } from "#effect-pdf/objects";
-import { pdfFieldTypes } from "#effect-pdf/types";
-import type { PdfField, PdfFieldType, PdfFieldValue, PdfRect } from "#effect-pdf/types";
+import { PdfFormError } from "./errors/pdf-form-error.ts";
+import type { PdfPageError } from "./errors/pdf-page-error.ts";
+import { withAnnotation, withFormEnvironment, withFormPage } from "./handle.ts";
+import type { PdfHandle } from "./handle.ts";
+import { readFloats, readUtf16 } from "./memory.ts";
+import type { Pdfium } from "./pdfium.ts";
+import { rectBetween } from "./objects.ts";
+import { pdfFieldTypes } from "./types.ts";
+import type { PdfField, PdfFieldType, PdfFieldValue, PdfRect } from "./types.ts";
 
 const WIDGET_SUBTYPE = 20;
 const fieldTypeCodes: readonly PdfFieldType[] = [

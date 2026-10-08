@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Transferable from "effect/workers/Transferable";
-import { PdfEngineError } from "#effect-pdf/errors/pdf-engine-error";
+import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import type { WasmModule } from "./types/webassembly.d.ts";
 
 export const PdfWorkerInit = Schema.Struct({

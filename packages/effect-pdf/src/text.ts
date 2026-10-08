@@ -1,12 +1,12 @@
 import * as Result from "effect/Result";
-import type { Pdfium } from "#effect-pdf/pdfium";
-import { PdfPageError } from "#effect-pdf/errors/pdf-page-error";
-import { withPage } from "#effect-pdf/handle";
-import type { PdfHandle } from "#effect-pdf/handle";
-import { BYTES_PER_UTF16_UNIT, readDoubles, withAllocation } from "#effect-pdf/memory";
-import { charOrigin, layoutText } from "#effect-pdf/text-layout";
-import { rectBetween } from "#effect-pdf/objects";
-import type { PdfPageText, PdfTextMatch } from "#effect-pdf/types";
+import type { Pdfium } from "./pdfium.ts";
+import { PdfPageError } from "./errors/pdf-page-error.ts";
+import { withPage } from "./handle.ts";
+import type { PdfHandle } from "./handle.ts";
+import { BYTES_PER_UTF16_UNIT, readDoubles, withAllocation } from "./memory.ts";
+import { charOrigin, layoutText } from "./text-layout.ts";
+import { rectBetween } from "./objects.ts";
+import type { PdfPageText, PdfTextMatch } from "./types.ts";
 
 const CARRIAGE_RETURNS = /\r\n?/gu;
 const GENERATED = 1;

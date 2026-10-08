@@ -6,12 +6,12 @@ import { Bench } from "tinybench";
 import { makeBaseline } from "./baseline.ts";
 import { BenchmarkError, attempt, formatNumber } from "./support.ts";
 import { bilevelScanPdf, invoicePdf, jpegScanPdf } from "./fixtures.ts";
-import { PdfEngine } from "#effect-pdf/engine";
-import { open } from "#effect-pdf/index";
-import { encodePng } from "#effect-pdf/png";
-import type { Raster } from "#effect-pdf/png";
-import { pdfPageKinds } from "#effect-pdf/types";
-import type { PdfDocument } from "#effect-pdf/types";
+import { PdfEngine } from "../src/engine.ts";
+import { open } from "../src/index.ts";
+import { encodePng } from "../src/png.ts";
+import type { Raster } from "../src/png.ts";
+import { pdfPageKinds } from "../src/types.ts";
+import type { PdfDocument } from "../src/types.ts";
 
 const RENDER_WIDTH = 900;
 const PDFJS = "pdf.js (pipeline attuale)";
