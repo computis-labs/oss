@@ -86,7 +86,10 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
                   Effect.map(platform.value.spawn<O, I>(id), (worker): Worker.Worker<O, I> => ({
                     run: (handler, options) =>
                       worker
-                        .run(handler, options)
+                        .run(
+                          (response) => (response === undefined ? Effect.void : handler(response)),
+                          options,
+                        )
                         .pipe(Effect.tapError((cause) => Deferred.succeed(died, cause))),
                     send: worker.send,
                   })),

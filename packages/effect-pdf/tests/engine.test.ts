@@ -172,6 +172,28 @@ describe("engine without a platform", () => {
   });
 });
 
+layer(
+  PdfEngine.layer({ size: 1 }).pipe(
+    Layer.provide(
+      nodeWorkers(
+        () =>
+          new Worker(pdfWorkerEntry, {
+            env: { ...process.env, WATCH_REPORT_DEPENDENCIES: "1" },
+          }),
+      ),
+    ),
+    Layer.provide(NodeServices.layer),
+  ),
+)("worker under Node watch mode", (it) => {
+  it.effect("reads a PDF when Node reports worker imports on the RPC channel", () =>
+    Effect.gen(function* () {
+      const document = yield* open(yield* textPdf([["Watch mode stays alive"]]));
+      const [page] = yield* document.text();
+      expect(page?.text).toContain("Watch mode stays alive");
+    }),
+  );
+});
+
 describe("default pool size", () => {
   it.effect.each([
     ["no navigator", undefined, 1],
