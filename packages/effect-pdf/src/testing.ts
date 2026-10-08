@@ -1,21 +1,28 @@
-import { deflateSync } from "node:zlib";
 import * as Arr from "effect/Array";
 
 export const A4 = { height: 842, width: 595 } as const;
 
-export const latin1 = (value: string) => Buffer.from(value, "latin1");
+export const latin1 = (value: string) =>
+  Uint8Array.from(value, (character) => character.codePointAt(0) ?? 0);
+
+const concat = (parts: readonly Uint8Array[]) =>
+  Uint8Array.from(parts.flatMap((part) => [...part]));
 
 export const pdfStream = (dictionary: string, data: Uint8Array) =>
-  Buffer.concat([
+  concat([
     latin1(`<< ${dictionary} /Length ${data.length.toString()} >>\nstream\n`),
     data,
     latin1("\nendstream"),
   ]);
 
-export const assemblePdf = (objects: readonly Buffer[]) => {
+const RUN_LENGTH_MAX_REPEAT = 128;
+const RUN_LENGTH_END = 128;
+const RUN_LENGTH_REPEAT_BASE = 257;
+
+export const assemblePdf = (objects: readonly Uint8Array[]) => {
   const header = latin1("%PDF-1.7\n");
   const chunks = objects.map((body, index) =>
-    Buffer.concat([latin1(`${(index + 1).toString()} 0 obj\n`), body, latin1("\nendobj\n")]),
+    concat([latin1(`${(index + 1).toString()} 0 obj\n`), body, latin1("\nendobj\n")]),
   );
   const offsets = Arr.scan(chunks, header.length, (position, chunk) => position + chunk.length);
   const table = [
@@ -24,18 +31,19 @@ export const assemblePdf = (objects: readonly Buffer[]) => {
     "0000000000 65535 f ",
     ...offsets.slice(0, -1).map((offset) => `${offset.toString().padStart(10, "0")} 00000 n `),
   ].join("\n");
-  return new Uint8Array(
-    Buffer.concat([
-      header,
-      ...chunks,
-      latin1(
-        `${table}\ntrailer\n<< /Size ${(objects.length + 1).toString()} /Root 1 0 R >>\nstartxref\n${(offsets.at(-1) ?? 0).toString()}\n%%EOF\n`,
-      ),
-    ]),
-  );
+  return concat([
+    header,
+    ...chunks,
+    latin1(
+      `${table}\ntrailer\n<< /Size ${(objects.length + 1).toString()} /Root 1 0 R >>\nstartxref\n${(offsets.at(-1) ?? 0).toString()}\n%%EOF\n`,
+    ),
+  ]);
 };
 
-export const onePagePdf = (content: string, xobjects: Readonly<Record<string, Buffer>> = {}) => {
+export const onePagePdf = (
+  content: string,
+  xobjects: Readonly<Record<string, Uint8Array>> = {},
+) => {
   const names = Object.keys(xobjects);
   const fontNumber = 5 + names.length;
   const xobjectRefs = names
@@ -70,8 +78,8 @@ export const bilevelScan = {
 
 export const bilevelImage = () =>
   pdfStream(
-    `/Type /XObject /Subtype /Image /Width ${bilevelScan.width.toString()} /Height ${bilevelScan.height.toString()} /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /FlateDecode`,
-    deflateSync(bilevelScan.rows),
+    `/Type /XObject /Subtype /Image /Width ${bilevelScan.width.toString()} /Height ${bilevelScan.height.toString()} /ColorSpace /DeviceGray /BitsPerComponent 1`,
+    bilevelScan.rows,
   );
 
 export const fullPage = (name: string) =>
@@ -106,7 +114,9 @@ export const scanPageKinds = {
 } as const;
 export type ScanPageKind = (typeof scanPageKinds)[keyof typeof scanPageKinds];
 
-const OVERSIZED_SIDE = 4200;
+const OVERSIZED_SIDE = 4224;
+const OVERSIZED_RUNS = (OVERSIZED_SIDE * OVERSIZED_SIDE) / RUN_LENGTH_MAX_REPEAT;
+const WHITE = 255;
 const pagePlacement = `${A4.width.toString()} 0 0 ${A4.height.toString()} 0 0 cm`;
 const halfHeight = (A4.height / 2).toString();
 const ocrLines = Array.from(
@@ -116,9 +126,9 @@ const ocrLines = Array.from(
 
 const scanContent = {
   form: latin1("/Fm1 Do"),
-  inline: Buffer.concat([
+  inline: concat([
     latin1(`q ${pagePlacement} BI /W 1 /H 1 /CS /G /BPC 8 ID `),
-    Buffer.from([255]),
+    Uint8Array.of(WHITE),
     latin1("\nEI Q"),
   ]),
   oversized: latin1(`q ${pagePlacement} /Big Do Q`),
@@ -136,7 +146,7 @@ const scanContent = {
     `q ${A4.width.toString()} 0 0 ${halfHeight} 0 0 cm /Im1 Do Q\n` +
       `q ${A4.width.toString()} 0 0 ${halfHeight} 0 ${halfHeight} cm /Im1 Do Q`,
   ),
-} satisfies Record<ScanPageKind, Buffer>;
+} satisfies Record<ScanPageKind, Uint8Array>;
 
 export const scansPdf = (pages: readonly ScanPageKind[]) => {
   const firstPage = 7;
@@ -146,7 +156,7 @@ export const scansPdf = (pages: readonly ScanPageKind[]) => {
     latin1(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length.toString()} >>`),
     pdfStream(
       "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
-      Buffer.from([255]),
+      Uint8Array.of(WHITE),
     ),
     pdfStream(
       `/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Matrix [${pagePlacement.replace(" cm", "")}] /Resources << /XObject << /Im1 3 0 R >> >>`,
@@ -154,8 +164,14 @@ export const scansPdf = (pages: readonly ScanPageKind[]) => {
     ),
     pages.includes(scanPageKinds.oversized)
       ? pdfStream(
-          `/Type /XObject /Subtype /Image /Width ${OVERSIZED_SIDE.toString()} /Height ${OVERSIZED_SIDE.toString()} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode`,
-          deflateSync(Buffer.alloc(OVERSIZED_SIDE * OVERSIZED_SIDE)),
+          `/Type /XObject /Subtype /Image /Width ${OVERSIZED_SIDE.toString()} /Height ${OVERSIZED_SIDE.toString()} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /RunLengthDecode`,
+          Uint8Array.from([
+            ...Array.from({ length: OVERSIZED_RUNS }, () => [
+              RUN_LENGTH_REPEAT_BASE - RUN_LENGTH_MAX_REPEAT,
+              0,
+            ]).flat(),
+            RUN_LENGTH_END,
+          ]),
         )
       : latin1("null"),
     latin1("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),

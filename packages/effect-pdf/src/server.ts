@@ -1,7 +1,10 @@
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
+import * as RpcServer from "effect/rpc/RpcServer";
+import * as RpcWorker from "effect/rpc/RpcWorker";
 import { classifyPage } from "./classify.ts";
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import { PdfFormError } from "./errors/pdf-form-error.ts";
@@ -13,6 +16,8 @@ import type { PdfHandle } from "./handle.ts";
 import { readFloats } from "./memory.ts";
 import { pageImage } from "./page-images.ts";
 import { PdfiumRuntime } from "./pdfium.ts";
+import { PdfiumWasm, PdfWorkerInit } from "./pdfium-wasm.ts";
+import { finishImage } from "./png.ts";
 import { renderPage } from "./render.ts";
 import { PdfRpcs } from "./rpc.ts";
 import { saveDocument } from "./save.ts";
@@ -26,6 +31,7 @@ interface OpenDocument {
 }
 
 const QUARTER_TURN_DEGREES = 90;
+const PAGE_IMAGES_IN_FLIGHT = 2;
 
 export const PdfRpcHandlers = PdfRpcs.toLayer(
   Effect.gen(function* makePdfRpcHandlers() {
@@ -163,9 +169,18 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
           return opened.pages;
         }),
       PageImages: ({ document, dpi, pages }) =>
-        eachPage(document, pages, (handle, page) => pageImage(handle, page, dpi)),
+        Effect.all(
+          pages.map((page) =>
+            onDocument(document, ({ handle }) => pageImage(handle, page, dpi)).pipe(
+              Effect.flatMap(finishImage),
+            ),
+          ),
+          { concurrency: PAGE_IMAGES_IN_FLIGHT },
+        ),
       Render: ({ document, page, size }) =>
-        onDocument(document, ({ handle }) => renderPage(handle, page, size)),
+        onDocument(document, ({ handle }) => renderPage(handle, page, size)).pipe(
+          Effect.flatMap(finishImage),
+        ),
       Save: ({ document, incremental }) =>
         onDocument(document, ({ handle, signatureFields }) =>
           saveDocument(handle, incremental, signatureFields),
@@ -178,4 +193,21 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
         eachPage(document, pages, (handle, page) => pageText(handle, page, layout)),
     };
   }),
+);
+
+const workerProtocol = RpcServer.layerProtocolWorkerRunner;
+
+const wasmFromParent = Layer.effect(
+  PdfiumWasm,
+  RpcWorker.initialMessage(PdfWorkerInit).pipe(
+    Effect.map(({ wasm }) => ({ module: wasm })),
+    Effect.orDie,
+  ),
+).pipe(Layer.provide(workerProtocol));
+
+export const PdfWorkerServer = RpcServer.layer(PdfRpcs).pipe(
+  Layer.provide(PdfRpcHandlers),
+  Layer.provide(PdfiumRuntime.layer),
+  Layer.provide(wasmFromParent),
+  Layer.provide(workerProtocol),
 );

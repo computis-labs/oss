@@ -2,10 +2,9 @@ import * as Match from "effect/Match";
 import type { Pdfium } from "./pdfium.ts";
 import { bitmapFormats, withAllocation } from "./memory.ts";
 import type { PageObject } from "./objects.ts";
-import { bgrToRgb, encodePng, packBilevel } from "./png.ts";
-import type { Raster } from "./png.ts";
+import { bgrToRgb, packBilevel, pngScanlines } from "./png.ts";
+import type { PdfImageDraft, Raster } from "./png.ts";
 import { pdfImageMediaTypes, pdfImageOrigins } from "./types.ts";
-import type { PdfImage } from "./types.ts";
 
 const JPEG_FILTER = "DCTDecode";
 const PASSTHROUGH_COLORSPACES: ReadonlySet<number> = new Set([1, 2, 4, 5, 7]);
@@ -24,7 +23,7 @@ export interface PlacedImage extends PageObject {
   readonly width: number;
 }
 
-export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImage | undefined => {
+export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | undefined => {
   const filters = Array.from(
     { length: lib.FPDFImageObj_GetImageFilterCount(image.pointer) },
     (_, index) => {
@@ -107,10 +106,10 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImage | undef
       ),
     );
     return {
-      bytes: encodePng(raster),
       height,
       mediaType: pdfImageMediaTypes.png,
       origin: pdfImageOrigins.embedded,
+      png: pngScanlines(raster),
       width,
     };
   } finally {

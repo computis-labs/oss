@@ -1,6 +1,3 @@
-import { NodeServices, NodeWorker } from "@effect/platform-node";
-import { availableParallelism } from "node:os";
-import { Worker as WorkerThread } from "node:worker_threads";
 import {
   Cause,
   Context,
@@ -14,6 +11,7 @@ import {
   Scope,
   SynchronizedRef,
 } from "effect";
+import type { FileSystem, Path } from "effect";
 import { RpcClient, RpcClientError, RpcTest, RpcWorker } from "effect/rpc";
 import type { RpcGroup } from "effect/rpc";
 import { Worker } from "effect/workers";
@@ -26,8 +24,17 @@ import { PdfRpcs } from "./rpc.ts";
 import { PdfRpcHandlers } from "./server.ts";
 
 const MAX_DEFAULT_WORKERS = 4;
+const UNKNOWN_CPUS_WORKERS = 1;
 
-export const pdfWorkerEntry = new URL("worker.ts", import.meta.url);
+const decodeReportedCpus = Schema.decodeUnknownOption(
+  Schema.Struct({
+    navigator: Schema.Struct({ hardwareConcurrency: Schema.Int.check(Schema.isGreaterThan(0)) }),
+  }),
+);
+
+const moduleExtension = import.meta.url.slice(import.meta.url.lastIndexOf("."));
+
+export const pdfWorkerEntry = new URL(`worker${moduleExtension}`, import.meta.url);
 
 export type PdfRpcClient = RpcClient.RpcClient<
   RpcGroup.Rpcs<typeof PdfRpcs>,
@@ -42,16 +49,13 @@ export interface PdfWorkerLease {
 
 interface Connection {
   readonly client: PdfRpcClient;
-  readonly died: Deferred.Deferred<number>;
+  readonly died: Deferred.Deferred<unknown>;
   readonly generation: number;
   readonly scope: Scope.Closeable;
 }
 
 const isWorkerGone = Schema.is(PdfWorkerGone);
 const isRpcClientError = Schema.is(RpcClientError.RpcClientError);
-const isWorkerThread = Schema.is(Schema.instanceOf(WorkerThread));
-
-const UNKNOWN_EXIT_CODE = -1;
 
 const workerFailure = (cause: unknown) =>
   new PdfEngineError({ cause, message: "The PDF worker failed: open the document again." });
@@ -69,19 +73,40 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
 
   const open = Effect.fn("PdfEngine.openConnection")(function* openConnection(generation: number) {
     const scope = yield* Scope.fork(connectionsScope);
-    const died = yield* Deferred.make<number>();
+    const died = yield* Deferred.make<unknown>();
+    const platform = Context.getOption(services, Worker.WorkerPlatform);
     const spawner = Context.getOption(services, Worker.Spawner);
-    const watched = Option.isSome(spawner)
-      ? Context.add(services, Worker.Spawner, (id: number) => {
-          const spawned = spawner.value(id);
-          if (isWorkerThread(spawned)) {
-            spawned.once("exit", (code: number) => {
-              Deferred.doneUnsafe(died, Exit.succeed(code));
-            });
-          }
-          return spawned;
-        })
-      : services;
+    const watched =
+      Option.isSome(platform) && Option.isSome(spawner)
+        ? services.pipe(
+            Context.add(
+              Worker.WorkerPlatform,
+              Worker.WorkerPlatform.of({
+                spawn: <O, I>(id: number) =>
+                  Effect.map(platform.value.spawn<O, I>(id), (worker): Worker.Worker<O, I> => ({
+                    run: (handler, options) =>
+                      worker
+                        .run(handler, options)
+                        .pipe(Effect.tapError((cause) => Deferred.succeed(died, cause))),
+                    send: worker.send,
+                  })),
+              }),
+            ),
+            Context.add(Worker.Spawner, (id: number) => {
+              const spawned = spawner.value(id);
+              if (spawned instanceof EventTarget) {
+                spawned.addEventListener(
+                  "close",
+                  () => {
+                    Deferred.doneUnsafe(died, Exit.succeed("The PDF worker closed."));
+                  },
+                  { once: true },
+                );
+              }
+              return spawned;
+            }),
+          )
+        : services;
     const client = yield* connect(scope).pipe(
       Effect.provideContext(watched),
       Effect.mapError(workerFailure),
@@ -100,13 +125,13 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
     connection: Connection,
   ): Effect.fn.Return<void> {
     const replace = Effect.gen(function* replaceDeadWorker() {
-      const code = yield* Deferred.await(connection.died);
+      const cause = yield* Deferred.await(connection.died);
       yield* SynchronizedRef.updateEffect(worker, (current) =>
         Effect.gen(function* swapConnection() {
           if (current.generation !== connection.generation || (yield* Ref.get(shuttingDown))) {
             return current;
           }
-          yield* Effect.logWarning("effectPdf.worker.replaced", { code });
+          yield* Effect.logWarning("effectPdf.worker.replaced", { cause });
           const next = yield* open(current.generation + 1);
           yield* Scope.close(current.scope, Exit.void);
           yield* supervise(worker, next);
@@ -146,15 +171,11 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
     }
     const gone = (cause: unknown) =>
       Effect.andThen(
-        Deferred.succeed(connection.died, UNKNOWN_EXIT_CODE),
+        Deferred.succeed(connection.died, cause),
         Effect.fail(new PdfWorkerGone({ cause })),
       );
     return yield* request(connection.client, lease.document).pipe(
-      Effect.raceFirst(
-        Effect.flatMap(Deferred.await(connection.died), (code) =>
-          gone(`The PDF worker exited with code ${code.toString()}.`),
-        ),
-      ),
+      Effect.raceFirst(Effect.flatMap(Deferred.await(connection.died), gone)),
       Effect.catchIf(
         isRpcClientError,
         (error): Effect.Effect<never, PdfEngineError | PdfWorkerGone> =>
@@ -257,12 +278,16 @@ const withOpen = (pool: PdfPool) => ({ ...pool, open: openDocument(pool) });
 export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof withOpen>>()(
   "@computis/effect-pdf/engine/PdfEngine",
 ) {
-  static readonly layerWorkers = ({
-    size = Math.max(1, Math.min(MAX_DEFAULT_WORKERS, availableParallelism() - 1)),
+  static readonly layer = ({
+    size = Option.match(decodeReportedCpus(globalThis), {
+      onNone: () => UNKNOWN_CPUS_WORKERS,
+      onSome: ({ navigator: { hardwareConcurrency } }) =>
+        Math.max(1, Math.min(MAX_DEFAULT_WORKERS, hardwareConcurrency - 1)),
+    }),
   }: { readonly size?: number } = {}): Layer.Layer<
     PdfEngine,
     PdfEngineError,
-    Worker.WorkerPlatform | Worker.Spawner
+    Worker.WorkerPlatform | Worker.Spawner | FileSystem.FileSystem | Path.Path
   > =>
     Layer.effect(
       PdfEngine,
@@ -278,17 +303,13 @@ export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof with
         ),
       ),
       Layer.provide(PdfiumWasm.layerCompiled),
-      Layer.provide(NodeServices.layer),
     );
 
-  static readonly layer = (
-    options: { readonly size?: number } = {},
-  ): Layer.Layer<PdfEngine, PdfEngineError> =>
-    PdfEngine.layerWorkers(options).pipe(
-      Layer.provide(NodeWorker.layer(() => new WorkerThread(pdfWorkerEntry))),
-    );
-
-  static readonly layerInProcess: Layer.Layer<PdfEngine, PdfEngineError> = Layer.effect(
+  static readonly layerInProcess: Layer.Layer<
+    PdfEngine,
+    PdfEngineError,
+    FileSystem.FileSystem | Path.Path
+  > = Layer.effect(
     PdfEngine,
     Effect.map(
       makePool(1, (scope) => RpcTest.makeClient(PdfRpcs).pipe(Scope.provide(scope))),
@@ -298,6 +319,5 @@ export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof with
     Layer.provide(PdfRpcHandlers),
     Layer.provide(PdfiumRuntime.layer),
     Layer.provide(PdfiumWasm.layerCompiled),
-    Layer.provide(NodeServices.layer),
   );
 }

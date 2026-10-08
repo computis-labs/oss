@@ -16,21 +16,35 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0",
     "@embedpdf/pdfium": "2.15.1",
-    "@types/emscripten": "1.41.6",
-    "effect": "4.0.0"
+    "@types/emscripten": "1.41.6"
   },
   "devDependencies": {
     "@computis/config": "workspace:*",
+    "@effect/platform-bun": "4.0.0",
+    "@effect/platform-node": "4.0.0",
     "@effect/vitest": "4.0.0",
     "@napi-rs/canvas": "1.0.9",
+    "effect": "4.0.0",
     "fast-png": "8.0.0",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.3.289",
     "tinybench": "6.2.0",
     "unpdf": "1.8.1",
     "vitest": "5.0.1"
+  },
+  "peerDependencies": {
+    "@effect/platform-bun": "^4.0.0",
+    "@effect/platform-node": "^4.0.0",
+    "effect": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@effect/platform-bun": {
+      "optional": true
+    },
+    "@effect/platform-node": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=24.15.0"

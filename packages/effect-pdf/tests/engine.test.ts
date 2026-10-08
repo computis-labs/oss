@@ -1,29 +1,46 @@
-import { NodeServices, NodeWorker } from "@effect/platform-node";
+import { NodeServices } from "@effect/platform-node";
 import { Worker } from "node:worker_threads";
-import { describe, expect, layer } from "@effect/vitest";
-import { Effect, Layer, Result } from "effect";
+import { describe, expect, it, layer } from "@effect/vitest";
+import { vi } from "vitest";
+import { Effect, FileSystem, Layer, Path, Result } from "effect";
 import { LONG_FORM_LAST_PAGE, fixture, formPdf, longFormPdf, textPdf } from "./fixtures/forms.ts";
+import { nodeWorkers } from "./fixtures/layer.ts";
 import { PdfEngine, pdfWorkerEntry } from "../src/engine.ts";
 import { PdfEngineError } from "../src/errors/pdf-engine-error.ts";
 import { open } from "../src/index.ts";
 import { scanPdf } from "../src/testing.ts";
 import { PdfiumRuntime } from "../src/pdfium.ts";
 import { PdfiumWasm } from "../src/pdfium-wasm.ts";
-import { pdfPageKinds } from "../src/types.ts";
+import { pdfImageMediaTypes, pdfPageKinds } from "../src/types.ts";
 
 const OUT_OF_BOUNDS_POINTER = 0x7f_ff_ff_f0;
 const LONG_DOCUMENT_PAGES = 12;
 
+const pdfiumOnlyFileSystem = Layer.unwrap(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const wasm = yield* path.fromFileUrl(
+      new URL(import.meta.resolve("@embedpdf/pdfium/pdfium.wasm")),
+    );
+    const bytes = yield* fs.readFile(wasm);
+    const noop = FileSystem.makeNoop({});
+    return FileSystem.layerNoop({
+      readFile: (file) => (file === wasm ? Effect.succeed(bytes) : noop.readFile(file)),
+    });
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
+
 const spawned: Worker[] = [];
-const recordedWorkers = PdfEngine.layerWorkers({ size: 2 }).pipe(
-  Layer.provideMerge(NodeServices.layer),
+const recordedWorkers = PdfEngine.layer({ size: 2 }).pipe(
   Layer.provide(
-    NodeWorker.layer(() => {
+    nodeWorkers(() => {
       const worker = new Worker(pdfWorkerEntry);
       spawned.push(worker);
       return worker;
     }),
   ),
+  Layer.provideMerge(NodeServices.layer),
 );
 
 const longDocument = textPdf(
@@ -122,7 +139,7 @@ layer(recordedWorkers)("worker pool", (it) => {
 });
 
 describe("in-process engine", () => {
-  layer(Layer.merge(PdfEngine.layerInProcess, NodeServices.layer))((it) => {
+  layer(PdfEngine.layerInProcess.pipe(Layer.provideMerge(NodeServices.layer)))((it) => {
     it.effect("gives the same results as the worker pool", () =>
       Effect.gen(function* () {
         const document = yield* open(yield* longDocument);
@@ -134,4 +151,44 @@ describe("in-process engine", () => {
       }),
     );
   });
+});
+
+describe("engine without a platform", () => {
+  layer(
+    PdfEngine.layerInProcess.pipe(Layer.provide(Layer.merge(pdfiumOnlyFileSystem, Path.layer))),
+  )((it) => {
+    it.effect("reads and renders a PDF with only a FileSystem that serves PDFium", () =>
+      Effect.gen(function* () {
+        const document = yield* open(yield* longDocument);
+
+        const [text] = yield* document.text({ pages: [0] });
+        const image = yield* document.render(0, { dpi: 72 });
+
+        expect(text?.text).toContain("Pagina numero 0");
+        expect(image.mediaType).toBe(pdfImageMediaTypes.png);
+        expect(image.bytes.subarray(1, 4)).toStrictEqual(new TextEncoder().encode("PNG"));
+      }),
+    );
+  });
+});
+
+describe("default pool size", () => {
+  it.effect.each([
+    ["no navigator", undefined, 1],
+    ["a navigator without hardwareConcurrency", {}, 1],
+    ["a navigator that reports 3 CPUs", { hardwareConcurrency: 3 }, 2],
+  ] as const)("uses the CPUs reported by %s", ([, navigator, expected]) =>
+    Effect.gen(function* () {
+      vi.stubGlobal("navigator", navigator);
+      const engine = PdfEngine.layer().pipe(
+        Layer.provide(nodeWorkers()),
+        Layer.provide(NodeServices.layer),
+      );
+      vi.unstubAllGlobals();
+
+      const { size } = yield* Effect.provide(PdfEngine, engine);
+
+      expect(size).toBe(expected);
+    }),
+  );
 });

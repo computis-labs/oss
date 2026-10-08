@@ -3,8 +3,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import { Console, Effect, FileSystem, ManagedRuntime, Path } from "effect";
 import { bilevelScanPdf, invoicePdf } from "./fixtures.ts";
-import { attempt, formatNumber, median } from "./support.ts";
-import { PdfEngine } from "../src/engine.ts";
+import { attempt, formatNumber, median, nodePdfEngine, nodePdfEngineInProcess } from "./support.ts";
+import type { PdfEngine } from "../src/engine.ts";
 import { open } from "../src/index.ts";
 import type { PdfDocument } from "../src/types.ts";
 
@@ -17,10 +17,10 @@ const NANOSECONDS_PER_MILLISECOND = 1e6;
 const SETTLE_MILLISECONDS = 20;
 
 const engines = [
-  { label: "in-process (thread principale)", layer: PdfEngine.layerInProcess },
-  { label: "1 worker", layer: PdfEngine.layer({ size: 1 }) },
-  { label: "2 worker", layer: PdfEngine.layer({ size: 2 }) },
-  { label: "4 worker", layer: PdfEngine.layer({ size: 4 }) },
+  { label: "in-process (thread principale)", layer: nodePdfEngineInProcess },
+  { label: "1 worker", layer: nodePdfEngine({ size: 1 }) },
+  { label: "2 worker", layer: nodePdfEngine({ size: 2 }) },
+  { label: "4 worker", layer: nodePdfEngine({ size: 4 }) },
 ] as const;
 
 const onDocument = <A, E>(

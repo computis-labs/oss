@@ -1,11 +1,29 @@
-import { crc32, deflateSync } from "node:zlib";
+import * as Effect from "effect/Effect";
+import { PdfEngineError } from "./errors/pdf-engine-error.ts";
+import type { PdfImage } from "./types.ts";
 
 const SIGNATURE = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
 const COLOR_TYPES = { 1: 0, 3: 2, 4: 6 } as const satisfies Record<RasterChannels, number>;
-const COMPRESSION_LEVEL = 6;
 const BITS_PER_BYTE = 8;
 const INK_THRESHOLD = 128;
 const BIT_WEIGHTS = [128, 64, 32, 16, 8, 4, 2, 1] as const;
+const HEADER_BYTES = 13;
+const CHUNK_OVERHEAD = 12;
+const CRC_POLYNOMIAL = 0xed_b8_83_20;
+const CRC_INITIAL = 0xff_ff_ff_ff;
+const BYTE_VALUES = 256;
+const BYTE_MASK = 0xff;
+
+const ascii = new TextEncoder();
+
+const CRC_TABLE = Uint32Array.from({ length: BYTE_VALUES }, (_, byte) => {
+  const round = (crc: number, bits: number): number =>
+    bits === 0
+      ? crc
+      : // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
+        round(crc & 1 ? CRC_POLYNOMIAL ^ (crc >>> 1) : crc >>> 1, bits - 1);
+  return round(byte, BITS_PER_BYTE);
+});
 
 export type RasterChannels = 1 | 3 | 4;
 
@@ -18,12 +36,26 @@ export interface Raster {
   readonly width: number;
 }
 
+export interface PngScanlines {
+  readonly header: Uint8Array;
+  readonly scanlines: Uint8Array<ArrayBuffer>;
+}
+
+export type PdfImageDraft = PdfImage | (Omit<PdfImage, "bytes"> & { readonly png: PngScanlines });
+
 const chunk = (type: string, data: Uint8Array) => {
-  const out = Buffer.alloc(12 + data.length);
-  out.writeUInt32BE(data.length, 0);
-  out.write(type, 4, "latin1");
+  const out = new Uint8Array(CHUNK_OVERHEAD + data.length);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, data.length);
+  out.set(ascii.encode(type), 4);
   out.set(data, 8);
-  out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
+  const crc = out.subarray(4, 8 + data.length).reduce(
+    // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
+    (current, byte) => (CRC_TABLE[(current ^ byte) & BYTE_MASK] ?? 0) ^ (current >>> BITS_PER_BYTE),
+    CRC_INITIAL,
+  );
+  // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
+  view.setUint32(8 + data.length, (crc ^ CRC_INITIAL) >>> 0);
   return out;
 };
 
@@ -100,26 +132,66 @@ export const bgrToRgb = (
   return { bitDepth: 8, channels, data, height, rowBytes, width };
 };
 
-export const encodePng = ({ bitDepth, channels, data, height, rowBytes, width }: Raster) => {
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0);
-  header.writeUInt32BE(height, 4);
-  header.writeUInt8(bitDepth, 8);
-  header.writeUInt8(COLOR_TYPES[channels], 9);
+export const pngScanlines = ({
+  bitDepth,
+  channels,
+  data,
+  height,
+  rowBytes,
+  width,
+}: Raster): PngScanlines => {
+  const header = new Uint8Array(HEADER_BYTES);
+  const view = new DataView(header.buffer);
+  view.setUint32(0, width);
+  view.setUint32(4, height);
+  view.setUint8(8, bitDepth);
+  view.setUint8(9, COLOR_TYPES[channels]);
   const lineBytes = Math.ceil((width * channels * bitDepth) / BITS_PER_BYTE);
-  const filtered = Buffer.alloc((lineBytes + 1) * height);
+  const scanlines = new Uint8Array((lineBytes + 1) * height);
   for (let row = 0; row < height; row += 1) {
-    filtered.set(
+    scanlines.set(
       data.subarray(row * rowBytes, row * rowBytes + lineBytes),
       row * (lineBytes + 1) + 1,
     );
   }
-  return new Uint8Array(
-    Buffer.concat([
-      SIGNATURE,
-      chunk("IHDR", header),
-      chunk("IDAT", deflateSync(filtered, { level: COMPRESSION_LEVEL })),
-      chunk("IEND", new Uint8Array(0)),
-    ]),
-  );
+  return { header, scanlines };
 };
+
+export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
+  header,
+  scanlines,
+}: PngScanlines) {
+  const compressed = yield* Effect.tryPromise({
+    catch: (cause) => new PdfEngineError({ cause, message: "The PNG could not be compressed." }),
+    try: async () => {
+      const compression = new CompressionStream("deflate");
+      const writer = compression.writable.getWriter();
+      const [, deflated] = await Promise.all([
+        writer.write(scanlines).then(async () => {
+          await writer.close();
+        }),
+        new Response(compression.readable).arrayBuffer(),
+      ]);
+      return new Uint8Array(deflated);
+    },
+  });
+  const ihdr = chunk("IHDR", header);
+  const idat = chunk("IDAT", compressed);
+  const iend = chunk("IEND", new Uint8Array(0));
+  const png = new Uint8Array(SIGNATURE.length + ihdr.length + idat.length + iend.length);
+  png.set(SIGNATURE, 0);
+  png.set(ihdr, SIGNATURE.length);
+  png.set(idat, SIGNATURE.length + ihdr.length);
+  png.set(iend, png.length - iend.length);
+  return png;
+});
+
+export const finishImage = Effect.fn("EffectPdf.finishImage")(function* finishImage(
+  draft: PdfImageDraft,
+): Effect.fn.Return<PdfImage, PdfEngineError> {
+  if ("bytes" in draft) {
+    return draft;
+  }
+  const { height, mediaType, origin, png, width } = draft;
+  return { bytes: yield* encodePng(png), height, mediaType, origin, width };
+});

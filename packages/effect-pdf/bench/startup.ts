@@ -3,8 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console, Effect, FileSystem, ManagedRuntime, Path, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { bilevelScanPdf } from "./fixtures.ts";
-import { attempt, formatNumber, median } from "./support.ts";
-import { PdfEngine } from "../src/engine.ts";
+import { attempt, formatNumber, median, nodePdfEngine } from "./support.ts";
 import { open } from "../src/index.ts";
 
 const SIZES = [1, 2, 4] as const;
@@ -19,7 +18,7 @@ const measureOnce = Effect.gen(function* measurePoolStartup() {
   const size = Number(process.argv[process.argv.indexOf(MEASURE_FLAG) + 1]);
   const pdf = yield* attempt(async () => await bilevelScanPdf(1));
   const started = performance.now();
-  const runtime = ManagedRuntime.make(PdfEngine.layer({ size }));
+  const runtime = ManagedRuntime.make(nodePdfEngine({ size }));
   yield* attempt(
     async () =>
       await runtime.runPromise(

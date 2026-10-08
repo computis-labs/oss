@@ -7,6 +7,8 @@ const NO_INCREMENTAL = 2;
 const TEXT_FIELD_HEAD = "/FT/Tx/Kids[ ";
 const SIGNATURE_FIELD_HEAD = "/FT/Sig/Kids[";
 
+const ascii = new TextEncoder();
+
 export const saveDocument = (
   { document, lib }: PdfHandle,
   incremental: boolean,
@@ -20,21 +22,25 @@ export const saveDocument = (
     const size = lib.PDFiumExt_GetFileWriterSize(writer);
     const pointer = lib.pdfium._malloc(size);
     const saved = new Uint8Array(size);
-    const bytes = Buffer.from(saved.buffer);
     try {
       lib.PDFiumExt_GetFileWriterData(writer, pointer, size);
-      bytes.set(lib.pdfium.HEAPU8.subarray(pointer, pointer + size));
+      saved.set(lib.pdfium.HEAPU8.subarray(pointer, pointer + size));
     } finally {
       lib.pdfium._free(pointer);
     }
-    const heads = [...signatureFields].map((objectNumber) => ({
-      at: bytes.lastIndexOf(
-        `${objectNumber.toString()} 0 obj\r\n<<${TEXT_FIELD_HEAD}`,
-        bytes.length,
-        "latin1",
-      ),
-      objectNumber,
-    }));
+    const heads = [...signatureFields].map((objectNumber) => {
+      const prefix = `${objectNumber.toString()} 0 obj\r\n<<`;
+      const pattern = ascii.encode(`${prefix}${TEXT_FIELD_HEAD}`);
+      for (let at = saved.length - pattern.length; at >= 0; at -= 1) {
+        if (
+          saved[at] === pattern[0] &&
+          pattern.every((byte, offset) => saved[at + offset] === byte)
+        ) {
+          return { at: at + prefix.length, objectNumber };
+        }
+      }
+      return { at: -1, objectNumber };
+    });
     const missing = heads.find(({ at }) => at === -1);
     if (missing !== undefined) {
       return Result.fail(
@@ -44,7 +50,7 @@ export const saveDocument = (
       );
     }
     for (const { at } of heads) {
-      bytes.write(SIGNATURE_FIELD_HEAD, bytes.indexOf(TEXT_FIELD_HEAD, at, "latin1"), "latin1");
+      saved.set(ascii.encode(SIGNATURE_FIELD_HEAD), at);
     }
     return Result.succeed(saved);
   } finally {

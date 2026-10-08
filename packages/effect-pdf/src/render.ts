@@ -4,9 +4,10 @@ import { PdfPageError } from "./errors/pdf-page-error.ts";
 import { withFormEnvironment, withFormPage } from "./handle.ts";
 import type { PdfHandle } from "./handle.ts";
 import { bitmapFormats } from "./memory.ts";
-import { encodePng } from "./png.ts";
+import { pngScanlines } from "./png.ts";
+import type { PdfImageDraft } from "./png.ts";
 import { pdfImageMediaTypes, pdfImageOrigins } from "./types.ts";
-import type { PdfImage, PdfRenderSize } from "./types.ts";
+import type { PdfRenderSize } from "./types.ts";
 
 export const MAX_RENDER_PIXELS = 40_000_000;
 
@@ -36,7 +37,7 @@ export const renderPng = (
   form: number,
   pagePointer: number,
   { height, width }: { readonly height: number; readonly width: number },
-): PdfImage => {
+): PdfImageDraft => {
   const rowBytes = width * RGB_CHANNELS;
   const bitmap = lib.FPDFBitmap_CreateEx(width, height, bitmapFormats.bgr, 0, rowBytes);
   try {
@@ -47,7 +48,10 @@ export const renderPng = (
     const pixels = lib.FPDFBitmap_GetBuffer(bitmap);
     const stride = lib.FPDFBitmap_GetStride(bitmap);
     return {
-      bytes: encodePng({
+      height,
+      mediaType: pdfImageMediaTypes.png,
+      origin: pdfImageOrigins.rendered,
+      png: pngScanlines({
         bitDepth: 8,
         channels: RGB_CHANNELS,
         data: lib.pdfium.HEAPU8.subarray(pixels, pixels + stride * height),
@@ -55,9 +59,6 @@ export const renderPng = (
         rowBytes: stride,
         width,
       }),
-      height,
-      mediaType: pdfImageMediaTypes.png,
-      origin: pdfImageOrigins.rendered,
       width,
     };
   } finally {

@@ -4,11 +4,11 @@ import { Console, Effect, FileSystem, Layer, Path } from "effect";
 import { encode } from "fast-png";
 import { Bench } from "tinybench";
 import { makeBaseline } from "./baseline.ts";
-import { BenchmarkError, attempt, formatNumber } from "./support.ts";
+import { BenchmarkError, attempt, formatNumber, nodePdfEngine } from "./support.ts";
 import { bilevelScanPdf, invoicePdf, jpegScanPdf } from "./fixtures.ts";
-import { PdfEngine } from "../src/engine.ts";
+import type { PdfEngine } from "../src/engine.ts";
 import { open } from "../src/index.ts";
-import { encodePng } from "../src/png.ts";
+import { encodePng, pngScanlines } from "../src/png.ts";
 import type { Raster } from "../src/png.ts";
 import { pdfPageKinds } from "../src/types.ts";
 import type { PdfDocument } from "../src/types.ts";
@@ -138,10 +138,10 @@ const program = Effect.gen(function* effectPdfBenchmark() {
       title: `Render della pagina 1 a ${RENDER_WIDTH.toString()} px (PNG)`,
     },
     {
-      candidateName: "encodePng (zlib di Node)",
+      candidateName: "encodePng (CompressionStream)",
       comparisons: rasters.map(({ label, raster }) => ({
         candidate: async () => {
-          await Promise.resolve(encodePng(raster));
+          await Effect.runPromise(encodePng(pngScanlines(raster)));
         },
         kilobytes: raster.data.length / 1024,
         label,
@@ -157,7 +157,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
           );
         },
       })),
-      note: "Motivo di `src/png.ts` invece di fast-png: lo zlib nativo di Node comprime più in fretta del deflate in JavaScript di fast-png.",
+      note: "Motivo di `src/png.ts` invece di fast-png: `CompressionStream` usa lo zlib nativo della piattaforma, che comprime più in fretta del deflate in JavaScript di fast-png.",
       referenceName: "fast-png",
       title: "Codifica PNG di un raster già decodificato",
     },
@@ -221,6 +221,4 @@ const program = Effect.gen(function* effectPdfBenchmark() {
   yield* Console.log(report);
 });
 
-NodeRuntime.runMain(
-  program.pipe(Effect.provide(Layer.merge(PdfEngine.layer(), NodeServices.layer))),
-);
+NodeRuntime.runMain(program.pipe(Effect.provide(Layer.merge(nodePdfEngine(), NodeServices.layer))));
