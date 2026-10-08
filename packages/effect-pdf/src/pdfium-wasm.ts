@@ -6,7 +6,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Transferable from "effect/workers/Transferable";
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
-import type { WasmModule } from "./types/webassembly.d.ts";
 
 export const PdfWorkerInit = Schema.Struct({
   wasm: Transferable.schema(Schema.instanceOf(WebAssembly.Module), () => []),
@@ -15,9 +14,10 @@ export const PdfWorkerInit = Schema.Struct({
 const missingBinary = (cause: unknown) =>
   new PdfEngineError({ cause, message: "The PDFium binary is missing or cannot be compiled." });
 
-export class PdfiumWasm extends Context.Service<PdfiumWasm, { readonly module: WasmModule }>()(
-  "@computis/effect-pdf/pdfium-wasm/PdfiumWasm",
-) {
+export class PdfiumWasm extends Context.Service<
+  PdfiumWasm,
+  { readonly module: WebAssembly.Module }
+>()("@computis/effect-pdf/pdfium-wasm/PdfiumWasm") {
   static readonly layerCompiled = Layer.effect(
     PdfiumWasm,
     Effect.gen(function* compilePdfium() {

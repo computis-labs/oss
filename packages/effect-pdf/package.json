@@ -1,19 +1,52 @@
 {
   "name": "@computis/effect-pdf",
   "version": "0.0.0",
-  "private": true,
+  "description": "Read, render and fill PDFs with Effect, on PDFium compiled to WebAssembly and a pool of workers.",
+  "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-pdf#readme",
+  "bugs": "https://github.com/computis-labs/oss/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/computis-labs/oss.git",
+    "directory": "packages/effect-pdf"
+  },
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./engine": "./src/engine.ts",
     "./errors/*": "./src/errors/*.ts",
+    "./server": "./src/server.ts",
+    "./testing": "./src/testing.ts",
     "./types": "./src/types.ts",
-    "./testing": "./src/testing.ts"
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js",
+      "./engine": "./dist/engine.js",
+      "./errors/*": "./dist/errors/*.js",
+      "./server": "./dist/server.js",
+      "./testing": "./dist/testing.js",
+      "./types": "./dist/types.js",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
     "bench": "node --expose-gc bench/main.ts && node bench/pool.ts && node bench/startup.ts && oxfmt bench/results",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@embedpdf/pdfium": "2.15.1",

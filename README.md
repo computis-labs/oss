@@ -6,8 +6,9 @@ Effect libraries that [Computis](https://computis.it) builds and uses in product
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | [`@computis/effect-xml`](packages/effect-xml) | XML decoding and encoding with Effect Schema, XSD validation, and an XSD to Effect Schema generator |
 | [`@computis/effect-md`](packages/effect-md)   | LLM prompts written as Markdown files and compiled to typed Effect AI prompts                       |
+| [`@computis/effect-pdf`](packages/effect-pdf) | Read, render and fill PDFs with Effect, on PDFium compiled to WebAssembly and a pool of workers     |
 
-Every package needs Effect 4 and Node 22 or later, and ships as ESM only.
+Every package needs Effect 4 and ships as ESM only. effect-xml and effect-md run on Node 22 or later, effect-pdf on Node 24.15 or later.
 
 ## How this repository works
 

@@ -210,7 +210,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
     "# Benchmark effect-pdf",
     "",
     `- Node ${process.version} · ${process.platform}/${process.arch}`,
-    "- Riferimento: la pipeline di `apps/backend/src/modules/invoice-translation` su pdf.js (unpdf), replicata in `bench/baseline.ts`: apre il PDF una volta per la classificazione e una per il testo o le immagini",
+    "- Riferimento: pipeline pdf.js (unpdf), in `bench/baseline.ts`: apre il PDF una volta per la classificazione e una per il testo o le immagini",
     "- effect-pdf apre il PDF una volta sola; le fixture sono generate in `bench/fixtures.ts`",
     "",
     ...measured,
