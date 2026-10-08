@@ -174,6 +174,12 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation with a domai
       "The module ./missing.ts of the domain cannot be resolved from the generated file.",
     ],
     [
+      "a package that does not resolve",
+      "@acme/missing-domain",
+      "domain",
+      "The module @acme/missing-domain of the domain cannot be resolved from the generated file.",
+    ],
+    [
       "a module without the export",
       "./order-domain.ts",
       "missing",
@@ -209,6 +215,17 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation with a domai
 
       expect(error).toBeInstanceOf(XsdCodegenError);
       expect(error.message).toBe(message);
+    }),
+  );
+
+  it.effect("leaves no resolver module next to the generated file", () =>
+    Effect.gen(function* test() {
+      const fs = yield* FileSystem.FileSystem;
+      yield* Effect.flip(generateOrder("@acme/missing-domain", "domain"));
+
+      const entries = yield* fs.readDirectory(fixture(""));
+
+      expect(entries.filter((entry) => entry.startsWith(".effect-xml-"))).toStrictEqual([]);
     }),
   );
 

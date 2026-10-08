@@ -10,10 +10,12 @@ Decode and encode XML with Effect Schema, validate it against an XSD, and genera
 ## Install
 
 ```sh
-npm install @computis/effect-xml effect @effect/platform-node
+npm install @computis/effect-xml effect
 ```
 
-It needs Effect 4 and Node 22 or later. The package is ESM only.
+It needs Effect 4. The package is ESM only. Its modules depend on no Effect platform package: the services they need, such as `FileSystem`, come from the platform layer you provide, so they work with `@effect/platform-node`, `@effect/platform-bun` or any other.
+
+The `effect-xml` CLI needs one platform package next to it: `@effect/platform-node` on Node, `@effect/platform-bun` on Bun. To run it elsewhere, provide your platform's services to `main` from `@computis/effect-xml/cli`.
 
 ## Decode and encode
 
@@ -64,7 +66,7 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 ```
 
-`make` compiles the XSD once and frees it when its scope closes. `validate` fails with `XsdValidationError`, whose message lists each issue with its line and column. The XSD can also come from memory: `{ contents: Uint8Array, url }`, where `url` resolves the schemas it imports.
+`make` compiles the XSD once and frees it when its scope closes. It reads the XSD and every schema it imports or includes through the `FileSystem` and `Path` services, so it works on any Effect platform, or on a `FileSystem` of your own. `validate` fails with `XsdValidationError`, whose message lists each issue with its line and column. The XSD can also come from memory: `{ contents: Uint8Array, url }`, where `url` resolves the schemas it imports.
 
 ## Generate the Schema from an XSD
 

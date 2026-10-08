@@ -10,10 +10,12 @@ Write LLM prompts as Markdown files and use them as typed Effect AI prompts.
 ## Install
 
 ```sh
-npm install @computis/effect-md effect @effect/platform-node
+npm install @computis/effect-md effect
 ```
 
-It needs Effect 4 and Node 22 or later. The package is ESM only.
+It needs Effect 4. The package is ESM only. Its modules depend on no Effect platform package: the services they need, such as `FileSystem`, come from the platform layer you provide, so they work with `@effect/platform-node`, `@effect/platform-bun` or any other.
+
+The `effect-md` CLI needs one platform package next to it: `@effect/platform-node` on Node, `@effect/platform-bun` on Bun. To run it elsewhere, provide your platform's services to `main` from `@computis/effect-md/cli`.
 
 ## Example
 

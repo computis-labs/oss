@@ -1,11 +1,11 @@
-import { pathToFileURL } from "node:url";
-import { resolve as resolveModule } from "import-meta-resolve";
 import { Effect, FileSystem, Option, Path, Predicate, Schema } from "effect";
 import { XsdCodegenError } from "../errors/xsd-codegen-error.ts";
 
 const ExportedFunction = Schema.declare(Predicate.isFunction, { expected: "a function" });
 
 const decodeObject = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown));
+
+const decodeResolved = Schema.decodeUnknownOption(Schema.Struct({ url: Schema.String }));
 
 export interface DomainOptions {
   /** Name of the export that holds the domain object. */
@@ -38,17 +38,45 @@ export const loadDomain = Effect.fn("XsdCodegen.loadDomain")(function* loadDomai
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const importer = path.resolve(options.importer);
-  const parent = pathToFileURL(importer).href;
   const unresolved = (cause: unknown) =>
     new XsdCodegenError({
       cause,
       message: `The module ${options.module} of the domain cannot be resolved from the generated file.`,
       path: importer,
     });
-  const url = yield* Effect.try({
-    catch: unresolved,
-    try: () => resolveModule(options.module, parent),
-  });
+  const isPathSpecifier =
+    options.module.startsWith("./") ||
+    options.module.startsWith("../") ||
+    options.module.startsWith("/");
+  const url = isPathSpecifier
+    ? new URL(options.module, yield* path.toFileUrl(importer).pipe(Effect.mapError(unresolved)))
+        .href
+    : yield* Effect.scoped(
+        Effect.gen(function* resolveFromHost() {
+          const resolver = yield* fs.makeTempFileScoped({
+            directory: path.dirname(importer),
+            prefix: ".effect-xml-",
+            suffix: ".mjs",
+          });
+          yield* fs.writeFileString(
+            resolver,
+            `export const url = import.meta.resolve(${JSON.stringify(options.module)});\n`,
+          );
+          const { href } = yield* path.toFileUrl(resolver);
+          return yield* Effect.tryPromise(async () => {
+            const resolved: unknown = await import(href);
+            return decodeResolved(resolved);
+          });
+        }),
+      ).pipe(
+        Effect.mapError(unresolved),
+        Effect.flatMap(
+          Option.match({
+            onNone: () => unresolved(options.module),
+            onSome: ({ url: resolved }) => Effect.succeed(resolved),
+          }),
+        ),
+      );
   const file = yield* path.fromFileUrl(new URL(url)).pipe(Effect.mapError(unresolved));
   if (!(yield* fs.exists(file).pipe(Effect.orElseSucceed(() => false)))) {
     return yield* unresolved(url);

@@ -11,7 +11,7 @@
     "directory": "packages/effect-md"
   },
   "bin": {
-    "effect-md": "./src/cli.ts"
+    "effect-md": "./src/bin.ts"
   },
   "files": [
     "src/**/*.ts",
@@ -31,11 +31,12 @@
     "./project": "./src/project.ts",
     "./project-error": "./src/project-error.ts",
     "./runtime": "./src/runtime.ts",
+    "./cli": "./src/cli.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "bin": {
-      "effect-md": "./dist/cli.js"
+      "effect-md": "./dist/bin.js"
     },
     "exports": {
       "./ast": "./dist/ast.js",
@@ -46,6 +47,7 @@
       "./project": "./dist/project.js",
       "./project-error": "./dist/project-error.js",
       "./runtime": "./dist/runtime.js",
+      "./cli": "./dist/cli.js",
       "./package.json": "./package.json"
     },
     "access": "public",
@@ -54,7 +56,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepack": "pnpm build",
-    "fixtures:generate": "node src/cli.ts generate --root tests/fixtures/prompts --runtime ../../../src/runtime.ts --format \"oxfmt --stdin-filepath={file}\"",
+    "fixtures:generate": "node src/bin.ts generate --root tests/fixtures/prompts --runtime ../../../src/runtime.ts --format \"oxfmt --stdin-filepath={file}\"",
     "test": "pnpm fixtures:generate && vitest run",
     "lint:prepare": "pnpm fixtures:generate",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -64,14 +66,24 @@
   },
   "devDependencies": {
     "@computis/config": "workspace:*",
+    "@effect/platform-bun": "4.0.0",
     "@effect/platform-node": "4.0.0",
     "@effect/vitest": "4.0.0",
     "effect": "4.0.0",
     "vitest": "5.0.1"
   },
   "peerDependencies": {
+    "@effect/platform-bun": "^4.0.0",
     "@effect/platform-node": "^4.0.0",
     "effect": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@effect/platform-bun": {
+      "optional": true
+    },
+    "@effect/platform-node": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22"

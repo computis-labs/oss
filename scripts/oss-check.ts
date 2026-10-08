@@ -4,7 +4,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { publicPackages } from "./oss-packages.ts";
 
-const peerPackages = ["effect", "@effect/platform-node"] as const;
+const platformPackage = "@effect/platform-node";
 
 class OssCheckError extends Schema.TaggedError<OssCheckError>()("OssCheckError", {
   message: Schema.String,
@@ -49,6 +49,29 @@ const run = Effect.fn("run")(function* runProgram(
     });
   }
   return output;
+}, Effect.scoped);
+
+const runWithoutPlatform = Effect.fn("runWithoutPlatform")(function* runWithoutPlatformProgram(
+  bin: string,
+  cwd: string,
+) {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const handle = yield* spawner.spawn(
+    ChildProcess.make(process.execPath, [bin, "--help"], {
+      cwd,
+      stdin: "ignore",
+      stdout: "ignore",
+    }),
+  );
+  const [errors, code] = yield* Effect.all(
+    [handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode],
+    { concurrency: 2 },
+  );
+  if (code === 0 || !errors.includes(`install ${platformPackage}`)) {
+    yield* OssCheckError.make({
+      message: `${bin} without ${platformPackage} should fail and name it, but exited with code ${code}.\n${errors}`,
+    });
+  }
 }, Effect.scoped);
 
 const packTarball = Effect.fn("packTarball")(function* packTarballProgram(
@@ -120,13 +143,16 @@ const program = Effect.gen(function* ossCheckProgram() {
   }
 
   const { devDependencies } = yield* readJson(RootManifest, path.join(root, "package.json"));
-  const peers = Object.fromEntries(peerPackages.map((name) => [name, devDependencies[name]]));
   const local = Object.fromEntries(
     [...tarballs].map(([name, tarball]) => [name, `file:${tarball}`]),
   );
   yield* fs.writeFileString(
     path.join(smoke, "package.json"),
-    JSON.stringify({ dependencies: { ...local, ...peers }, private: true, type: "module" }),
+    JSON.stringify({
+      dependencies: { ...local, effect: devDependencies.effect },
+      private: true,
+      type: "module",
+    }),
   );
   yield* run("npm", ["install", "--no-audit", "--no-fund"], smoke);
 
@@ -148,11 +174,21 @@ const program = Effect.gen(function* ossCheckProgram() {
   );
   yield* run(process.execPath, ["smoke.mjs"], smoke);
   for (const bin of bins) {
+    yield* runWithoutPlatform(bin, smoke);
+  }
+
+  const platformVersion = devDependencies[platformPackage];
+  yield* run(
+    "npm",
+    ["install", "--no-audit", "--no-fund", `${platformPackage}@${platformVersion ?? "latest"}`],
+    smoke,
+  );
+  for (const bin of bins) {
     yield* run(process.execPath, [bin, "--help"], smoke);
   }
 
   yield* Console.log(
-    `${tarballs.size} packages, ${imports.length} entry points and ${bins.length} CLIs load on Node ${process.version}.`,
+    `${tarballs.size} packages and ${imports.length} entry points load on Node ${process.version} with no Effect platform package; ${bins.length} CLIs run once ${platformPackage} is installed.`,
   );
 }).pipe(Effect.scoped);
 

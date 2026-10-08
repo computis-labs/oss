@@ -1,6 +1,4 @@
-#!/usr/bin/env node
 import { whenDefined } from "./object.ts";
-import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Console, Effect, Option } from "effect";
 import { Command, Flag } from "effect/cli";
 import { check, generate, report, watch } from "./project.ts";
@@ -39,7 +37,7 @@ const reportFailure = <A, E extends { readonly message: string }, R>(
   self: Effect.Effect<A, E, R>,
 ) => Effect.tapError(self, (failure) => Console.error(failure.message));
 
-const cli = Command.make("effect-md").pipe(
+export const cli = Command.make("effect-md").pipe(
   Command.withDescription("Compile .prompt.md files into typed Effect AI prompts."),
   Command.withSubcommands([
     Command.make("generate", flags, (config) =>
@@ -57,7 +55,4 @@ const cli = Command.make("effect-md").pipe(
   ]),
 );
 
-NodeRuntime.runMain(
-  Command.run(cli, { version: "0.0.0" }).pipe(Effect.provide(NodeServices.layer)),
-  { disableErrorReporting: true },
-);
+export const main = Command.run(cli, { version: "0.0.0" });

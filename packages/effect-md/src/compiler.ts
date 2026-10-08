@@ -1,6 +1,5 @@
-import nodePath from "node:path";
 import { lookup } from "./object.ts";
-import { Array as Arr, Effect, Match, Option, Predicate, Result } from "effect";
+import { Array as Arr, Effect, Match, Option, Path, Predicate, Result } from "effect";
 import { absurd } from "effect/Function";
 import {
   ComparisonOperators,
@@ -16,7 +15,11 @@ import { didYouMean } from "./errors.ts";
 import type { SourceFile } from "./errors.ts";
 import { parse } from "./parser.ts";
 
-const { posix } = nodePath;
+const posix = Effect.runSync(
+  Effect.gen(function* posixPath() {
+    return yield* Path.Path;
+  }).pipe(Effect.provide(Path.layer)),
+);
 
 type Compiled<A> = Result.Result<A, PromptCompileError>;
 

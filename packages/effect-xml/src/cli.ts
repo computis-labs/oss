@@ -1,6 +1,3 @@
-#!/usr/bin/env node
-import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console, Effect, FileSystem, Option } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
 import { DEFAULT_RUNTIME, generate } from "./xsd-codegen/generate.ts";
@@ -78,12 +75,9 @@ const generateCommand = Command.make("generate", flags, (config) =>
   ),
 ).pipe(Command.withDescription("Generate Effect Schemas with XML annotations from an XSD."));
 
-const cli = Command.make("effect-xml").pipe(
+export const cli = Command.make("effect-xml").pipe(
   Command.withDescription("Tools for @computis/effect-xml."),
   Command.withSubcommands([generateCommand]),
 );
 
-NodeRuntime.runMain(
-  Command.run(cli, { version: "0.0.0" }).pipe(Effect.provide(NodeServices.layer)),
-  { disableErrorReporting: true },
-);
+export const main = Command.run(cli, { version: "0.0.0" });

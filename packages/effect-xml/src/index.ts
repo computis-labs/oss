@@ -1,5 +1,5 @@
 import { Effect, Result, SchemaAST } from "effect";
-import type { FileSystem, Scope } from "effect";
+import type { FileSystem, Path, Scope } from "effect";
 import { SchemaJITCompiler } from "effect/schema";
 import { makeDecoder } from "./decoder.ts";
 import type { Decode, DecoderOptions } from "./decoder.ts";
@@ -53,7 +53,7 @@ export const make: <S extends Encodable>(
 ) => Effect.Effect<
   ValidatingCodec<S>,
   XmlPlanError | XsdSchemaError,
-  Scope.Scope | FileSystem.FileSystem
+  Scope.Scope | FileSystem.FileSystem | Path.Path
 > = Effect.fn("EffectXml.make")(function* makeValidatingCodec<S extends Encodable>(
   schema: S,
   options: ValidatingCodecOptions,
