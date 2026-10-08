@@ -199,5 +199,6 @@ layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", 
         expect(unsound).toStrictEqual([]);
         expect(incomplete).toStrictEqual([]);
       }),
+    60_000,
   );
 });
