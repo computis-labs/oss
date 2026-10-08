@@ -1,0 +1,40 @@
+{
+  "name": "@computis/effect-pdf",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#effect-pdf/*": "./src/*.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./engine": "./src/engine.ts",
+    "./errors/*": "./src/errors/*.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "bench": "node --expose-gc bench/main.ts && node bench/pool.ts && node bench/startup.ts && oxfmt bench/results",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.0",
+    "@embedpdf/pdfium": "2.15.1",
+    "@types/emscripten": "1.41.6",
+    "effect": "4.0.0"
+  },
+  "devDependencies": {
+    "@computis/config": "workspace:*",
+    "@effect/vitest": "4.0.0",
+    "@napi-rs/canvas": "1.0.9",
+    "fast-png": "8.0.0",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.3.289",
+    "tinybench": "6.2.0",
+    "unpdf": "1.8.1",
+    "vitest": "5.0.1"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  }
+}
