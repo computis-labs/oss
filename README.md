@@ -25,6 +25,10 @@ pnpm oss:check
 
 `pnpm oss:check` packs every package, lints the tarballs with publint and attw, installs them in an empty project and loads every entry point.
 
+## Releases
+
+Versions and changelogs are written in the monorepo with [Changesets](https://github.com/changesets/changesets). When a release reaches this repository, the `Release` workflow publishes every version that npm does not have yet, with [trusted publishing](https://docs.npmjs.com/trusted-publishers/) and provenance, and creates its tag and GitHub release. Each package's `CHANGELOG.md` lists the changes.
+
 ## License
 
 MIT, except for the third-party test fixtures listed in each package's `tests/fixtures/NOTICE`.

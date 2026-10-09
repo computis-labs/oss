@@ -1,6 +1,6 @@
 {
   "name": "@computis/effect-pdf",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Read, render and fill PDFs with Effect, on PDFium compiled to WebAssembly and a pool of workers.",
   "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-pdf#readme",
   "bugs": "https://github.com/computis-labs/oss/issues",
@@ -16,7 +16,8 @@
     "dist/**/*.js",
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
-    "dist/**/*.d.ts.map"
+    "dist/**/*.d.ts.map",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "exports": {

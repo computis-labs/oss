@@ -8,8 +8,13 @@ export const publicFiles = [
   "packages/config/tsconfig/paths.json",
   "scripts/oss-check.ts",
   "scripts/oss-packages.ts",
+  "scripts/oss-release.ts",
 ] as const;
 
 export const privateFileNames = ["AGENTS.md"] as const;
 
 export const publicRepository = "computis-labs/oss";
+
+export const publicMirrorRef = "refs/oss/main";
+
+export const importBranchPrefix = "oss/pull/";

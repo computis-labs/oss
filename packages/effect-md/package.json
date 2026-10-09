@@ -1,6 +1,6 @@
 {
   "name": "@computis/effect-md",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Write LLM prompts as Markdown files and use them as typed Effect AI prompts.",
   "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-md#readme",
   "bugs": "https://github.com/computis-labs/oss/issues",
@@ -19,7 +19,8 @@
     "dist/**/*.js",
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
-    "dist/**/*.d.ts.map"
+    "dist/**/*.d.ts.map",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "exports": {
