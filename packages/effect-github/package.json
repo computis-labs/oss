@@ -1,0 +1,79 @@
+{
+  "name": "@computis/effect-github",
+  "version": "0.0.0",
+  "description": "Write the logic of GitHub Actions with Effect: inputs, outputs, event context, Octokit, job summary and runMain.",
+  "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-github#readme",
+  "bugs": "https://github.com/computis-labs/oss/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/computis-labs/oss.git",
+    "directory": "packages/effect-github"
+  },
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "CHANGELOG.md"
+  ],
+  "type": "module",
+  "exports": {
+    "./action": "./src/action.ts",
+    "./action-client": "./src/action-client.ts",
+    "./action-context": "./src/action-context.ts",
+    "./action-runner": "./src/action-runner.ts",
+    "./action-summary": "./src/action-summary.ts",
+    "./errors/*": "./src/errors/*.ts",
+    "./input": "./src/input.ts",
+    "./testing/*": "./src/testing/*.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      "./action": "./dist/action.js",
+      "./action-client": "./dist/action-client.js",
+      "./action-context": "./dist/action-context.js",
+      "./action-runner": "./dist/action-runner.js",
+      "./action-summary": "./dist/action-summary.js",
+      "./errors/*": "./dist/errors/*.js",
+      "./input": "./dist/input.js",
+      "./testing/*": "./dist/testing/*.js",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.1",
+    "@actions/github": "9.1.1"
+  },
+  "devDependencies": {
+    "@computis/config": "workspace:*",
+    "@effect/platform-node": "4.0.3",
+    "@effect/vitest": "4.0.3",
+    "@types/node": "^26.6.4",
+    "effect": "4.0.3",
+    "vitest": "5.0.3"
+  },
+  "peerDependencies": {
+    "@effect/platform-node": "^4.0.0",
+    "effect": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@effect/platform-node": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

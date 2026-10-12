@@ -2,13 +2,14 @@
 
 Effect libraries that [Computis](https://computis.it) builds and uses in production.
 
-| Package                                       | What it does                                                                                        |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [`@computis/effect-xml`](packages/effect-xml) | XML decoding and encoding with Effect Schema, XSD validation, and an XSD to Effect Schema generator |
-| [`@computis/effect-md`](packages/effect-md)   | LLM prompts written as Markdown files and compiled to typed Effect AI prompts                       |
-| [`@computis/effect-pdf`](packages/effect-pdf) | Read, render and fill PDFs with Effect, on PDFium compiled to WebAssembly and a pool of workers     |
+| Package                                             | What it does                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [`@computis/effect-xml`](packages/effect-xml)       | XML decoding and encoding with Effect Schema, XSD validation, and an XSD to Effect Schema generator     |
+| [`@computis/effect-md`](packages/effect-md)         | LLM prompts written as Markdown files and compiled to typed Effect AI prompts                           |
+| [`@computis/effect-pdf`](packages/effect-pdf)       | Read, render and fill PDFs with Effect, on PDFium compiled to WebAssembly and a pool of workers         |
+| [`@computis/effect-github`](packages/effect-github) | The logic of GitHub Actions steps with Effect: inputs, outputs, event, Octokit, job summary and runMain |
 
-Every package needs Effect 4 and ships as ESM only. effect-xml and effect-md run on Node 22 or later, effect-pdf on Node 24.15 or later.
+Every package needs Effect 4 and ships as ESM only. effect-xml, effect-md and effect-github run on Node 22 or later, effect-pdf on Node 24.15 or later. effect-github runs on Node only, like the GitHub Actions it is written for.
 
 ## How this repository works
 

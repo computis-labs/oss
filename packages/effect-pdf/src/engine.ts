@@ -264,16 +264,6 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
   } as const;
 });
 
-const connectToWorker = Effect.fn("PdfEngine.connectToWorker")(function* connectToWorker(
-  scope: Scope.Scope,
-) {
-  const protocol = yield* RpcClient.makeProtocolWorker({ size: 1 }).pipe(Scope.provide(scope));
-  return yield* RpcClient.make(PdfRpcs).pipe(
-    Effect.provideService(RpcClient.Protocol, protocol),
-    Scope.provide(scope),
-  );
-});
-
 export type PdfPool = Effect.Success<ReturnType<typeof makePool>>;
 
 const withOpen = (pool: PdfPool) => ({ ...pool, open: openDocument(pool) });
@@ -294,7 +284,21 @@ export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof with
   > =>
     Layer.effect(
       PdfEngine,
-      Effect.map(makePool(Math.max(1, Math.floor(size)), connectToWorker), withOpen),
+      Effect.map(
+        makePool(
+          Math.max(1, Math.floor(size)),
+          Effect.fn("PdfEngine.connectToWorker")(function* connectToWorker(scope: Scope.Scope) {
+            const protocol = yield* RpcClient.makeProtocolWorker({ size: 1 }).pipe(
+              Scope.provide(scope),
+            );
+            return yield* RpcClient.make(PdfRpcs).pipe(
+              Effect.provideService(RpcClient.Protocol, protocol),
+              Scope.provide(scope),
+            );
+          }),
+        ),
+        withOpen,
+      ),
     ).pipe(
       Layer.provide(
         RpcWorker.layerInitialMessage(

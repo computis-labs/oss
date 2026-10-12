@@ -31,48 +31,6 @@ interface FormatOptions {
   readonly path: string;
 }
 
-const format = Effect.fn("XsdCodegen.format")(function* formatCode(
-  code: string,
-  options: FormatOptions,
-) {
-  const { command } = options;
-  const args = options.args.map((arg) => arg.replaceAll("{file}", options.path));
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const [formatted, stderr, exitCode] = yield* Effect.scoped(
-    Effect.gen(function* runFormatter() {
-      const handle = yield* spawner.spawn(
-        ChildProcess.make(command, args, {
-          stdin: Stream.make(new TextEncoder().encode(code)),
-        }),
-      );
-      return yield* Effect.all(
-        [
-          Stream.mkString(Stream.decodeText(handle.stdout)),
-          Stream.mkString(Stream.decodeText(handle.stderr)),
-          handle.exitCode,
-        ],
-        { concurrency: "unbounded" },
-      );
-    }),
-  ).pipe(
-    Effect.mapError(
-      (cause) =>
-        new XsdCodegenError({
-          cause,
-          message: `Cannot run '${command}': ${cause.message}`,
-          path: options.path,
-        }),
-    ),
-  );
-  if (exitCode !== 0) {
-    return yield* new XsdCodegenError({
-      message: `'${[command, ...args].join(" ")}' exited with code ${String(exitCode)}: ${stderr.trim()}`,
-      path: options.path,
-    });
-  }
-  return formatted;
-});
-
 export const generate: (
   options: GenerateOptions,
 ) => Effect.Effect<
@@ -114,5 +72,46 @@ export const generate: (
       source: source.url.split(/[\\/]/u).at(-1) ?? source.url,
     }),
   );
-  return options.format === undefined ? code : yield* format(code, options.format);
+  if (options.format === undefined) {
+    return code;
+  }
+  const formatOptions = options.format;
+  return yield* Effect.gen(function* formatCode() {
+    const { args: formatArgs, command, path } = formatOptions;
+    const args = formatArgs.map((arg) => arg.replaceAll("{file}", path));
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const [formatted, stderr, exitCode] = yield* Effect.scoped(
+      Effect.gen(function* runFormatter() {
+        const handle = yield* spawner.spawn(
+          ChildProcess.make(command, args, {
+            stdin: Stream.make(new TextEncoder().encode(code)),
+          }),
+        );
+        return yield* Effect.all(
+          [
+            Stream.mkString(Stream.decodeText(handle.stdout)),
+            Stream.mkString(Stream.decodeText(handle.stderr)),
+            handle.exitCode,
+          ],
+          { concurrency: "unbounded" },
+        );
+      }),
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new XsdCodegenError({
+            cause,
+            message: `Cannot run '${command}': ${cause.message}`,
+            path,
+          }),
+      ),
+    );
+    if (exitCode !== 0) {
+      return yield* new XsdCodegenError({
+        message: `'${[command, ...args].join(" ")}' exited with code ${String(exitCode)}: ${stderr.trim()}`,
+        path,
+      });
+    }
+    return formatted;
+  }).pipe(Effect.withSpan("XsdCodegen.format"));
 });
