@@ -12,7 +12,7 @@ Every package needs Effect 4 and ships as ESM only. effect-xml and effect-md run
 
 ## How this repository works
 
-The packages are developed in Computis' private monorepo, next to the product that uses them. This repository is a read-only mirror of them: each sync from the monorepo is one commit, and the packages are published to npm from here. See [CONTRIBUTING.md](CONTRIBUTING.md) for how issues and pull requests reach the monorepo.
+The packages are developed in Computis' private monorepo, next to the product that uses them. This repository mirrors them: each change in the monorepo arrives here as one commit, and the packages are published to npm from here. See [CONTRIBUTING.md](CONTRIBUTING.md) for how issues and pull requests reach the monorepo.
 
 ## Develop
 
