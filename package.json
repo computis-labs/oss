@@ -10,9 +10,9 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
-    "@effect/platform-node": "4.0.0",
+    "@effect/platform-node": "4.0.3",
     "@types/node": "26.1.2",
-    "effect": "4.0.0",
+    "effect": "4.0.3",
     "oxfmt": "0.65.0",
     "publint": "0.3.24",
     "typescript": "7.0.2"

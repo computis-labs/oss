@@ -55,17 +55,17 @@
   },
   "devDependencies": {
     "@computis/config": "workspace:*",
-    "@effect/platform-bun": "4.0.0",
-    "@effect/platform-node": "4.0.0",
-    "@effect/vitest": "4.0.0",
-    "@napi-rs/canvas": "1.0.9",
-    "effect": "4.0.0",
+    "@effect/platform-bun": "4.0.3",
+    "@effect/platform-node": "4.0.3",
+    "@effect/vitest": "4.0.3",
+    "@napi-rs/canvas": "1.0.10",
+    "effect": "4.0.3",
     "fast-png": "8.0.0",
     "pdf-lib": "1.17.1",
-    "pdfjs-dist": "6.3.289",
+    "pdfjs-dist": "6.4.299",
     "tinybench": "6.2.0",
     "unpdf": "1.8.1",
-    "vitest": "5.0.1"
+    "vitest": "5.0.3"
   },
   "peerDependencies": {
     "@effect/platform-bun": "^4.0.0",
