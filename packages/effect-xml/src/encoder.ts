@@ -190,12 +190,13 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
     if (writer.attributes.length > 0) {
       for (const attribute of writer.attributes) {
         const item = value[attribute.key];
-        if (Predicate.isString(item)) {
-          if (ATTRIBUTE_SPECIAL.test(item) && ILLEGAL.test(item)) {
-            return false;
-          }
-          parts.push(attribute.prefix, escapeAttribute(item), '"');
+        if (!Predicate.isString(item)) {
+          continue;
         }
+        if (ATTRIBUTE_SPECIAL.test(item) && ILLEGAL.test(item)) {
+          return false;
+        }
+        parts.push(attribute.prefix, escapeAttribute(item), '"');
       }
       parts.push(">");
     }

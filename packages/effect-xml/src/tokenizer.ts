@@ -116,22 +116,21 @@ const nameEnd = (xml: string, start: number) => {
   for (let index = start; ; index += 1) {
     const code = xml.charCodeAt(index);
     if (code >= LOWER_A_CODE) {
-      if (code > LOWER_Z_CODE) {
-        if (code <= ASCII_LAST_CODE) {
-          return index;
-        }
-        if (code >= HIGH_SURROGATE_CODE) {
-          const previous = xml.charCodeAt(index - 1);
-          const width =
-            index === start && code >= LOW_SURROGATE_CODE && code < PRIVATE_USE_CODE
-              ? Number(previous >= HIGH_SURROGATE_CODE && previous < LOW_SURROGATE_CODE)
-              : characterWidth(xml, index);
-          if (width === 0) {
-            return index;
-          }
-          index += width - 1;
-        }
+      if (code > LOWER_Z_CODE && code <= ASCII_LAST_CODE) {
+        return index;
       }
+      if (code < HIGH_SURROGATE_CODE) {
+        continue;
+      }
+      const previous = xml.charCodeAt(index - 1);
+      const width =
+        index === start && code >= LOW_SURROGATE_CODE && code < PRIVATE_USE_CODE
+          ? Number(previous >= HIGH_SURROGATE_CODE && previous < LOW_SURROGATE_CODE)
+          : characterWidth(xml, index);
+      if (width === 0) {
+        return index;
+      }
+      index += width - 1;
     } else if (code >= UPPER_A_CODE) {
       if (code > UPPER_Z_CODE && code !== UNDERSCORE_CODE) {
         return index;

@@ -235,11 +235,11 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
     const lexicalImplied =
       info.family === "number" &&
       spec.patterns.some((step) => impliesNumberLexical(step.node, spec.builtin === "decimal"));
-    if (info.lexical !== undefined && !lexicalImplied) {
-      const lexical = parse(info.lexical);
-      if (Result.isFailure(lexical)) {
-        return yield* fail(node, lexical.failure);
-      }
+    const lexical = info.lexical === undefined || lexicalImplied ? undefined : parse(info.lexical);
+    if (lexical !== undefined && Result.isFailure(lexical)) {
+      return yield* fail(node, lexical.failure);
+    }
+    if (lexical !== undefined && Result.isSuccess(lexical)) {
       const source = render(
         lexical.success,
         info.family === "date" && !enumerated ? "preserve" : spec.whiteSpace,
