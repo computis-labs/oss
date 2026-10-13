@@ -19,8 +19,9 @@ export const openDocument = (engine: PdfPool) =>
     { password = "" }: { readonly password?: string } = {},
   ) {
     const documentScope = yield* Effect.scope;
+    // Each attempt transfers its buffer to a worker; keep the source for retries.
     const openOn = (source: Uint8Array<ArrayBuffer>) => (client: PdfRpcClient, document: number) =>
-      client.Open({ bytes: source, document, password });
+      client.Open({ bytes: new Uint8Array(source), document, password });
     const { lease: primary, value: pages } = yield* engine.lease(
       new Set(),
       openOn(new Uint8Array(bytes)),
@@ -59,7 +60,7 @@ export const openDocument = (engine: PdfPool) =>
                 engine
                   .lease(
                     new Set([primary.worker, ...opened.map(({ worker }) => worker)]),
-                    openOn(new Uint8Array(retained)),
+                    openOn(retained),
                   )
                   .pipe(
                     Scope.provide(documentScope),

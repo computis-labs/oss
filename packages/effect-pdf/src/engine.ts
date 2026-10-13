@@ -51,6 +51,7 @@ interface Connection {
   readonly client: PdfRpcClient;
   readonly died: Deferred.Deferred<unknown>;
   readonly generation: number;
+  readonly replaced: Deferred.Deferred<void, PdfEngineError>;
   readonly scope: Scope.Closeable;
 }
 
@@ -74,6 +75,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
   const open = Effect.fn("PdfEngine.openConnection")(function* openConnection(generation: number) {
     const scope = yield* Scope.fork(connectionsScope);
     const died = yield* Deferred.make<unknown>();
+    const replaced = yield* Deferred.make<void, PdfEngineError>();
     const platform = Context.getOption(services, Worker.WorkerPlatform);
     const spawner = Context.getOption(services, Worker.Spawner);
     const watched =
@@ -115,7 +117,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
       Effect.mapError(workerFailure),
       Effect.onError(() => Scope.close(scope, Exit.void)),
     );
-    return { client, died, generation, scope } satisfies Connection;
+    return { client, died, generation, replaced, scope } satisfies Connection;
   });
 
   const workers = yield* Effect.all(
@@ -143,6 +145,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
       );
     });
     yield* replace.pipe(
+      Effect.onExit((exit) => Deferred.done(connection.replaced, exit)),
       Effect.tapError((failure) =>
         Effect.logWarning("effectPdf.worker.replaceFailed", { reason: failure.message }),
       ),
@@ -239,15 +242,24 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
           if (worker === undefined) {
             return yield* new PdfEngineError({ message: "The PDF worker pool is empty." });
           }
+          const connection = yield* SynchronizedRef.get(worker);
           const lease: PdfWorkerLease = {
             document,
-            generation: (yield* SynchronizedRef.get(worker)).generation,
+            generation: connection.generation,
             worker: chosen,
           };
           yield* Effect.addFinalizer(() =>
             Effect.ignore(call(lease, (client, id) => client.Close({ document: id }))),
           );
-          return { lease, value: yield* attempt(lease, start) };
+          return {
+            lease,
+            value: yield* attempt(lease, start).pipe(
+              // Wait until the supervisor has committed the replacement generation.
+              Effect.catchIf(isWorkerGone, (failure) =>
+                Deferred.await(connection.replaced).pipe(Effect.andThen(Effect.fail(failure))),
+              ),
+            ),
+          };
         }).pipe(
           Scope.provide(attemptScope),
           Effect.onExit((exit) =>
