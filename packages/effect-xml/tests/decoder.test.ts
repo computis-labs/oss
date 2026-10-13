@@ -30,6 +30,59 @@ const fatturaNamed = (name: string) => {
   return fixture?.fattura ?? expect.fail(`fixture ${name} is missing`);
 };
 
+describe("decode union content", () => {
+  it.effect.each([
+    [false, "error"],
+    [false, "skip"],
+    [true, "error"],
+    [true, "skip"],
+  ] as const)(
+    "rejects mixed FatturaPA choice branches with jit=%s and unknownElements=%s",
+    ([jit, unknownElements]) =>
+      Effect.gen(function* test() {
+        const { decode } = yield* Effect.fromResult(
+          codec(FatturaXml, { jit, decoder: { unknownElements } }),
+        );
+        const xml = singleLine.replace(
+          "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
+          "<Denominazione>Cliente Esempio S.p.A.</Denominazione><Nome>Mario</Nome><Cognome>Rossi</Cognome>",
+        );
+
+        const error = yield* Effect.flip(decode(xml));
+
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
+          position: { column: 9, line: 37 },
+        });
+      }),
+  );
+
+  it.effect.each([false, true])("rejects a partial optional group with jit=%s", (jit) =>
+    Effect.gen(function* test() {
+      const schema = Schema.Struct({
+        Customer: Schema.Union([
+          Schema.Struct({ FirstName: Schema.String, LastName: Schema.String }),
+          Schema.Struct({}).check(Schema.isMaxProperties(0)),
+        ]),
+      }).pipe(root("Order"));
+      const { decode } = yield* Effect.fromResult(codec(schema, { jit }));
+
+      const error = yield* Effect.flip(
+        decode("<Order><Customer><FirstName>Ada</FirstName></Customer></Order>"),
+      );
+
+      expect(error._tag).toBe("XmlDecodeError");
+      expect(yield* decode("<Order><Customer/></Order>")).toStrictEqual({ Customer: {} });
+      expect(
+        yield* decode(
+          "<Order><Customer><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Customer></Order>",
+        ),
+      ).toStrictEqual({ Customer: { FirstName: "Ada", LastName: "Lovelace" } });
+    }),
+  );
+});
+
 describe("decode on FatturaPA", () => {
   it.effect.each([
     ["1 linea", "1-linea"],

@@ -87,7 +87,8 @@ export const makeDecoder = <S extends Encodable>(
   const skipUnknown = options.unknownElements === "skip";
   const trimText = options.trimText === true;
   const tokenizeOptions = { maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH };
-  const decodeValue = Schema.decodeUnknownEffect(schema);
+  // The merged plan accepts every union member's fields; one member must accept all of them.
+  const decodeValue = Schema.decodeUnknownEffect(schema, { onExcessProperty: "error" });
   const rootNode = toNode(plan.node, new Map());
 
   return (xml) =>

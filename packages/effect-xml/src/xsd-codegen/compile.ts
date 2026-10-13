@@ -480,7 +480,7 @@ export const compileSchema = (schema: XsdNode, options: ModuleOptions): Compiled
           );
           structs.add(
             properties.length === 0
-              ? "Schema.Struct({})"
+              ? "Schema.Struct({}).check(Schema.isMaxProperties(0))"
               : `Schema.Struct({\n  ${properties.join(",\n  ")},\n})`,
           );
         }
