@@ -23,12 +23,6 @@ const TypeConstructors = {
   NullOr: "NullOr",
 } as const;
 
-const typeHints = {
-  Struct: "Write a struct as a nested YAML map, and an array of structs as '[{ name: String }]'.",
-  optional:
-    "'optional' is not a type. Put '?' after the field name instead, for example 'text?: String'.",
-};
-
 const typeNames = [...Object.values(PrimitiveTypes), ...Object.values(TypeConstructors)];
 
 const booleanWords: ReadonlyMap<string, boolean> = new Map([
@@ -234,8 +228,15 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           default: {
             return yield* fail(
               token,
-              lookup(typeHints, token.text) ??
-                `Unknown type '${token.text}'.${didYouMean(token.text, typeNames)}`,
+              lookup(
+                {
+                  Struct:
+                    "Write a struct as a nested YAML map, and an array of structs as '[{ name: String }]'.",
+                  optional:
+                    "'optional' is not a type. Put '?' after the field name instead, for example 'text?: String'.",
+                },
+                token.text,
+              ) ?? `Unknown type '${token.text}'.${didYouMean(token.text, typeNames)}`,
             );
           }
         }

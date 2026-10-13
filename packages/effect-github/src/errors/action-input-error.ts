@@ -6,12 +6,6 @@ export const ActionInputErrorReason = {
   ParseError: "ParseError",
 } as const;
 
-const messages = {
-  [ActionInputErrorReason.InvalidType]: (name: string) => `Input "${name}" has invalid type`,
-  [ActionInputErrorReason.Missing]: (name: string) => `Input required and not supplied: ${name}`,
-  [ActionInputErrorReason.ParseError]: (name: string) => `Failed to parse input "${name}"`,
-};
-
 export class ActionInputError extends Schema.TaggedError<ActionInputError>()("ActionInputError", {
   cause: Schema.optionalKey(Schema.Defect()),
   name: Schema.String,
@@ -19,6 +13,11 @@ export class ActionInputError extends Schema.TaggedError<ActionInputError>()("Ac
   value: Schema.optionalKey(Schema.Unknown),
 }) {
   override get message() {
-    return messages[this.reason](this.name);
+    if (this.reason === ActionInputErrorReason.InvalidType) {
+      return `Input "${this.name}" has invalid type`;
+    }
+    return this.reason === ActionInputErrorReason.Missing
+      ? `Input required and not supplied: ${this.name}`
+      : `Failed to parse input "${this.name}"`;
   }
 }

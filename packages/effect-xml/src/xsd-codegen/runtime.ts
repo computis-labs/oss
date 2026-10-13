@@ -24,7 +24,6 @@ const BASE64_CANONICAL = String.raw`^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}[AE
 const SURROGATE_PAIR = /[\u{10000}-\u{10FFFF}]/gu;
 const BASE64_LENIENT = /^(?<digits>[A-Za-z0-9+/]*)(?<padding>=*)$/u;
 const TIMEZONE_MARGIN_DAYS = 2;
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 export const xsdPattern = (regExp: RegExp, xsd: string, generator: RegExp = regExp) =>
   Schema.isPattern(regExp, {
@@ -180,7 +179,8 @@ const dayNumber = (groups: Record<string, string | undefined>): number | null =>
   const month = Number(groups["month"]);
   const day = Number(groups["day"]);
   const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-  const monthDays = month === 2 && leap ? 29 : (DAYS_IN_MONTH[month - 1] ?? 0);
+  const monthDays =
+    month === 2 && leap ? 29 : ([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0);
   if (year === 0 || day < 1 || day > monthDays) {
     return null;
   }

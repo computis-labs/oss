@@ -6,7 +6,6 @@ import { bilevelScanPdf } from "./fixtures.ts";
 import { attempt, formatNumber, median, nodePdfEngine } from "./support.ts";
 import { open } from "../src/index.ts";
 
-const SIZES = [1, 2, 4] as const;
 const RUNS = 3;
 const BYTES_PER_MEGABYTE = 2 ** 20;
 const MEASURE_FLAG = "--measure";
@@ -44,7 +43,7 @@ const compare = Effect.gen(function* comparePoolSizes() {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const script = import.meta.filename;
   const rows = yield* Effect.all(
-    SIZES.map((size) =>
+    ([1, 2, 4] as const).map((size) =>
       Effect.gen(function* measureSize() {
         const runs = yield* Effect.all(
           Array.from({ length: RUNS }, () =>

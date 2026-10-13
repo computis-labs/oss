@@ -3,7 +3,6 @@ import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import type { PdfImage } from "./types.ts";
 
 const SIGNATURE = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
-const COLOR_TYPES = { 1: 0, 3: 2, 4: 6 } as const satisfies Record<RasterChannels, number>;
 const BITS_PER_BYTE = 8;
 const INK_THRESHOLD = 128;
 const BIT_WEIGHTS = [128, 64, 32, 16, 8, 4, 2, 1] as const;
@@ -145,7 +144,10 @@ export const pngScanlines = ({
   view.setUint32(0, width);
   view.setUint32(4, height);
   view.setUint8(8, bitDepth);
-  view.setUint8(9, COLOR_TYPES[channels]);
+  view.setUint8(
+    9,
+    ({ 1: 0, 3: 2, 4: 6 } as const satisfies Record<RasterChannels, number>)[channels],
+  );
   const lineBytes = Math.ceil((width * channels * bitDepth) / BITS_PER_BYTE);
   const scanlines = new Uint8Array((lineBytes + 1) * height);
   for (let row = 0; row < height; row += 1) {

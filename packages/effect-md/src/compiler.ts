@@ -45,31 +45,6 @@ const printablePrimitives: ReadonlySet<string> = new Set([
   PrimitiveTypes.String,
 ]);
 
-const primitiveFills = {
-  Boolean: (expression: string) => expression,
-  Json: (expression: string) => `${expression} !== null`,
-  Number: (expression: string) => `${expression} !== 0`,
-  String: (expression: string) => `${expression} !== ""`,
-};
-
-const primitiveLiterals = {
-  Boolean: Predicate.isBoolean,
-  Json: () => true,
-  Number: Predicate.isNumber,
-  String: Predicate.isString,
-};
-
-const primitiveHints = {
-  File: " Use '{{file value}}' to attach it.",
-  Json: " Use '{{json value}}' to print it as JSON.",
-};
-
-const roleBuilders = {
-  assistant: "Runtime.assistant",
-  system: "Runtime.system",
-  user: "Runtime.user",
-};
-
 interface ValueType {
   readonly node?: Ast.TypeNode;
   readonly optional: boolean;
@@ -324,13 +299,6 @@ const ValueKinds = {
   string: "string",
 } as const;
 
-const kindDescriptions = {
-  array: "an array",
-  file: "a File",
-  printable: "a String, a Number, a Boolean or a Literal",
-  string: "a String",
-};
-
 const kindChecks = {
   array: (node: Ast.TypeNode) => Predicate.isTagged(node, "Array"),
   file: (node: Ast.TypeNode) =>
@@ -366,14 +334,28 @@ const requireValue = (
     Array: () => " Use '{{#each}}' or '{{json value}}'.",
     Literal: () => "",
     NullOr: () => "",
-    Primitive: (primitiveType) => lookup(primitiveHints, primitiveType.name) ?? "",
+    Primitive: (primitiveType) =>
+      lookup(
+        {
+          File: " Use '{{file value}}' to attach it.",
+          Json: " Use '{{json value}}' to print it as JSON.",
+        },
+        primitiveType.name,
+      ) ?? "",
     Struct: () => " Use '{{json value}}' to print it as JSON.",
   });
   return fail(
     ctx,
     value.span.start,
     kind === ValueKinds.array ? Reason.InvalidIterable : Reason.InvalidOutput,
-    `'${name}' is ${describeType(node)}, but ${kindDescriptions[kind]} is expected here.${hint}`,
+    `'${name}' is ${describeType(node)}, but ${
+      {
+        array: "an array",
+        file: "a File",
+        printable: "a String, a Number, a Boolean or a Literal",
+        string: "a String",
+      }[kind]
+    } is expected here.${hint}`,
   );
 };
 
@@ -415,7 +397,15 @@ const emitCondition = (
                 literalType.values.some((candidate) => candidate === literal),
               NullOr: () => true,
               Primitive: (primitiveType) =>
-                lookup(primitiveLiterals, primitiveType.name)?.(literal) ?? false,
+                lookup(
+                  {
+                    Boolean: Predicate.isBoolean,
+                    Json: () => true,
+                    Number: Predicate.isNumber,
+                    String: Predicate.isString,
+                  },
+                  primitiveType.name,
+                )?.(literal) ?? false,
               Struct: () => false,
             });
           if (node !== undefined && !accepted) {
@@ -494,7 +484,15 @@ const emitCondition = (
                         .map((value) => `${expression} !== ${JSON.stringify(value)}`),
                 NullOr: () => [],
                 Primitive: (primitiveType) => {
-                  const fill = lookup(primitiveFills, primitiveType.name);
+                  const fill = lookup(
+                    {
+                      Boolean: (operand: string) => operand,
+                      Json: (operand: string) => `${operand} !== null`,
+                      Number: (operand: string) => `${operand} !== 0`,
+                      String: (operand: string) => `${operand} !== ""`,
+                    },
+                    primitiveType.name,
+                  );
                   return fill === undefined ? [] : [fill(expression)];
                 },
                 Struct: () => [],
@@ -1026,7 +1024,11 @@ export const compile = (
                 };
                 const parts = message.role === Roles.system ? null : `$p${fresh(counter)}`;
                 yield* emitNodes({ ...ctx, parts }, emitter, message.body);
-                const builder = roleBuilders[message.role];
+                const builder = {
+                  assistant: "Runtime.assistant",
+                  system: "Runtime.system",
+                  user: "Runtime.user",
+                }[message.role];
                 if (emitter.lines.length === 0 && emitter.pieces.every((piece) => piece.isStatic)) {
                   const text = JSON.stringify(emitter.pieces.map((piece) => piece.value).join(""));
                   const name = `$m${fresh(counter)}`;

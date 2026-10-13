@@ -90,12 +90,6 @@ const regexCheck = (helper: Helper, source: string, args: readonly string[]): Ch
   };
 };
 
-const ENUMERATION_SPACES = {
-  binary: "base64Binary",
-  date: "dateTime",
-  number: "decimal",
-} as const satisfies Record<string, EnumerationSpace>;
-
 export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
   Result.gen(function* emitSimpleType() {
     const info = infoOf(spec.builtin);
@@ -106,7 +100,15 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
       Result.gen(function* emitEnumerationType() {
         const text = info.family === "text";
         const space: EnumerationSpace =
-          info.family === "text" ? spec.whiteSpace : ENUMERATION_SPACES[info.family];
+          info.family === "text"
+            ? spec.whiteSpace
+            : (
+                {
+                  binary: "base64Binary",
+                  date: "dateTime",
+                  number: "decimal",
+                } as const satisfies Record<string, EnumerationSpace>
+              )[info.family];
         const valueKey = (value: string) => {
           const key = enumerationKey(space, value);
           return text && key !== value ? null : key;

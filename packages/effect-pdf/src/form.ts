@@ -13,16 +13,6 @@ import { pdfFieldTypes } from "./types.ts";
 import type { PdfField, PdfFieldType, PdfFieldValue, PdfRect } from "./types.ts";
 
 const WIDGET_SUBTYPE = 20;
-const fieldTypeCodes: readonly PdfFieldType[] = [
-  pdfFieldTypes.unknown,
-  pdfFieldTypes.button,
-  pdfFieldTypes.checkbox,
-  pdfFieldTypes.radio,
-  pdfFieldTypes.combobox,
-  pdfFieldTypes.listbox,
-  pdfFieldTypes.text,
-  pdfFieldTypes.signature,
-];
 
 export const textualTypes: ReadonlySet<PdfFieldType> = new Set([
   pdfFieldTypes.combobox,
@@ -91,8 +81,18 @@ export const readWidgets = (
                 lib.EPDFAnnot_GetFormFieldObjectNumber(form, annotation),
               )
                 ? pdfFieldTypes.signature
-                : (fieldTypeCodes[lib.FPDFAnnot_GetFormFieldType(form, annotation)] ??
-                  pdfFieldTypes.unknown);
+                : ((
+                    [
+                      pdfFieldTypes.unknown,
+                      pdfFieldTypes.button,
+                      pdfFieldTypes.checkbox,
+                      pdfFieldTypes.radio,
+                      pdfFieldTypes.combobox,
+                      pdfFieldTypes.listbox,
+                      pdfFieldTypes.text,
+                      pdfFieldTypes.signature,
+                    ] satisfies readonly PdfFieldType[]
+                  )[lib.FPDFAnnot_GetFormFieldType(form, annotation)] ?? pdfFieldTypes.unknown);
               const exportValue = toggleTypes.has(type)
                 ? readUtf16(lib, (buffer, size) =>
                     lib.FPDFAnnot_GetFormFieldExportValue(form, annotation, buffer, size),
