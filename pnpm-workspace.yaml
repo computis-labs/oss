@@ -3,6 +3,7 @@ packages:
 blockExoticSubdeps: true
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
+  - oxlint-plugin-react-doctor
   - effect
   - "@effect/*"
 trustPolicy: no-downgrade

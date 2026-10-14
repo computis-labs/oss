@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "chmod +x node_modules/.pnpm/@effect+tsgo-*/node_modules/@effect/tsgo-*/lib/tsc* 2>/dev/null; effect-tsgo patch --typescript --oxlint",
     "build": "pnpm -r build",
+    "lint": "pnpm -r lint:prepare && oxlint -c oxlint.public.ts --threads=1 --report-unused-disable-directives-severity=error packages/effect-xml packages/effect-md packages/effect-pdf packages/effect-github",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r lint:prepare && pnpm -r typecheck",
     "oss:check": "node scripts/oss-check.ts"
@@ -11,11 +13,19 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@effect/platform-node": "4.0.3",
+    "@effect/tsgo": "0.37.0",
+    "@oxlint/plugins": "1.80.0",
     "@types/node": "26.1.2",
     "effect": "4.0.3",
+    "oxc-parser": "^0.152.0",
     "oxfmt": "0.65.0",
+    "oxlint": "1.80.0",
+    "oxlint-plugin-react-doctor": "0.9.14",
+    "oxlint-tailwindcss": "1.10.2",
+    "oxlint-tsgolint": "7.0.2001",
     "publint": "0.3.24",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "ultracite": "7.10.7"
   },
   "engines": {
     "node": ">=24.15.0"
