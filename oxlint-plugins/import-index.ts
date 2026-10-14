@@ -3,6 +3,8 @@ import path from "node:path";
 
 import type { Dirent } from "node:fs";
 
+import { publicPackages } from "../scripts/oss-packages.ts";
+
 const IGNORED_DIRECTORIES = new Set([
   ".astro",
   ".claude",
@@ -38,10 +40,8 @@ const SCANNED_EXTENSIONS = new Set([
 const NAMED_CLAUSE = /\b(?:import|export)\b[^;{]*\{(?<names>[^}]*)\}\s*from\s*["'][^"']+["']/gu;
 const DEFAULT_CLAUSE = /\bimport\s+(?:type\s+)?(?<name>[A-Za-z_$][\w$]*)\s*(?:,|from\b)/gu;
 const SPECIFIER_NAME = /^(?:type\s+)?(?<name>[A-Za-z_$][\w$]*)/u;
-// `import * as fixtures from "…"` and `export * from "…"` claim every exported name of the
-// target module, so they must count as external use of each one.
 const WILDCARD_CLAUSE =
-  /\b(?:import|export)\s+\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s*from\s*["'](?<specifier>[^"']+)["']/gu;
+  /\b(?:import|export)\s+(?:type\s+)?\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s*from\s*["'](?<specifier>[^"']+)["']/gu;
 
 interface ModuleIndex {
   readonly names: Map<string, Set<string>>;
@@ -182,11 +182,16 @@ const indexFor = (root: string) => {
  * the name for the declaration to count as shared.
  */
 export const isImportedElsewhere = (name: string, filename: string) => {
-  const index = indexFor(process.cwd());
+  const root = process.cwd();
+  const index = indexFor(root);
   const self = path.resolve(filename);
+  const publicRoots = publicPackages.map((pkg) => path.join(root, "packages", pkg) + path.sep);
+  const isPublic = (file: string) => publicRoots.some((publicRoot) => file.startsWith(publicRoot));
   const claimedByOther = (importers: ReadonlySet<string> | undefined) => {
     for (const importer of importers ?? []) {
-      if (path.resolve(importer) !== self) {
+      const resolved = path.resolve(importer);
+
+      if (resolved !== self && (!isPublic(self) || isPublic(resolved))) {
         return true;
       }
     }
