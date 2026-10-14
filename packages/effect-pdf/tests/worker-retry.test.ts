@@ -10,22 +10,23 @@ import { open } from "../src/index.ts";
 import { textPdf } from "./fixtures/forms.ts";
 import { nodeWorkers } from "./fixtures/layer.ts";
 
-const crashingWorkers = (crashes: ReadonlySet<number>, size = 1) => {
+const failingWorkers = (
+  failures: ReadonlySet<number>,
+  size = 1,
+  entry = new URL("./fixtures/crash-on-open.ts", import.meta.url),
+) => {
   let spawned = 0;
   const received = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
   return {
-    crashedOpens: () => Atomics.load(received, 0),
+    failedOpens: () => Atomics.load(received, 0),
     spawned: () => spawned,
     layer: PdfEngine.layer({ size }).pipe(
       Layer.provide(
         nodeWorkers(
           () =>
-            new Worker(
-              crashes.has(spawned++)
-                ? new URL("./fixtures/crash-on-open.ts", import.meta.url)
-                : pdfWorkerEntry,
-              { workerData: received.buffer },
-            ),
+            new Worker(failures.has(spawned++) ? entry : pdfWorkerEntry, {
+              workerData: received.buffer,
+            }),
         ),
       ),
       Layer.provide(NodeServices.layer),
@@ -34,7 +35,7 @@ const crashingWorkers = (crashes: ReadonlySet<number>, size = 1) => {
 };
 
 it.effect("retries an open with intact PDF bytes after the receiving worker exits", () => {
-  const workers = crashingWorkers(new Set([0]));
+  const workers = failingWorkers(new Set([0]));
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["The retry keeps this text"]]);
     const original = new Uint8Array(bytes);
@@ -44,13 +45,13 @@ it.effect("retries an open with intact PDF bytes after the receiving worker exit
 
     expect(page?.text).toContain("The retry keeps this text");
     expect(bytes).toStrictEqual(original);
-    expect(workers.crashedOpens()).toBe(1);
+    expect(workers.failedOpens()).toBe(1);
     expect(workers.spawned()).toBe(2);
   }).pipe(Effect.provide(workers.layer));
 });
 
 it.effect("retries opening a replica without losing the retained PDF bytes", () => {
-  const workers = crashingWorkers(new Set([1]), 2);
+  const workers = failingWorkers(new Set([1]), 2);
   return Effect.gen(function* () {
     const bytes = yield* textPdf(
       Array.from({ length: 12 }, (_, page) => [`Retry page ${page.toString()}`]),
@@ -79,20 +80,20 @@ it.effect("retries opening a replica without losing the retained PDF bytes", () 
     );
     expect(again.map(({ page }) => page)).toStrictEqual([11, 0, 9, 1, 8, 2, 7, 3]);
     expect(bytes).toStrictEqual(original);
-    expect(workers.crashedOpens()).toBe(1);
+    expect(workers.failedOpens()).toBe(1);
     expect(workers.spawned()).toBe(3);
   }).pipe(Effect.provide(workers.layer));
 });
 
 it.effect("stops after one retry and keeps the pool usable for another document", () => {
-  const workers = crashingWorkers(new Set([0, 1]));
+  const workers = failingWorkers(new Set([0, 1]));
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["A later document still opens"]]);
     const original = new Uint8Array(bytes);
 
     const failure = yield* Effect.flip(open(bytes));
     expect(failure).toBeInstanceOf(PdfEngineError);
-    expect(workers.crashedOpens()).toBe(2);
+    expect(workers.failedOpens()).toBe(2);
 
     const document = yield* open(bytes);
     const [page] = yield* document.text();
@@ -102,8 +103,50 @@ it.effect("stops after one retry and keeps the pool usable for another document"
   }).pipe(Effect.provide(workers.layer));
 });
 
+it.effect("replaces a connection interrupted by the worker before retrying the open", () => {
+  const workers = failingWorkers(
+    new Set([0]),
+    1,
+    new URL("./fixtures/interrupt-on-open.ts", import.meta.url),
+  );
+  return Effect.gen(function* () {
+    const bytes = yield* textPdf([["The interrupted open recovers"]]);
+    const original = new Uint8Array(bytes);
+
+    const document = yield* open(bytes);
+    const [page] = yield* document.text();
+
+    expect(page?.text).toContain("The interrupted open recovers");
+    expect(bytes).toStrictEqual(original);
+    expect(workers.failedOpens()).toBe(1);
+    expect(workers.spawned()).toBe(2);
+  }).pipe(Effect.provide(workers.layer));
+});
+
+it.effect("stops after two interrupted opens and keeps the pool usable", () => {
+  const workers = failingWorkers(
+    new Set([0, 1]),
+    1,
+    new URL("./fixtures/interrupt-on-open.ts", import.meta.url),
+  );
+  return Effect.gen(function* () {
+    const bytes = yield* textPdf([["The next open still works"]]);
+    const original = new Uint8Array(bytes);
+
+    const failure = yield* Effect.flip(open(bytes));
+    expect(failure).toBeInstanceOf(PdfEngineError);
+    expect(workers.failedOpens()).toBe(2);
+
+    const document = yield* open(bytes);
+    const [page] = yield* document.text();
+    expect(page?.text).toContain("The next open still works");
+    expect(bytes).toStrictEqual(original);
+    expect(workers.spawned()).toBe(3);
+  }).pipe(Effect.provide(workers.layer));
+});
+
 it.effect("allows a pending lease to be interrupted without replacing its healthy worker", () => {
-  const workers = crashingWorkers(new Set());
+  const workers = failingWorkers(new Set());
   return Effect.gen(function* () {
     const engine = yield* PdfEngine;
     const started = yield* Deferred.make<void>();
@@ -120,6 +163,6 @@ it.effect("allows a pending lease to be interrupted without replacing its health
     const [page] = yield* document.text();
     expect(page?.text).toContain("The worker is still usable");
     expect(workers.spawned()).toBe(1);
-    expect(workers.crashedOpens()).toBe(0);
+    expect(workers.failedOpens()).toBe(0);
   }).pipe(Effect.provide(workers.layer));
 });

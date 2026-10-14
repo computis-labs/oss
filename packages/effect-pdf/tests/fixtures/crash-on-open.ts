@@ -4,8 +4,6 @@ import { RpcServer } from "effect/rpc";
 import { workerData } from "node:worker_threads";
 import { PdfRpcs } from "../../src/rpc.ts";
 
-// Receive a real Open request, including its transferred buffer, then exit
-// before replying. Subsequent workers use the normal PDF worker entry.
 const OpenRpcs = PdfRpcs.omit(
   "AddSignatureField",
   "Classify",

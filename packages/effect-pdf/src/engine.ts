@@ -191,7 +191,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
       ),
       Effect.catchCause((cause) =>
         Cause.hasInterruptsOnly(cause)
-          ? Effect.fail(new PdfWorkerGone({ cause: "The PDF worker connection closed." }))
+          ? gone("The PDF worker connection closed.")
           : Effect.failCause(cause),
       ),
     );
@@ -254,7 +254,6 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
           return {
             lease,
             value: yield* attempt(lease, start).pipe(
-              // Wait until the supervisor has committed the replacement generation.
               Effect.catchIf(isWorkerGone, (failure) =>
                 Deferred.await(connection.replaced).pipe(Effect.andThen(Effect.fail(failure))),
               ),
