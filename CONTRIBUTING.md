@@ -32,6 +32,7 @@ and the email must match the commit author. The `Sign-off` check fails until eve
 pnpm install
 pnpm test
 pnpm typecheck
+pnpm lint
 pnpm oss:check
 ```
 

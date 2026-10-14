@@ -65,6 +65,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Lint
+        run: pnpm lint
+
   packages:
     name: Check the packages (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
