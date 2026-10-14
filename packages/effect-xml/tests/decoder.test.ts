@@ -72,7 +72,7 @@ describe("decode union content", () => {
         decode("<Order><Customer><FirstName>Ada</FirstName></Customer></Order>"),
       );
 
-      expect(error._tag).toBe("XmlDecodeError");
+      expect(error).toMatchObject({ _tag: "XmlDecodeError" });
       expect(yield* decode("<Order><Customer/></Order>")).toStrictEqual({ Customer: {} });
       expect(
         yield* decode(
