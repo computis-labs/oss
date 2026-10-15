@@ -13,24 +13,25 @@ import { nodeWorkers } from "./fixtures/layer.ts";
 const failingWorkers = (
   failures: ReadonlySet<number>,
   size = 1,
-  entry = new URL("./fixtures/crash-on-open.ts", import.meta.url),
+  entry = new URL("fixtures/crash-on-open.ts", import.meta.url),
 ) => {
-  let spawned = 0;
+  const spawns = { count: 0 };
   const received = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
   return {
     failedOpens: () => Atomics.load(received, 0),
-    spawned: () => spawned,
     layer: PdfEngine.layer({ size }).pipe(
       Layer.provide(
-        nodeWorkers(
-          () =>
-            new Worker(failures.has(spawned++) ? entry : pdfWorkerEntry, {
-              workerData: received.buffer,
-            }),
-        ),
+        nodeWorkers(() => {
+          const index = spawns.count;
+          spawns.count = index + 1;
+          return new Worker(failures.has(index) ? entry : pdfWorkerEntry, {
+            workerData: received.buffer,
+          });
+        }),
       ),
       Layer.provide(NodeServices.layer),
     ),
+    spawned: () => spawns.count,
   };
 };
 
@@ -107,7 +108,7 @@ it.effect("replaces a connection interrupted by the worker before retrying the o
   const workers = failingWorkers(
     new Set([0]),
     1,
-    new URL("./fixtures/interrupt-on-open.ts", import.meta.url),
+    new URL("fixtures/interrupt-on-open.ts", import.meta.url),
   );
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["The interrupted open recovers"]]);
@@ -127,7 +128,7 @@ it.effect("stops after two interrupted opens and keeps the pool usable", () => {
   const workers = failingWorkers(
     new Set([0, 1]),
     1,
-    new URL("./fixtures/interrupt-on-open.ts", import.meta.url),
+    new URL("fixtures/interrupt-on-open.ts", import.meta.url),
   );
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["The next open still works"]]);
@@ -149,11 +150,9 @@ it.effect("allows a pending lease to be interrupted without replacing its health
   const workers = failingWorkers(new Set());
   return Effect.gen(function* () {
     const engine = yield* PdfEngine;
-    const started = yield* Deferred.make<void>();
+    const started = yield* Deferred.make<boolean>();
     const pending = yield* engine
-      .lease(new Set(), () =>
-        Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
-      )
+      .lease(new Set(), () => Deferred.succeed(started, true).pipe(Effect.andThen(Effect.never)))
       .pipe(Effect.forkChild);
 
     yield* Deferred.await(started);

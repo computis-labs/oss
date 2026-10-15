@@ -51,7 +51,7 @@ interface Connection {
   readonly client: PdfRpcClient;
   readonly died: Deferred.Deferred<unknown>;
   readonly generation: number;
-  readonly replaced: Deferred.Deferred<void, PdfEngineError>;
+  readonly replaced: Deferred.Deferred<Connection, PdfEngineError>;
   readonly scope: Scope.Closeable;
 }
 
@@ -75,7 +75,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
   const open = Effect.fn("PdfEngine.openConnection")(function* openConnection(generation: number) {
     const scope = yield* Scope.fork(connectionsScope);
     const died = yield* Deferred.make<unknown>();
-    const replaced = yield* Deferred.make<void, PdfEngineError>();
+    const replaced = yield* Deferred.make<Connection, PdfEngineError>();
     const platform = Context.getOption(services, Worker.WorkerPlatform);
     const spawner = Context.getOption(services, Worker.Spawner);
     const watched =
@@ -131,7 +131,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
   ): Effect.fn.Return<void> {
     const replace = Effect.gen(function* replaceDeadWorker() {
       const cause = yield* Deferred.await(connection.died);
-      yield* SynchronizedRef.updateEffect(worker, (current) =>
+      return yield* SynchronizedRef.updateAndGetEffect(worker, (current) =>
         Effect.gen(function* swapConnection() {
           if (current.generation !== connection.generation || (yield* Ref.get(shuttingDown))) {
             return current;
