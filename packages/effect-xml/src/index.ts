@@ -5,6 +5,7 @@ import { makeDecoder } from "./decoder.ts";
 import type { Decode, DecoderOptions } from "./decoder.ts";
 import { makePlanEncoder } from "./encoder.ts";
 import type { Encodable, Encode, EncoderOptions } from "./encoder.ts";
+import { exactDecoder } from "./exact-decoder.ts";
 import type { XmlPlanError } from "./errors/xml-plan-error.ts";
 import type { XsdSchemaError } from "./errors/xsd-schema-error.ts";
 import { compile } from "./plan.ts";
@@ -37,7 +38,7 @@ export interface ValidatingCodec<S extends Encodable> {
 export const codec = <S extends Encodable>(schema: S, options: CodecOptions = {}) =>
   Result.map(compile(schema), (plan) => {
     if (options.jit !== false) {
-      SchemaJITCompiler.enable(schema.ast);
+      SchemaJITCompiler.enable(exactDecoder(schema).ast);
       SchemaJITCompiler.enable(SchemaAST.flip(schema.ast));
     }
     return {

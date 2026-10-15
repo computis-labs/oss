@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Path } from "effect";
+import * as OptionalOrder from "./fixtures/xsd-codegen/optional-order.gen.ts";
 import * as Order from "./fixtures/xsd-codegen/order.gen.ts";
 import * as QualifiedOrder from "./fixtures/xsd-codegen/qualified-order.gen.ts";
 import * as SignedOrder from "./fixtures/xsd-codegen/signed-order.gen.ts";
@@ -248,6 +249,27 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
     }),
   );
 
+  it.effect("keeps an absent optional sequence distinct from a partial sequence", () =>
+    Effect.gen(function* test() {
+      const { decode } = yield* Effect.fromResult(codec(OptionalOrder.Order));
+      const validator = yield* validatorFor(fixture("optional-order.xsd"));
+
+      for (const [xml, expected] of [
+        ["<Order/>", {}],
+        [
+          "<Order><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Order>",
+          { FirstName: "Ada", LastName: "Lovelace" },
+        ],
+      ] as const) {
+        expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(Exit.void);
+        expect(yield* decode(xml)).toStrictEqual(expected);
+      }
+      const partial = "<Order><FirstName>Ada</FirstName></Order>";
+      expect(Exit.isFailure(yield* Effect.exit(validator.validate(partial)))).toBe(true);
+      expect(Exit.isFailure(yield* Effect.exit(decode(partial)))).toBe(true);
+    }),
+  );
+
   it.effect("declares the root attributes on root and the other attributes on element", () =>
     Effect.gen(function* test() {
       const plan = yield* Effect.fromResult(compile(Order.Order));
@@ -282,6 +304,17 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
     [
       "both branches of a choice missing",
       ORDER_XML.replace(/<Customer>.*<\/Customer>/u, "<Customer></Customer>"),
+    ],
+    [
+      "both branches of a choice present",
+      ORDER_XML.replace("<Customer>", "<Customer><Company>Acme</Company>"),
+    ],
+    [
+      "a complete choice branch followed by an incomplete branch",
+      ORDER_XML.replace("<Customer>", "<Customer><Company>Acme</Company>").replace(
+        "<LastName>Lovelace</LastName>",
+        "",
+      ),
     ],
   ] as const)("rejects %s like the XSD does", ([, xml]) =>
     Effect.gen(function* test() {

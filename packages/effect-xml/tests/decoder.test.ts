@@ -1,7 +1,7 @@
 /* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, SchemaGetter } from "effect";
 import { FatturaXml, fatturaFixtures } from "./fixtures/fattura.ts";
 import { startsWith } from "./fixtures/messages.ts";
 import { XmlParseError } from "../src/errors/xml-parse-error.ts";
@@ -29,6 +29,131 @@ const fatturaNamed = (name: string) => {
   const fixture = fatturaFixtures.find((candidate) => candidate.name === name);
   return fixture?.fattura ?? expect.fail(`fixture ${name} is missing`);
 };
+
+describe("decode union content", () => {
+  it.effect.each([
+    [false, "error"],
+    [false, "skip"],
+    [true, "error"],
+    [true, "skip"],
+  ] as const)(
+    "rejects mixed FatturaPA choice branches with jit=%s and unknownElements=%s",
+    ([jit, unknownElements]) =>
+      Effect.gen(function* test() {
+        const { decode } = yield* Effect.fromResult(
+          codec(FatturaXml, { jit, decoder: { unknownElements } }),
+        );
+        // Fonte: Schema_VFPR12_v1.2.3.xsd, AnagraficaType (riga 680), xs:choice (righe 685-693): Denominazione è in alternativa a Nome e Cognome
+        const xml = singleLine.replace(
+          "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
+          "<Denominazione>Cliente Esempio S.p.A.</Denominazione><Nome>Mario</Nome><Cognome>Rossi</Cognome>",
+        );
+
+        const error = yield* Effect.flip(decode(xml));
+
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
+          position: { column: 9, line: 37 },
+        });
+      }),
+  );
+
+  it.effect.each([false, true])(
+    "picks the member that declares every element over an earlier optional member with jit=%s",
+    (jit) =>
+      Effect.gen(function* test() {
+        const schema = Schema.Struct({
+          Item: Schema.Union([
+            Schema.Struct({ Note: Schema.optionalKey(Schema.String) }),
+            Schema.Struct({ Code: Schema.String }),
+          ]),
+        }).pipe(root("Order"));
+        const { decode } = yield* codecFor(schema, { jit });
+
+        const order = yield* decode("<Order><Item><Code>A1</Code></Item></Order>");
+        const error = yield* Effect.flip(
+          decode("<Order><Item><Note>x</Note><Code>A1</Code></Item></Order>"),
+        );
+
+        expect(order).toStrictEqual({ Item: { Code: "A1" } });
+        expect(error).toMatchObject({ _tag: "XmlDecodeError", path: "Order.Item.Code" });
+      }),
+  );
+});
+
+describe("decode transformed content", () => {
+  const modes = [
+    [false, "error"],
+    [false, "skip"],
+    [true, "error"],
+    [true, "skip"],
+  ] as const;
+
+  it.effect.each(modes)(
+    "keeps the extra keys of a JSON leaf out of the XML check with jit=%s and unknownElements=%s",
+    ([jit, unknownElements]) =>
+      Effect.gen(function* test() {
+        const schema = Schema.Struct({
+          Payload: Schema.fromJsonString(Schema.Struct({ Name: Schema.String })),
+        }).pipe(root("Order"));
+        const { decode } = yield* codecFor(schema, { jit, decoder: { unknownElements } });
+
+        const order = yield* decode('<Order><Payload>{"Name":"Ada","Extra":"x"}</Payload></Order>');
+
+        expect(order).toStrictEqual({ Payload: { Name: "Ada" } });
+      }),
+  );
+
+  it.effect.each(modes)(
+    "keeps the extra keys of a transformed Struct out of the XML check with jit=%s and unknownElements=%s",
+    ([jit, unknownElements]) =>
+      Effect.gen(function* test() {
+        const schema = Schema.Struct({ FirstName: Schema.String, LastName: Schema.String }).pipe(
+          Schema.decodeTo(Schema.Struct({ Name: Schema.String }), {
+            decode: SchemaGetter.transform((names) => ({
+              ...names,
+              Name: `${names.FirstName} ${names.LastName}`,
+            })),
+            encode: SchemaGetter.transform(({ Name }) => {
+              const [FirstName = "", LastName = ""] = Name.split(" ");
+              return { FirstName, LastName };
+            }),
+          }),
+          root("Order"),
+        );
+        const { decode } = yield* codecFor(schema, { jit, decoder: { unknownElements } });
+
+        const order = yield* decode(
+          "<Order><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Order>",
+        );
+
+        expect(order).toStrictEqual({ Name: "Ada Lovelace" });
+      }),
+  );
+
+  it.effect.each([false, true])(
+    "keeps the extra keys of a JSON leaf inside a union member with jit=%s",
+    (jit) =>
+      Effect.gen(function* test() {
+        const schema = Schema.Struct({
+          Item: Schema.Union([
+            Schema.Struct({
+              Payload: Schema.fromJsonString(Schema.Struct({ Name: Schema.String })),
+            }),
+            Schema.Struct({ Code: Schema.String }),
+          ]),
+        }).pipe(root("Order"));
+        const { decode } = yield* codecFor(schema, { jit });
+
+        const order = yield* decode(
+          '<Order><Item><Payload>{"Name":"Ada","Extra":"x"}</Payload></Item></Order>',
+        );
+
+        expect(order).toStrictEqual({ Item: { Payload: { Name: "Ada" } } });
+      }),
+  );
+});
 
 describe("decode on FatturaPA", () => {
   it.effect.each([

@@ -3,6 +3,7 @@ import { localName, positionAt } from "./characters.ts";
 import { openFrame, segment, store, toNode } from "./decoder-plan.ts";
 import type { Frame, Step } from "./decoder-plan.ts";
 import type { Encodable } from "./encoder.ts";
+import { exactDecoder } from "./exact-decoder.ts";
 import { XmlDecodeError } from "./errors/xml-decode-error.ts";
 import type { XmlParseError } from "./errors/xml-parse-error.ts";
 import { firstIssue, issuePosition } from "./issue-path.ts";
@@ -87,7 +88,7 @@ export const makeDecoder = <S extends Encodable>(
   const skipUnknown = options.unknownElements === "skip";
   const trimText = options.trimText === true;
   const tokenizeOptions = { maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH };
-  const decodeValue = Schema.decodeUnknownEffect(schema);
+  const decodeValue = Schema.decodeUnknownEffect(exactDecoder(schema));
   const rootNode = toNode(plan.node, new Map());
 
   return (xml) =>
