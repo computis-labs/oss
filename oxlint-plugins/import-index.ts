@@ -187,11 +187,12 @@ export const isImportedElsewhere = (name: string, filename: string) => {
   const self = path.resolve(filename);
   const publicRoots = publicPackages.map((pkg) => path.join(root, "packages", pkg) + path.sep);
   const isPublic = (file: string) => publicRoots.some((publicRoot) => file.startsWith(publicRoot));
+  const selfIsPublic = isPublic(self);
   const claimedByOther = (importers: ReadonlySet<string> | undefined) => {
     for (const importer of importers ?? []) {
       const resolved = path.resolve(importer);
 
-      if (resolved !== self && (!isPublic(self) || isPublic(resolved))) {
+      if (resolved !== self && (!selfIsPublic || isPublic(resolved))) {
         return true;
       }
     }
