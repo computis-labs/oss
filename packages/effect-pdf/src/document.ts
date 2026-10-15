@@ -19,12 +19,9 @@ export const openDocument = (engine: PdfPool) =>
     { password = "" }: { readonly password?: string } = {},
   ) {
     const documentScope = yield* Effect.scope;
-    const openOn = (source: Uint8Array<ArrayBuffer>) => (client: PdfRpcClient, document: number) =>
-      client.Open({ bytes: source, document, password });
-    const { lease: primary, value: pages } = yield* engine.lease(
-      new Set(),
-      openOn(new Uint8Array(bytes)),
-    );
+    const openOn = (source: Uint8Array) => (client: PdfRpcClient, document: number) =>
+      client.Open({ bytes: new Uint8Array(source), document, password });
+    const { lease: primary, value: pages } = yield* engine.lease(new Set(), openOn(bytes));
     const pageCount = pages.length;
     const retained =
       engine.size > 1 && pageCount >= 2 * FAN_OUT_PAGES_PER_WORKER
@@ -59,7 +56,7 @@ export const openDocument = (engine: PdfPool) =>
                 engine
                   .lease(
                     new Set([primary.worker, ...opened.map(({ worker }) => worker)]),
-                    openOn(new Uint8Array(retained)),
+                    openOn(retained),
                   )
                   .pipe(
                     Scope.provide(documentScope),

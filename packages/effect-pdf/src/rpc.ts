@@ -24,13 +24,17 @@ const Pages = Schema.Array(Schema.Int);
 const PageFailure = Schema.Union([PdfEngineError, PdfPageError]);
 const FormFailure = Schema.Union([PdfEngineError, PdfFormError, PdfPageError]);
 
+export const OpenRpc = Rpc.make("Open", {
+  error: Schema.Union([PdfEngineError, PdfOpenError, PdfPageError]),
+  payload: { bytes: Transferable.Uint8Array, document: DocumentId, password: Schema.String },
+  success: Schema.Array(PdfPageSchema),
+});
+
+export const CloseRpc = Rpc.make("Close", { payload: { document: DocumentId } });
+
 export class PdfRpcs extends RpcGroup.make(
-  Rpc.make("Open", {
-    error: Schema.Union([PdfEngineError, PdfOpenError, PdfPageError]),
-    payload: { bytes: Transferable.Uint8Array, document: DocumentId, password: Schema.String },
-    success: Schema.Array(PdfPageSchema),
-  }),
-  Rpc.make("Close", { payload: { document: DocumentId } }),
+  OpenRpc,
+  CloseRpc,
   Rpc.make("Classify", {
     error: PageFailure,
     payload: { document: DocumentId, pages: Pages },
