@@ -438,6 +438,7 @@ const config = defineConfig({
       excludeFiles: [
         "apps/backend/src/**/*.test.ts",
         "apps/backend/src/test/**/*.ts",
+        "apps/backend/src/db/scripts/*.ts",
         "apps/backend/src/http/middleware/*.ts",
         "apps/backend/src/worker/jobs/*.ts",
         "apps/backend/src/routes/assistant/runs/post.ts",
