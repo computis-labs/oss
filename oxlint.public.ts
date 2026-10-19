@@ -446,6 +446,7 @@ const config = defineConfig({
         "apps/backend/src/modules/firm/service.ts",
         "apps/backend/src/modules/memberships/service.ts",
         "apps/backend/src/modules/files/service.ts",
+        "apps/backend/src/modules/files/access.ts",
         "apps/backend/src/modules/purchase-inbox/ingest.ts",
         "apps/backend/src/modules/cassetto-fiscale/appointee/service.ts",
         "apps/backend/src/modules/cassetto-fiscale/initial-download/service.ts",
