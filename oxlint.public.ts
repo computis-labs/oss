@@ -251,6 +251,30 @@ const config = defineConfig({
       },
     },
     {
+      excludeFiles: ["**/*.{spec,test}.{ts,tsx}", "**/*.fixtures.ts", "apps/*/src/test/**"],
+      files: [
+        "apps/backend/src/**/*.ts",
+        "apps/dealflow/src/**/*.{ts,tsx}",
+        "apps/extension/entrypoints/**/*.{ts,tsx}",
+        "apps/extension/src/**/*.{ts,tsx}",
+        "apps/web/src/**/*.{ts,tsx}",
+        "packages/ds/src/**/*.{ts,tsx}",
+        "packages/shared/src/**/*.{ts,tsx}",
+      ],
+      rules: {
+        "literal-policy/no-string-literal-comparison": [
+          "error",
+          {
+            allowEmptyString: true,
+            allowNumericLiterals: true,
+            allowPathLiterals: true,
+            allowTypeofChecks: true,
+            allowedLiterals: [""],
+          },
+        ],
+      },
+    },
+    {
       files: ["apps/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
       rules: {
         "test-boundary/no-test-imports": "error",
