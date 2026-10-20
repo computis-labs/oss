@@ -112,3 +112,113 @@ describe("paraglide-copy/no-raw-copy", () => {
     assert.equal(result.status, 0, result.output);
   });
 });
+
+describe("paraglide-copy/no-branching-copy", () => {
+  let fixtureRoot = "";
+
+  beforeAll(async () => {
+    fixtureRoot = await mkdtemp(path.join(tmpdir(), "paraglide-branching-copy-"));
+    await writeFile(
+      path.join(fixtureRoot, "oxlint.config.ts"),
+      `export default {
+  jsPlugins: [${JSON.stringify(plugin)}],
+  rules: { "paraglide-copy/no-branching-copy": "error" },
+};\n`,
+    );
+  });
+
+  afterAll(async () => {
+    await rm(fixtureRoot, { force: true, recursive: true });
+  });
+
+  const lint = async (source: string) => {
+    const destination = path.join(fixtureRoot, "src", "copy.tsx");
+    await mkdir(path.dirname(destination), { recursive: true });
+    await writeFile(destination, `import { m } from "@/paraglide/messages";\n${source}`);
+    const result = spawnSync(
+      oxlint,
+      ["src/copy.tsx", "--config", "oxlint.config.ts", "--format", "unix", "--threads", "1"],
+      { cwd: fixtureRoot, encoding: "utf-8" },
+    );
+    const output = `${result.stdout}${result.stderr}`;
+
+    return {
+      output,
+      reports: output.match(/paraglide-copy\(no-branching-copy\)/gu)?.length ?? 0,
+    };
+  };
+
+  it("reports a ternary between two messages", async () => {
+    const result = await lint(
+      `export const label = (pending: boolean) => (pending ? m.saving() : m.save());\n`,
+    );
+
+    assert.equal(result.reports, 1, result.output);
+  });
+
+  it("reports a chain of ternaries between messages once", async () => {
+    const result = await lint(
+      `export const label = (count: number) =>
+  count === 0 ? m.none() : count === 1 ? m.one() : m.many({ count });\n`,
+    );
+
+    assert.equal(result.reports, 1, result.output);
+  });
+
+  it("reports an if that returns a message before a return of another message", async () => {
+    const result = await lint(
+      `export const label = (count: number) => {
+  if (count === 0) {
+    return m.none();
+  }
+  return m.many({ count });
+};\n`,
+    );
+
+    assert.equal(result.reports, 1, result.output);
+  });
+
+  it("reports an if and else that each return a message", async () => {
+    const result = await lint(
+      `export const label = (open: boolean) => {
+  if (open) {
+    return m.close();
+  } else {
+    return m.open();
+  }
+};\n`,
+    );
+
+    assert.equal(result.reports, 1, result.output);
+  });
+
+  it("allows a ternary between a message and a value", async () => {
+    const result = await lint(
+      `export const label = (name: string | undefined) => (name === undefined ? m.nobody() : name);\n`,
+    );
+
+    assert.equal(result.reports, 0, result.output);
+  });
+
+  it("allows a guard that returns a message before a return of no copy", async () => {
+    const result = await lint(
+      `export const refusal = (size: number) => {
+  if (size > 10) {
+    return m.too_large();
+  }
+  return null;
+};\n`,
+    );
+
+    assert.equal(result.reports, 0, result.output);
+  });
+
+  it("allows a ternary between calls on another object", async () => {
+    const result = await lint(
+      `const t = { a: () => "a", b: () => "b" };
+export const label = (flag: boolean) => (flag ? t.a() : t.b());\n`,
+    );
+
+    assert.equal(result.reports, 0, result.output);
+  });
+});

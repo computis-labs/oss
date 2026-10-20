@@ -579,6 +579,7 @@ const config = defineConfig({
     "function-policy/no-discarded-iife": "error",
     "jsdoc/check-tag-names": ["error", { definedTags: ["effect-leakable-service"] }],
     "object-policy/prefer-when-defined": "error",
+    "paraglide-copy/no-branching-copy": "error",
     "paraglide-copy/no-raw-copy": "error",
     "query-status-policy/folder-structure": "error",
     "query-status-policy/no-inline-components": "error",

@@ -150,7 +150,114 @@ const noRawCopy = defineRule({
   },
 });
 
+/**
+ * Copy that changes with a value belongs in the Paraglide message, as a variant: plurals, exact
+ * numbers, enum values and `variant(flag)` all select inside one message. Two messages behind a
+ * ternary or an if/return split one sentence across keys and keep the rule in code, out of the
+ * translator's sight.
+ */
+const withoutParentheses = (node: ESTree.Node): ESTree.Node =>
+  node.type === "ParenthesizedExpression" ? withoutParentheses(node.expression) : node;
+
+const noBranchingCopy = defineRule({
+  create(context) {
+    const messageNamespaces = new Set<string>();
+
+    const isMessageCall = (node: ESTree.Node | null | undefined): boolean => {
+      if (node === null || node === undefined) {
+        return false;
+      }
+      const expression = withoutParentheses(node);
+      if (expression.type !== "CallExpression") {
+        return false;
+      }
+      const { callee } = expression;
+      return (
+        callee.type === "MemberExpression" &&
+        !callee.computed &&
+        callee.object.type === "Identifier" &&
+        messageNamespaces.has(callee.object.name)
+      );
+    };
+
+    const isCopyChoice = (node: ESTree.Node): boolean => {
+      const expression = withoutParentheses(node);
+      if (expression.type !== "ConditionalExpression") {
+        return isMessageCall(expression);
+      }
+      return isCopyChoice(expression.consequent) && isCopyChoice(expression.alternate);
+    };
+
+    const returnedMessage = (statement: ESTree.Statement | null | undefined): boolean => {
+      if (statement === null || statement === undefined) {
+        return false;
+      }
+      if (statement.type === "BlockStatement") {
+        return statement.body.length === 1 && returnedMessage(statement.body[0]);
+      }
+      return statement.type === "ReturnStatement" && isMessageCall(statement.argument);
+    };
+
+    const nextStatement = (node: ESTree.IfStatement): ESTree.Statement | undefined => {
+      const { parent } = node;
+      if (parent?.type !== "BlockStatement" && parent?.type !== "Program") {
+        return undefined;
+      }
+      const body: readonly ESTree.Node[] = parent.body;
+      const next = body[body.indexOf(node) + 1];
+      return next?.type === "ReturnStatement" ? next : undefined;
+    };
+
+    const enclosing = (node: ESTree.Node): ESTree.Node | null =>
+      node.parent?.type === "ParenthesizedExpression"
+        ? enclosing(node.parent)
+        : (node.parent ?? null);
+
+    return {
+      ConditionalExpression(node: ESTree.ConditionalExpression) {
+        const parent = enclosing(node);
+        if (parent?.type === "ConditionalExpression" && isCopyChoice(parent)) {
+          return;
+        }
+        if (isCopyChoice(node)) {
+          context.report({ messageId: "conditional", node });
+        }
+      },
+      IfStatement(node: ESTree.IfStatement) {
+        if (!returnedMessage(node.consequent)) {
+          return;
+        }
+        if (returnedMessage(node.alternate ?? nextStatement(node))) {
+          context.report({ messageId: "ifReturn", node });
+        }
+      },
+      ImportDeclaration(node: ESTree.ImportDeclaration) {
+        if (!/\/paraglide\/messages(?:\.js)?$/u.test(node.source.value)) {
+          return;
+        }
+        for (const specifier of node.specifiers) {
+          messageNamespaces.add(specifier.local.name);
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description:
+        "Disallow choosing between Paraglide messages in code. Pass the value to one message and select the variant there.",
+    },
+    messages: {
+      conditional:
+        "Do not pick a Paraglide message with a ternary. Pass the value to one message and select the variant inside it: a count with `plural`, an enum value, or a flag with variant(flag).",
+      ifReturn:
+        "Do not pick a Paraglide message with if/return. Pass the value to one message and select the variant inside it: a count with `plural`, an enum value, or a flag with variant(flag).",
+    },
+    schema: [],
+    type: "suggestion",
+  },
+});
+
 export default definePlugin({
   meta: { name: "paraglide-copy" },
-  rules: { "no-raw-copy": noRawCopy },
+  rules: { "no-branching-copy": noBranchingCopy, "no-raw-copy": noRawCopy },
 });
