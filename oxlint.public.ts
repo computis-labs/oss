@@ -201,8 +201,8 @@ const config = defineConfig({
       },
     },
     {
-      excludeFiles: ["apps/web/src/lib/**"],
-      files: ["apps/web/src/**/*.{ts,tsx}"],
+      excludeFiles: ["apps/web/src/lib/**", "apps/dealflow/src/lib/**"],
+      files: ["apps/web/src/**/*.{ts,tsx}", "apps/dealflow/src/**/*.{ts,tsx}"],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -211,15 +211,44 @@ const config = defineConfig({
               {
                 importNames: [
                   "infiniteQueryOptions",
+                  "keepPreviousData",
                   "queryOptions",
                   "useInfiniteQuery",
                   "useMutation",
                   "useQueries",
                   "useQuery",
+                  "useQueryClient",
                   "useSuspenseQuery",
                 ],
                 message:
-                  "Declare queries and mutations in apps/web/src/lib/api/<domain>/ and import the hook from there.",
+                  "Declare queries, mutations and cache updates in src/lib/api/<domain>/ and import the hook from there.",
+                name: "@tanstack/react-query",
+              },
+              {
+                message:
+                  "Wrap the mutation in a hook in src/lib/api/<domain>/ and import that hook instead.",
+                name: "@/lib/use-app-mutation",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      excludeFiles: [
+        "apps/web/src/lib/use-app-mutation.ts",
+        "apps/dealflow/src/lib/use-app-mutation.ts",
+      ],
+      files: ["apps/web/src/lib/**/*.{ts,tsx}", "apps/dealflow/src/lib/**/*.{ts,tsx}"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            paths: [
+              {
+                importNames: ["useMutation"],
+                message:
+                  "Use useAppMutation from @/lib/use-app-mutation, so every mutation gets the app meta.",
                 name: "@tanstack/react-query",
               },
             ],
