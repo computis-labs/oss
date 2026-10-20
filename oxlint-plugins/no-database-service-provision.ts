@@ -115,9 +115,80 @@ const dbOnlyInRepository = defineRule({
   },
 });
 
+const SQL_SERIALIZATION =
+  /\bfor\s+(?:no\s+key\s+)?update\b|\bfor\s+(?:key\s+)?share\b|\bpg_(?:try_)?advisory_/iu;
+
+const isDatabaseClient = (node: ESTree.Node) =>
+  (node.type === "Identifier" && node.name === "db") ||
+  (node.type === "MemberExpression" &&
+    !node.computed &&
+    node.property.type === "Identifier" &&
+    node.property.name === "db");
+
+const criticalWrites = defineRule({
+  create: (context) => ({
+    CallExpression: (node: ESTree.CallExpression) => {
+      const { callee } = node;
+      if (
+        callee.type !== "MemberExpression" ||
+        callee.computed ||
+        callee.property.type !== "Identifier" ||
+        callee.property.name !== "transaction" ||
+        !isDatabaseClient(callee.object)
+      ) {
+        return;
+      }
+      context.report({
+        data: { what: "a transaction" },
+        messageId: "criticalWrites",
+        node: callee.property,
+      });
+    },
+    Property: (node: ESTree.Property) => {
+      const { key, parent } = node;
+      const isLockKey =
+        (key.type === "Identifier" && !node.computed && key.name === "lock") ||
+        (key.type === "Literal" && key.value === "lock");
+      if (
+        !isLockKey ||
+        parent?.type !== "ObjectExpression" ||
+        parent.parent?.type !== "CallExpression" ||
+        parent.parent.callee.type !== "MemberExpression" ||
+        !parent.parent.arguments.includes(parent)
+      ) {
+        return;
+      }
+      context.report({ data: { what: "a row lock" }, messageId: "criticalWrites", node: key });
+    },
+    TaggedTemplateExpression: (node: ESTree.TaggedTemplateExpression) => {
+      if (
+        node.tag.type !== "Identifier" ||
+        node.tag.name !== "sql" ||
+        !node.quasi.quasis.some((quasi) => SQL_SERIALIZATION.test(quasi.value.raw))
+      ) {
+        return;
+      }
+      context.report({ data: { what: "a lock" }, messageId: "criticalWrites", node });
+    },
+  }),
+  meta: {
+    docs: {
+      description:
+        "Allow a transaction or a lock only in a critical write whose line names the invariant it protects.",
+    },
+    messages: {
+      criticalWrites:
+        "This opens {{what}}. Only a critical write may (CODING_STANDARDS.md#critical-transactions): run the writes as plain statements in sequence, or disable database-policy/critical-writes on this line with the invariant it protects as the reason.",
+    },
+    schema: [],
+    type: "problem",
+  },
+});
+
 export default definePlugin({
   meta: { name: "database-policy" },
   rules: {
+    "critical-writes": criticalWrites,
     "db-only-in-repository": dbOnlyInRepository,
     "no-database-service-provision": noDatabaseServiceProvision,
     "scope-at-boundary": scopeAtBoundary,

@@ -495,6 +495,10 @@ const config = defineConfig({
       rules: { "database-policy/db-only-in-repository": "error" },
     },
     {
+      files: ["apps/backend/src/**/*.ts"],
+      rules: { "database-policy/critical-writes": "error" },
+    },
+    {
       files: [
         "apps/backend/src/modules/**/{service,repository,*-service,*-repository}.ts",
         "apps/backend/src/http/middleware/*-live.ts",
