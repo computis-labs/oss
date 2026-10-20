@@ -138,7 +138,87 @@ const preferWhenDefined = defineRule({
   },
 });
 
+const isCallOf = (identifier: ESTree.Node, methods: readonly string[]) => {
+  const member = identifier.parent;
+
+  return (
+    member?.type === "MemberExpression" &&
+    member.object === identifier &&
+    !member.computed &&
+    member.property.type === "Identifier" &&
+    methods.includes(member.property.name) &&
+    member.parent?.type === "CallExpression" &&
+    member.parent.callee === member
+  );
+};
+
+const isExported = (declarator: ESTree.VariableDeclarator) =>
+  declarator.parent?.parent?.type === "ExportNamedDeclaration";
+
+const noMembershipSet = defineRule({
+  create: (context) => ({
+    VariableDeclarator: (node: ESTree.VariableDeclarator) => {
+      const init = node.init === null ? undefined : unwrap(node.init);
+
+      if (
+        node.id.type !== "Identifier" ||
+        node.parent?.type !== "VariableDeclaration" ||
+        node.parent.kind !== "const" ||
+        init?.type !== "NewExpression" ||
+        init.callee.type !== "Identifier" ||
+        !context.sourceCode.isGlobalReference(init.callee) ||
+        isExported(node)
+      ) {
+        return;
+      }
+
+      const reads = context.sourceCode
+        .getDeclaredVariables(node)
+        .flatMap((variable) => variable.references)
+        .filter((reference) => !reference.init);
+
+      if (reads.length === 0) {
+        return;
+      }
+
+      if (
+        init.callee.name === "Set" &&
+        reads.every((reference) => isCallOf(reference.identifier, ["has"]))
+      ) {
+        context.report({ messageId: "set", node });
+        return;
+      }
+
+      const [source] = init.arguments;
+
+      if (
+        init.callee.name === "Map" &&
+        source?.type === "CallExpression" &&
+        source.callee.type === "MemberExpression" &&
+        source.callee.property.type === "Identifier" &&
+        source.callee.property.name === "map" &&
+        reads.length === 1 &&
+        isCallOf(reads[0].identifier, ["get", "has"])
+      ) {
+        context.report({ messageId: "map", node });
+      }
+    },
+  }),
+  meta: {
+    docs: {
+      description:
+        "Check membership on the array you already have instead of building a Set or a Map for one lookup.",
+    },
+    messages: {
+      map: "This Map is read with one .get or .has. Look the row up with .find or .some on the source array.",
+      set: "This Set is only used for .has. Check membership with .includes on the source array.",
+    },
+    schema: [],
+    type: "suggestion",
+  },
+});
+
 export default definePlugin({
   meta: { name: "object-policy" },
-  rules: { "prefer-when-defined": preferWhenDefined },
+  rules: { "no-membership-set": noMembershipSet, "prefer-when-defined": preferWhenDefined },
 });

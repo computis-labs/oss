@@ -310,6 +310,15 @@ const config = defineConfig({
       },
     },
     {
+      files: ["apps/*/src/**/*.{ts,tsx}", "packages/shared/src/**/*.{ts,tsx}"],
+      rules: {
+        "object-policy/no-membership-set": "error",
+        "react-doctor/js-index-maps": "off",
+        "react-doctor/js-set-map-lookups": "off",
+        "unicorn/prefer-set-has": "off",
+      },
+    },
+    {
       files: ["apps/backend/**/*.ts"],
       rules: {
         "backend-time/no-date-outside-drizzle-schema": "error",
