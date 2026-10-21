@@ -7,9 +7,15 @@ import {
   projectFor,
   typeAt,
 } from "./type-information.ts";
+import { isObject, isString } from "./predicates.ts";
 
 const noUnknownNarrowing = defineRule({
   create: (context) => {
+    const [option] = context.options;
+    const helper =
+      isObject(option) && "helper" in option && isString(option.helper)
+        ? option.helper
+        : "a helper that reads the message off a thrown value";
     const unresolved = (node: ESTree.Node) => {
       const project = projectFor(context.physicalFilename);
       return isUnresolved(project.checker, typeAt(project, context.physicalFilename, node));
@@ -27,7 +33,7 @@ const noUnknownNarrowing = defineRule({
             symbol?.name === "Error" &&
             symbol.declarations.some((declaration) => isStandardLibrary(declaration.path))
           ) {
-            context.report({ messageId: "instanceofError", node });
+            context.report({ data: { helper }, messageId: "instanceofError", node });
           }
         }
         if (
@@ -81,7 +87,7 @@ const noUnknownNarrowing = defineRule({
     },
     messages: {
       instanceofError:
-        "`instanceof Error` reads a shape off a value nobody described. Carry the caught value as `cause` in a tagged error, or decode it once with `thrownMessage` from @computis/shared/thrown-message.",
+        "`instanceof Error` reads a shape off a value nobody described. Carry the caught value as `cause` in a tagged error, or decode it once with {{helper}}.",
       jsonParse:
         "`JSON.parse` answers `any`. Decode the text with `Schema.fromJsonString(schema)` so the result carries a contract.",
       unknownNarrowing:
@@ -89,7 +95,15 @@ const noUnknownNarrowing = defineRule({
       unprovedPredicate:
         "A handwritten predicate over an unresolved input asserts a contract the compiler cannot prove. Derive the guard from Schema.is, or decode the input with Schema.decodeUnknownEffect*.",
     },
-    schema: [],
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          helper: { type: "string" },
+        },
+        type: "object",
+      },
+    ],
     type: "problem",
   },
 });

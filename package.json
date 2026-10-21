@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "chmod +x node_modules/.pnpm/@effect+tsgo-*/node_modules/@effect/tsgo-*/lib/tsc* 2>/dev/null; effect-tsgo patch --typescript --oxlint",
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint:prepare && oxlint -c oxlint.public.ts --threads=1 --report-unused-disable-directives-severity=error packages/effect-xml packages/effect-md packages/effect-pdf packages/effect-github",
+    "lint": "pnpm -r lint:prepare && oxlint -c oxlint.config.ts --threads=1 --report-unused-disable-directives-severity=error packages/effect-xml packages/effect-md packages/effect-pdf packages/effect-github",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r lint:prepare && pnpm -r typecheck",
     "oss:check": "node scripts/oss-check.ts"

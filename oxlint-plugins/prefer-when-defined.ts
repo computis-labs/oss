@@ -1,6 +1,7 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isObject, isString } from "./predicates.ts";
 
 const unwrap = (expression: ESTree.Expression): ESTree.Expression => {
   let current = expression;
@@ -90,6 +91,11 @@ const addsKeysOnly = (
 const preferWhenDefined = defineRule({
   create: (context) => {
     const text = (node: ESTree.Node) => context.sourceCode.getText(node);
+    const [option] = context.options;
+    const helper =
+      isObject(option) && "helper" in option && isString(option.helper)
+        ? option.helper
+        : "a whenDefined helper";
 
     return {
       ConditionalExpression: (node: ESTree.ConditionalExpression) => {
@@ -107,7 +113,7 @@ const preferWhenDefined = defineRule({
           defined.type === "ObjectExpression" &&
           defined.properties.length > 0
         ) {
-          context.report({ messageId: "emptyObject", node });
+          context.report({ data: { helper }, messageId: "emptyObject", node });
           return;
         }
 
@@ -117,7 +123,7 @@ const preferWhenDefined = defineRule({
           text(missing.callee) === text(defined.callee) &&
           addsKeysOnly(text, missing.arguments, defined.arguments)
         ) {
-          context.report({ messageId: "duplicatedCall", node });
+          context.report({ data: { helper }, messageId: "duplicatedCall", node });
         }
       },
     };
@@ -129,11 +135,19 @@ const preferWhenDefined = defineRule({
     },
     messages: {
       duplicatedCall:
-        "Both branches make the same call and one only adds keys. Make the call once and spread the optional keys with whenDefined from @computis/shared/object.",
+        "Both branches make the same call and one only adds keys. Make the call once and spread the optional keys with {{helper}}.",
       emptyObject:
-        "Spread the optional key with whenDefined from @computis/shared/object instead of choosing between {} and an object.",
+        "Spread the optional key with {{helper}} instead of choosing between {} and an object.",
     },
-    schema: [],
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          helper: { type: "string" },
+        },
+        type: "object",
+      },
+    ],
     type: "suggestion",
   },
 });

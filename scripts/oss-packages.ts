@@ -6,8 +6,6 @@ export const publicFiles = [
   "packages/config/tsconfig/base.json",
   "packages/config/tsconfig/node.json",
   "packages/config/tsconfig/paths.json",
-  "oxlint.public.ts",
-  "oxlint-plugins/**",
   "scripts/oss-check.ts",
   "scripts/oss-packages.ts",
   "scripts/oss-release.ts",

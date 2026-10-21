@@ -103,7 +103,7 @@ const withoutExtension = (file: string) => file.slice(0, -path.extname(file).len
 
 /**
  * The segments after an alias or a package name: `#/x`, `#shared/x`, `@/x` and
- * `@computis/shared/x` all answer `x`, which is the tail the declaring file's path ends with.
+ * `@scope/package/x` all answer `x`, which is the tail the declaring file's path ends with.
  */
 const aliasTail = (specifier: string) => {
   const [head = "", ...rest] = specifier.split("/");
