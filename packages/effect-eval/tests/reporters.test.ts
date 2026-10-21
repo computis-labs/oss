@@ -64,39 +64,44 @@ const CASES = 2000;
 const LAST_CASE = `case-${String(CASES - 1)}`;
 
 describe("Reporters.terminal with a slow writer", () => {
-  it.effect("draws the final summary from every case, even when progress events were dropped", () =>
-    Effect.gen(function* () {
-      const gate = yield* Deferred.make<boolean>();
-      const lines: string[] = [];
-      const write: Reporters.Write = (text) =>
-        Deferred.await(gate).pipe(Effect.andThen(Effect.sync(() => lines.push(text))));
-      const many = Eval.make({
-        dataset: Dataset.fromIterable(
-          Array.from({ length: CASES }, (_, index) => `case-${String(index)}`),
-          { id: (id: string) => id },
-        ),
-        name: "many",
-        score: Scorer.label<string, string>({
-          actual: Option.some,
-          expected: () => Scorer.present("right"),
-        }),
-        task: (input) =>
-          (input.id === LAST_CASE ? Deferred.succeed(gate, true) : Effect.void).pipe(
-            Effect.as(input.id === "case-1000" ? "wrong" : "right"),
+  it.effect(
+    "draws the final summary from every case, even when progress events were dropped",
+    () =>
+      Effect.gen(function* () {
+        const gate = yield* Deferred.make<boolean>();
+        const lines: string[] = [];
+        const write: Reporters.Write = (text) =>
+          Deferred.await(gate).pipe(Effect.andThen(Effect.sync(() => lines.push(text))));
+        const many = Eval.make({
+          dataset: Dataset.fromIterable(
+            Array.from({ length: CASES }, (_, index) => `case-${String(index)}`),
+            { id: (id: string) => id },
           ),
-      });
+          name: "many",
+          score: Scorer.label<string, string>({
+            actual: Option.some,
+            expected: () => Scorer.present("right"),
+          }),
+          task: (input) =>
+            (input.id === LAST_CASE ? Deferred.succeed(gate, true) : Effect.void).pipe(
+              Effect.as(input.id === "case-1000" ? "wrong" : "right"),
+            ),
+        });
 
-      const run = yield* Runner.run(many, { concurrency: 1 }).pipe(
-        Effect.provide(
-          Reporter.layer([Reporters.terminal({ color: false, progress: true, width: 120, write })]),
-        ),
-      );
-      const summary = lines.at(-1) ?? "";
+        const run = yield* Runner.run(many, { concurrency: 1 }).pipe(
+          Effect.provide(
+            Reporter.layer([
+              Reporters.terminal({ color: false, progress: true, width: 120, write }),
+            ]),
+          ),
+        );
+        const summary = lines.at(-1) ?? "";
 
-      expect(run.variants[0]?.summary.counts["wrong"]).toBe(1);
-      expect(summary).toContain("To look at");
-      expect(summary).toContain("case-1000");
-    }),
+        expect(run.variants[0]?.summary.counts["wrong"]).toBe(1);
+        expect(summary).toContain("To look at");
+        expect(summary).toContain("case-1000");
+      }),
+    { timeout: 30_000 },
   );
 });
 

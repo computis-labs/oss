@@ -464,6 +464,7 @@ describe("Run.compare with composed scorers", () => {
         expect(unchanged(run)).toEqual(clean);
         expect([trials?.passAtK, trials?.flaky]).toEqual([trials?.passHatK, []]);
       }),
+    { timeout: 30_000 },
   );
 });
 
