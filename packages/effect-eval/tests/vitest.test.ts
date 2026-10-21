@@ -101,7 +101,7 @@ describe("EvalTest.describe with split case", () => {
   afterAll(() => {
     expect(sorted(testNames)).toEqual(sorted(["rent", "fuel", "gates"]));
     expect(events.filter(Events.isRunStarted)).toHaveLength(1);
-    expect(spawned).toContain("git rev-parse HEAD");
+    expect(spawned).toContain("git status --porcelain");
   });
 
   VitestEval.describe(categorizer, {
