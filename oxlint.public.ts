@@ -310,6 +310,12 @@ const config = defineConfig({
       },
     },
     {
+      files: ["apps/web/src/**/*.{ts,tsx}", "apps/dealflow/src/**/*.{ts,tsx}"],
+      rules: {
+        "query-status-policy/prefer-match-query-status": "error",
+      },
+    },
+    {
       files: ["apps/*/src/**/*.{ts,tsx}", "packages/shared/src/**/*.{ts,tsx}"],
       rules: {
         "object-policy/no-membership-set": "error",

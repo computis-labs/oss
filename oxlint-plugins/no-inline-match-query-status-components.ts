@@ -1,7 +1,10 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isInterfaceDeclaration } from "typescript/unstable/ast/is";
+import type { NodeHandle } from "typescript/unstable/sync";
 import { isString } from "./predicates.ts";
+import { projectFor } from "./type-information.ts";
 
 const QUERY_STATUS_MODULE = "@/lib/match-query-status";
 const STATUS_NAMES = new Set(["Empty", "Loading", "renderErrored", "renderSuccess"]);
@@ -329,10 +332,199 @@ const matchQueryStatusFolderStructure = defineRule({
   },
 });
 
+const STATUS_FLAGS = ["isError", "isLoading", "isPending", "isSuccess"];
+
+const isQueryResultDeclaration = (declaration: NodeHandle) => {
+  if (!declaration.path.includes("/@tanstack/query-core/")) {
+    return false;
+  }
+  const owner = declaration.resolve()?.parent;
+  return (
+    owner !== undefined &&
+    isInterfaceDeclaration(owner) &&
+    /^(?:Infinite)?QueryObserver\w*Result$/u.test(owner.name.getText())
+  );
+};
+
+const yieldsJsx = (expression: ESTree.Expression): boolean => {
+  const unwrapped = unwrapExpression(expression);
+  if (unwrapped.type === "JSXElement" || unwrapped.type === "JSXFragment") {
+    return true;
+  }
+  if (unwrapped.type === "ConditionalExpression") {
+    return yieldsJsx(unwrapped.consequent) || yieldsJsx(unwrapped.alternate);
+  }
+  if (unwrapped.type === "LogicalExpression") {
+    return yieldsJsx(unwrapped.right);
+  }
+  return false;
+};
+
+type FunctionNode = ESTree.ArrowFunctionExpression | ESTree.Function;
+
+const isFunctionNode = (node: ESTree.Node): node is FunctionNode =>
+  node.type === "ArrowFunctionExpression" ||
+  node.type === "FunctionDeclaration" ||
+  node.type === "FunctionExpression";
+
+const enclosingFunction = (node: ESTree.Node): FunctionNode | null => {
+  const parent = node.parent;
+  if (parent === undefined || parent === null) {
+    return null;
+  }
+  return isFunctionNode(parent) ? parent : enclosingFunction(parent);
+};
+
+const functionName = (fn: FunctionNode) => {
+  if (fn.type !== "ArrowFunctionExpression" && fn.id !== null && fn.id !== undefined) {
+    return fn.id.name;
+  }
+  if (fn.parent?.type === "VariableDeclarator" && fn.parent.id.type === "Identifier") {
+    return fn.parent.id.name;
+  }
+  return null;
+};
+
+const isComponent = (fn: FunctionNode | null) => {
+  const name = fn === null ? null : functionName(fn);
+  return name !== null && isComponentName(name);
+};
+
+const isReturned = (expression: ESTree.Node): boolean => {
+  const parent = expression.parent;
+  if (parent?.type === "ParenthesizedExpression") {
+    return isReturned(parent);
+  }
+  return (
+    parent?.type === "ReturnStatement" ||
+    (parent?.type === "ArrowFunctionExpression" && parent.body === expression)
+  );
+};
+
+const returnsIn = (statement: ESTree.Node): ESTree.ReturnStatement[] => {
+  if (statement.type === "ReturnStatement") {
+    return [statement];
+  }
+  if (statement.type === "BlockStatement") {
+    return statement.body.flatMap(returnsIn);
+  }
+  if (statement.type === "IfStatement") {
+    return [
+      ...returnsIn(statement.consequent),
+      ...(statement.alternate === null ? [] : returnsIn(statement.alternate)),
+    ];
+  }
+  return [];
+};
+
+const returnsFromComponent = (statement: ESTree.IfStatement) => {
+  const returns = returnsIn(statement.consequent);
+  return (
+    returns.length > 0 &&
+    (isComponent(enclosingFunction(statement)) ||
+      returns.some((node) => node.argument !== null && yieldsJsx(node.argument)))
+  );
+};
+
+const preferMatchQueryStatus = defineRule({
+  create: (context) => {
+    const branchesOnStatus = (node: ESTree.Node, depth: number): boolean => {
+      const parent = node.parent;
+      if (parent === undefined || parent === null) {
+        return false;
+      }
+      switch (parent.type) {
+        case "ParenthesizedExpression":
+        case "TSNonNullExpression":
+        case "TSAsExpression":
+        case "TSSatisfiesExpression":
+          return branchesOnStatus(parent, depth);
+        case "UnaryExpression":
+          return parent.operator === "!" && branchesOnStatus(parent, depth);
+        case "BinaryExpression":
+          return (
+            (parent.operator === "===" || parent.operator === "!==") &&
+            branchesOnStatus(parent, depth)
+          );
+        case "LogicalExpression":
+          return (
+            (parent.operator !== "??" && parent.left === node && yieldsJsx(parent.right)) ||
+            branchesOnStatus(parent, depth)
+          );
+        case "ConditionalExpression":
+          return (
+            parent.test === node &&
+            (yieldsJsx(parent.consequent) ||
+              yieldsJsx(parent.alternate) ||
+              (isReturned(parent) && isComponent(enclosingFunction(parent))))
+          );
+        case "IfStatement":
+          return parent.test === node && returnsFromComponent(parent);
+        case "VariableDeclarator":
+          return (
+            depth === 0 &&
+            parent.init === node &&
+            parent.parent?.type === "VariableDeclaration" &&
+            parent.parent.kind === "const" &&
+            context.sourceCode
+              .getDeclaredVariables(parent)
+              .flatMap((variable) => variable.references)
+              .some(
+                (reference) => !reference.init && branchesOnStatus(reference.identifier, depth + 1),
+              )
+          );
+        default:
+          return false;
+      }
+    };
+
+    const readsQueryResult = (node: ESTree.MemberExpression) => {
+      const project = projectFor(context.physicalFilename);
+      const symbol = project.checker.getSymbolAtPosition(
+        context.physicalFilename,
+        node.property.end - 1,
+      );
+      return symbol?.declarations.some(isQueryResultDeclaration) === true;
+    };
+
+    return {
+      MemberExpression: (node: ESTree.MemberExpression) => {
+        if (
+          node.computed ||
+          node.property.type !== "Identifier" ||
+          !STATUS_FLAGS.includes(node.property.name) ||
+          !branchesOnStatus(node, 0) ||
+          !readsQueryResult(node)
+        ) {
+          return;
+        }
+        context.report({
+          data: { flag: node.property.name },
+          messageId: "preferMatchQueryStatus",
+          node,
+        });
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description:
+        "Render the states of a query with matchQueryStatus instead of branching on its status flags.",
+    },
+    messages: {
+      preferMatchQueryStatus:
+        "Do not branch on `{{flag}}` to pick what the component renders. Render the query with matchQueryStatus from @/lib/match-query-status and its loading, errored and success state components.",
+    },
+    schema: [],
+    type: "problem",
+  },
+});
+
 export default definePlugin({
   meta: { name: "query-status-policy" },
   rules: {
     "folder-structure": matchQueryStatusFolderStructure,
     "no-inline-components": noInlineMatchQueryStatusComponents,
+    "prefer-match-query-status": preferMatchQueryStatus,
   },
 });
