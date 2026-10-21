@@ -550,6 +550,10 @@ const config = defineConfig({
       rules: { "layout-policy/module-tests": "error" },
     },
     {
+      files: ["apps/backend/src/routes/**/{index,get,post,put,patch,delete}.ts"],
+      rules: { "layout-policy/no-route-guards": "error" },
+    },
+    {
       files: ["apps/backend/src/db/scripts/**/*.ts"],
       rules: {
         "effecttsgo/crypto-random-uuid": "off",
