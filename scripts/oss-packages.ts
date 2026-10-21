@@ -1,4 +1,10 @@
-export const publicPackages = ["effect-xml", "effect-md", "effect-pdf", "effect-github"] as const;
+export const publicPackages = [
+  "effect-xml",
+  "effect-md",
+  "effect-pdf",
+  "effect-github",
+  "effect-eval",
+] as const;
 
 export const publicRoot = "oss";
 

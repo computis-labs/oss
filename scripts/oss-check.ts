@@ -16,7 +16,17 @@ const PublishedManifest = Schema.Struct({
   bin: Schema.optionalKey(StringRecord),
   exports: StringRecord,
   name: Schema.String,
+  peerDependencies: Schema.optionalKey(StringRecord),
+  peerDependenciesMeta: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Struct({ optional: Schema.optionalKey(Schema.Boolean) })),
+  ),
 });
+
+const optionalPeers = (manifest: typeof PublishedManifest.Type) =>
+  Object.entries(manifest.peerDependencies ?? {})
+    .filter(([name]) => manifest.peerDependenciesMeta?.[name]?.optional === true)
+    .filter(([name]) => !name.startsWith("@effect/platform-"))
+    .map(([name, range]) => `${name}@${range}`);
 
 const RootManifest = Schema.Struct({ devDependencies: StringRecord });
 
@@ -158,11 +168,16 @@ const program = Effect.gen(function* ossCheckProgram() {
 
   const imports: string[] = [];
   const bins: string[] = [];
+  const peers: string[] = [];
   for (const name of publicPackages) {
     const installed = path.join(smoke, "node_modules", "@computis", name);
     const manifest = yield* readJson(PublishedManifest, path.join(installed, "package.json"));
     imports.push(...(yield* exportSpecifiers(installed, manifest)));
     bins.push(...Object.values(manifest.bin ?? {}).map((bin) => path.join(installed, bin)));
+    peers.push(...optionalPeers(manifest));
+  }
+  if (peers.length > 0) {
+    yield* run("npm", ["install", "--no-audit", "--no-fund", ...new Set(peers)], smoke);
   }
   yield* fs.writeFileString(
     path.join(smoke, "smoke.mjs"),

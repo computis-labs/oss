@@ -1,0 +1,162 @@
+{
+  "name": "@computis/effect-eval",
+  "version": "0.0.0",
+  "description": "Evals for LLM features with Effect: datasets, scorers, metrics with intervals, gates, variants, trials, history and reporters.",
+  "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-eval#readme",
+  "bugs": "https://github.com/computis-labs/oss/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/computis-labs/oss.git",
+    "directory": "packages/effect-eval"
+  },
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "CHANGELOG.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./agreement": "./src/agreement.ts",
+    "./chart": "./src/chart.ts",
+    "./chart-html": "./src/chart-html.ts",
+    "./chart-mermaid": "./src/chart-mermaid.ts",
+    "./chart-unicode": "./src/chart-unicode.ts",
+    "./chart-vega": "./src/chart-vega.ts",
+    "./cli": "./src/cli.ts",
+    "./compare": "./src/compare.ts",
+    "./config": "./src/config.ts",
+    "./dataset": "./src/dataset.ts",
+    "./eval": "./src/eval.ts",
+    "./events": "./src/events.ts",
+    "./execution": "./src/execution.ts",
+    "./gate": "./src/gate.ts",
+    "./git": "./src/git.ts",
+    "./history": "./src/history.ts",
+    "./judge": "./src/judge.ts",
+    "./metric": "./src/metric.ts",
+    "./observation": "./src/observation.ts",
+    "./privacy": "./src/privacy.ts",
+    "./reporter": "./src/reporter.ts",
+    "./reporters": "./src/reporters.ts",
+    "./run": "./src/run.ts",
+    "./runner": "./src/runner.ts",
+    "./scorer": "./src/scorer.ts",
+    "./statistics": "./src/statistics.ts",
+    "./theme": "./src/theme.ts",
+    "./usage": "./src/usage.ts",
+    "./variant": "./src/variant.ts",
+    "./verdict": "./src/verdict.ts",
+    "./view": "./src/view.ts",
+    "./view-html": "./src/view-html.ts",
+    "./view-markdown": "./src/view-markdown.ts",
+    "./view-text": "./src/view-text.ts",
+    "./vitest": "./src/vitest.ts",
+    "./errors/*": "./src/errors/*.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js",
+      "./agreement": "./dist/agreement.js",
+      "./chart": "./dist/chart.js",
+      "./chart-html": "./dist/chart-html.js",
+      "./chart-mermaid": "./dist/chart-mermaid.js",
+      "./chart-unicode": "./dist/chart-unicode.js",
+      "./chart-vega": "./dist/chart-vega.js",
+      "./cli": "./dist/cli.js",
+      "./compare": "./dist/compare.js",
+      "./config": "./dist/config.js",
+      "./dataset": "./dist/dataset.js",
+      "./eval": "./dist/eval.js",
+      "./events": "./dist/events.js",
+      "./execution": "./dist/execution.js",
+      "./gate": "./dist/gate.js",
+      "./git": "./dist/git.js",
+      "./history": "./dist/history.js",
+      "./judge": "./dist/judge.js",
+      "./metric": "./dist/metric.js",
+      "./observation": "./dist/observation.js",
+      "./privacy": "./dist/privacy.js",
+      "./reporter": "./dist/reporter.js",
+      "./reporters": "./dist/reporters.js",
+      "./run": "./dist/run.js",
+      "./runner": "./dist/runner.js",
+      "./scorer": "./dist/scorer.js",
+      "./statistics": "./dist/statistics.js",
+      "./theme": "./dist/theme.js",
+      "./usage": "./dist/usage.js",
+      "./variant": "./dist/variant.js",
+      "./verdict": "./dist/verdict.js",
+      "./view": "./dist/view.js",
+      "./view-html": "./dist/view-html.js",
+      "./view-markdown": "./dist/view-markdown.js",
+      "./view-text": "./dist/view-text.js",
+      "./vitest": "./dist/vitest.js",
+      "./errors/*": "./dist/errors/*.js",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@computis/config": "workspace:*",
+    "@effect/platform-node": "4.0.5",
+    "@effect/vitest": "4.0.5",
+    "@resvg/resvg-js": "2.6.2",
+    "effect": "4.0.5",
+    "simple-ascii-chart": "6.0.0",
+    "terminal-image": "5.0.1",
+    "vega": "6.4.0",
+    "vega-lite": "6.5.0",
+    "vitest": "5.0.3"
+  },
+  "peerDependencies": {
+    "@effect/vitest": "^4.0.5",
+    "@resvg/resvg-js": "^2.6.2",
+    "effect": "^4.0.0",
+    "simple-ascii-chart": "^6.0.0",
+    "terminal-image": "^5.0.1",
+    "vega": "^6.4.0",
+    "vega-lite": "^6.5.0",
+    "vitest": "^5.0.3"
+  },
+  "peerDependenciesMeta": {
+    "@effect/vitest": {
+      "optional": true
+    },
+    "@resvg/resvg-js": {
+      "optional": true
+    },
+    "simple-ascii-chart": {
+      "optional": true
+    },
+    "terminal-image": {
+      "optional": true
+    },
+    "vega": {
+      "optional": true
+    },
+    "vega-lite": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

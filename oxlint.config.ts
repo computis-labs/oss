@@ -27,6 +27,7 @@ export default defineConfig({
         "packages/effect-md/**",
         "packages/effect-pdf/**",
         "packages/effect-github/**",
+        "packages/effect-eval/**",
       ],
       rules: {
         "no-restricted-imports": [
@@ -44,9 +45,11 @@ export default defineConfig({
                   "!@computis/effect-pdf/**",
                   "!@computis/effect-github",
                   "!@computis/effect-github/**",
+                  "!@computis/effect-eval",
+                  "!@computis/effect-eval/**",
                 ],
                 message:
-                  "A public package imports only the public packages: effect-xml, effect-md, effect-pdf, effect-github.",
+                  "A public package imports only the public packages: effect-xml, effect-md, effect-pdf, effect-github, effect-eval.",
               },
             ],
           },
@@ -65,6 +68,7 @@ export default defineConfig({
         "packages/effect-md/src/**",
         "packages/effect-pdf/src/**",
         "packages/effect-github/src/**",
+        "packages/effect-eval/src/**",
       ],
       rules: {
         "no-restricted-imports": [
@@ -82,9 +86,11 @@ export default defineConfig({
                   "!@computis/effect-pdf/**",
                   "!@computis/effect-github",
                   "!@computis/effect-github/**",
+                  "!@computis/effect-eval",
+                  "!@computis/effect-eval/**",
                 ],
                 message:
-                  "A public package imports only the public packages: effect-xml, effect-md, effect-pdf, effect-github.",
+                  "A public package imports only the public packages: effect-xml, effect-md, effect-pdf, effect-github, effect-eval.",
               },
               {
                 group: ["@effect/platform-*", "@effect/platform-*/**"],
@@ -114,6 +120,7 @@ export default defineConfig({
       rules: { "narrowing-policy/no-unknown-narrowing": "error" },
     },
     { files: ["packages/**/*.{ts,tsx}"], rules: { "test-boundary/no-test-imports": "error" } },
+    { files: ["packages/effect-eval/src/index.ts"], rules: { "oxc/no-barrel-file": "off" } },
     {
       files: ["**/*.{test,spec,fixtures}.{ts,tsx}"],
       rules: {
