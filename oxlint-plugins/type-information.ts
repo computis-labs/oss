@@ -58,6 +58,16 @@ export const typeAt = (project: Project, filename: string, node: ESTree.Node) =>
     : project.checker.getTypeAtLocation(syntax);
 };
 
+export const typeOfTypeNode = (project: Project, filename: string, node: ESTree.Node) => {
+  let syntax: Node | undefined = project.program.getSourceFile(filename);
+  while (syntax !== undefined && (syntax.getStart() !== node.start || syntax.end !== node.end)) {
+    syntax = syntax.forEachChild((child) =>
+      child.getStart() <= node.start && node.end <= child.end ? child : undefined,
+    );
+  }
+  return syntax === undefined ? undefined : project.checker.getTypeFromTypeNode(syntax);
+};
+
 export const isUnresolved = (
   checker: Checker,
   type: Type | undefined,
