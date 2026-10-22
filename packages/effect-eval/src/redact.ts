@@ -3,7 +3,7 @@ import type { EvalEvent, Scored } from "./events.ts";
 import type { Observation } from "./observation.ts";
 import type { Run } from "./run.ts";
 
-export const REDACTED = "[redacted]";
+const REDACTED = "[redacted]";
 
 export const UNLOGGED = "The run is sensitive, so its error is not logged.";
 
@@ -24,7 +24,7 @@ export const RedactsSensitive = Context.Reference<boolean>("effect-eval/RedactsS
   defaultValue: () => false,
 });
 
-export const redactObservation = (observation: Observation): Observation => ({
+const redactObservation = (observation: Observation): Observation => ({
   ...observation,
   detail: { actual: REDACTED, expected: REDACTED },
   failure: observation.failure.pipe(Option.map(() => REDACTED)),

@@ -33,7 +33,7 @@ const Answers = Context.Reference<Readonly<Record<string, string>>>("tests/Answe
   defaultValue: () => ({}),
 });
 
-export const categorizer = Eval.make({
+const categorizer = Eval.make({
   dataset: Dataset.fromIterable([...movements, Dataset.skip("m5", "no ground truth")], {
     id: (movement: Movement) => movement.id,
     tags: (movement: Movement) => [`group:${movement.category}`],

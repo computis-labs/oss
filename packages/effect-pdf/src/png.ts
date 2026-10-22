@@ -24,7 +24,7 @@ const CRC_TABLE = Uint32Array.from({ length: BYTE_VALUES }, (_, byte) => {
   return round(byte, BITS_PER_BYTE);
 });
 
-export type RasterChannels = 1 | 3 | 4;
+type RasterChannels = 1 | 3 | 4;
 
 export interface Raster {
   readonly bitDepth: 1 | 8;

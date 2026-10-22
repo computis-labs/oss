@@ -12,7 +12,7 @@ export const pageObjectTypes = {
   text: 1,
   unknown: 0,
 } as const;
-export type PageObjectType = (typeof pageObjectTypes)[keyof typeof pageObjectTypes];
+type PageObjectType = (typeof pageObjectTypes)[keyof typeof pageObjectTypes];
 
 const pageObjectTypeCodes: ReadonlyMap<number, PageObjectType> = new Map(
   Object.values(pageObjectTypes).map((type) => [type, type]),

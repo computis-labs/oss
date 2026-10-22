@@ -48,10 +48,9 @@ const FatturaDocumentSchema = Schema.Union([
   FatturaElettronicaSchema,
 ]);
 
-export class BaselineDecodeError extends Schema.TaggedError<BaselineDecodeError>()(
-  "BaselineDecodeError",
-  { cause: Schema.Unknown },
-) {}
+class BaselineDecodeError extends Schema.TaggedError<BaselineDecodeError>()("BaselineDecodeError", {
+  cause: Schema.Unknown,
+}) {}
 
 export const makeBaseline = (xsd: {
   readonly dsig: { readonly contents: string; readonly fileName: string };

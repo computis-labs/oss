@@ -20,13 +20,6 @@ import { RedactsSensitive, SensitiveExposure, UNLOGGED, redactEvent } from "./re
 import { RunEvents, subscribe } from "./reporter.ts";
 import type { Installed } from "./reporter.ts";
 
-export interface Bus {
-  readonly emit: (body: EventBody) => Effect.Effect<void>;
-  readonly failed: Effect.Effect<readonly string[]>;
-  readonly close: Effect.Effect<readonly string[], EvalReporterFailed>;
-  readonly events: readonly EvalEvent[];
-}
-
 export const open = Effect.fn("Bus.open")(function* openBus(
   runId: string,
   reporters: readonly Installed[],
@@ -114,6 +107,5 @@ export const open = Effect.fn("Bus.open")(function* openBus(
     }
     return broken.map(({ reporter }) => reporter.name);
   });
-  const bus: Bus = { close, emit, events, failed };
-  return bus;
+  return { close, emit, events, failed };
 });
