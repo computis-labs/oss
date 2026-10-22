@@ -32,7 +32,7 @@ export const projectFor = (filename: string) => {
 
 const syntaxNodes = new WeakMap<Project, Map<string, Map<string, Node>>>();
 
-export const typeAt = (project: Project, filename: string, node: ESTree.Node) => {
+export const syntaxAt = (project: Project, filename: string, node: ESTree.Node) => {
   let files = syntaxNodes.get(project);
   if (files === undefined) {
     files = new Map();
@@ -52,7 +52,11 @@ export const typeAt = (project: Project, filename: string, node: ESTree.Node) =>
     collect(source);
     files.set(filename, nodes);
   }
-  const syntax = nodes.get(`${node.start}:${node.end}`);
+  return nodes.get(`${node.start}:${node.end}`);
+};
+
+export const typeAt = (project: Project, filename: string, node: ESTree.Node) => {
+  const syntax = syntaxAt(project, filename, node);
   return syntax === undefined
     ? project.checker.getTypeAtPosition(filename, node.end - 1)
     : project.checker.getTypeAtLocation(syntax);
