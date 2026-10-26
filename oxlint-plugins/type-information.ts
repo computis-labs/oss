@@ -100,7 +100,8 @@ export const isUnresolved = (
 };
 
 export const isStandardLibrary = (filename: string) =>
-  filename.startsWith("bundled:///libs/lib.") || filename.includes("/typescript/lib/lib.");
+  filename.startsWith("bundled:///libs/lib.") ||
+  /\/typescript(?:-[^/]+)?\/lib\/lib\.[^/]+\.d\.ts$/u.test(filename);
 
 export const libraryCheck = (
   project: Project,
