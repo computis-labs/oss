@@ -63,7 +63,7 @@
     "fixtures:generate:domain": "node src/bin.ts generate --xsd tests/fixtures/xsd-codegen/order.xsd --root Order --out tests/fixtures/xsd-codegen/order-domain.gen.ts --runtime ../../../src/xsd-codegen/runtime.ts --domain ./order-domain.ts#domain --format oxfmt --format-arg=--stdin-filepath={file}",
     "test": "pnpm fixtures:generate && vitest run",
     "lint:prepare": "pnpm fixtures:generate",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsrs -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "libxml2-wasm": "0.7.2"

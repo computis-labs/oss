@@ -47,7 +47,7 @@
     "prepack": "pnpm build",
     "bench": "node --expose-gc bench/main.ts && node bench/pool.ts && node bench/startup.ts && oxfmt bench/results",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsrs -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@embedpdf/pdfium": "2.15.1",

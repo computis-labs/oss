@@ -6,4 +6,6 @@ minimumReleaseAgeExclude:
   - oxlint-plugin-react-doctor
   - effect
   - "@effect/*"
+  - tsrs@0.18.0-ts7.1.0-dev.20260929
+  - "@tsrs/*"
 trustPolicy: no-downgrade

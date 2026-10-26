@@ -60,7 +60,7 @@
     "fixtures:generate": "node src/bin.ts generate --root tests/fixtures/prompts --runtime ../../../src/runtime.ts --format \"oxfmt --stdin-filepath={file}\"",
     "test": "pnpm fixtures:generate && vitest run",
     "lint:prepare": "pnpm fixtures:generate",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsrs -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "yaml": "2.9.1"

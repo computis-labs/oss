@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare": "chmod +x node_modules/.pnpm/@effect+tsgo-*/node_modules/@effect/tsgo-*/lib/tsc* 2>/dev/null; effect-tsgo patch --typescript --oxlint",
+    "prepare": "chmod +x node_modules/.pnpm/@effect+tsgo-*/node_modules/@effect/tsgo-*/lib/tsc* 2>/dev/null; effect-tsgo patch --typescript --oxlint --tsrs",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint:prepare && oxlint -c oxlint.config.ts --threads=1 --report-unused-disable-directives-severity=error packages/effect-xml packages/effect-md packages/effect-pdf packages/effect-github packages/effect-eval",
     "test": "pnpm -r test",
@@ -24,6 +24,7 @@
     "oxlint-tailwindcss": "1.10.2",
     "oxlint-tsgolint": "7.0.2004",
     "publint": "0.3.24",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "7.0.2",
     "ultracite": "7.10.7"
   },
