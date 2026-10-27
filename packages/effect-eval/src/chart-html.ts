@@ -29,8 +29,10 @@ export const renderer =
         const id = `effect-eval-chart-${random.toString(36)}`;
         const specs = charts.map((chart) => Charts.toVegaLite(chart, render.theme));
         const [first] = specs;
+
         const spec =
           specs.length === 1 && first !== undefined ? first : Charts.hconcat(specs, render.theme);
+
         return Option.some(
           drawing(
             drawingKinds.html,

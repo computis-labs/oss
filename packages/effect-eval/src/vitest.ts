@@ -44,6 +44,7 @@ export const checkCase = (gates: readonly Gate.Gate[], run: Run, id: string) => 
     Gate.noBaselines,
     Number.POSITIVE_INFINITY,
   );
+
   return Gate.check(
     run.gates
       .filter((gate) => !gate.passed)
@@ -54,10 +55,12 @@ export const checkCase = (gates: readonly Gate.Gate[], run: Run, id: string) => 
             result.gate === gate.gate &&
             sameScope(result.scope, gate.scope),
         );
+
         const mine =
           recomputed !== undefined && recomputed.violations.length > 0
             ? recomputed.violations
             : gate.violations.filter((scored) => scored.case === id);
+
         return mine.length === 0
           ? []
           : [
@@ -76,6 +79,7 @@ export const splits = {
   case: "case",
   variant: "variant",
 } as const;
+
 export type Split = (typeof splits)[keyof typeof splits];
 
 type Resolved<Required> = {
@@ -112,6 +116,7 @@ export const reportersOf = (
   write: Reporters.Write,
 ) => {
   const history = options.history ?? EvalConfig.historyEnabled(config);
+
   return pipe(
     (options.reporters ?? config.reporters ?? EvalConfig.defaultReporters).filter(
       (entry) => history || entry !== EvalConfig.builtinNames.history,
@@ -122,6 +127,7 @@ export const reportersOf = (
           if (reporter.name === EvalConfig.builtinNames.history) {
             return Reporter.required(reporter);
           }
+
           return reporter.name === EvalConfig.builtinNames.terminal &&
             reporter.destination === Reporter.destinations.stdout
             ? {
@@ -158,28 +164,37 @@ export const describe = <
   const required = Effect.runSyncExit(Config.all(options.skipUnless ?? {}));
   const missing = Exit.isFailure(required);
   const buffer: string[] = [];
+
   const write = (text: string) =>
     Effect.sync(() => {
       buffer.push(text);
     });
+
   const services = Layer.merge(Git.layerProcess.pipe(Layer.provide(options.layer)), options.layer);
+
   const reportersFor = Effect.gen(function* resolveReporters() {
     const config = Option.getOrElse(yield* EvalConfig.load(CWD), (): EvalConfig.EvalConfig => ({}));
     const reporters = yield* reportersOf(config, options, write);
+
     return { config, reporters };
   });
+
   const runVariant = (variant: Variant<ROut, VE, RIn> | Variant<never>) => {
     const provided = Effect.gen(function* runInVitest() {
       const { config, reporters } = yield* reportersFor;
+
       return yield* Runner.run(self, { variants: [variant] }).pipe(
         Effect.provide(Reporter.layer(reporters)),
         Effect.provide(EvalConfig.historyLayer(config)),
       );
     }).pipe(Effect.provide(services));
+
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: DescribeOptions makes options.layer provide every service of the eval that the variant does not, so nothing is left to require.
     return provided as Effect.Effect<Run, unknown>;
   };
+
   const timeout = Duration.toMillis(options.timeout ?? DEFAULT_TIMEOUT);
+
   const variants: readonly Variant<ROut, VE, RIn>[] | readonly Variant<never>[] = Exit.match(
     required,
     {
@@ -189,18 +204,22 @@ export const describe = <
         options.variants?.(config as Resolved<Required>) ?? [Variants.none],
     },
   );
+
   const selection = Effect.runSyncExit(
     Runner.validVariants(variants.map((variant) => variant.name)),
   );
+
   if (Exit.isFailure(selection)) {
     throw Cause.squash(selection.cause);
   }
+
   describeSuite.skipIf(missing)(self.name, async () => {
     afterAll(() => {
       if (buffer.length > 0) {
         Effect.runSync(Console.log(buffer.join(LINE_BREAK)));
       }
     });
+
     if (options.split !== splits.case || missing) {
       for (const variant of variants) {
         it.live(
@@ -209,11 +228,14 @@ export const describe = <
           timeout,
         );
       }
+
       return;
     }
+
     const loaded = await Effect.runPromise(
       Datasets.load(self.dataset).pipe(Effect.provide(options.layer), Effect.orDie),
     );
+
     for (const variant of variants) {
       const once = Effect.runSync(Effect.cached(runVariant(variant)));
       describeSuite(variant.name, () => {
@@ -227,6 +249,7 @@ export const describe = <
             timeout,
           );
         }
+
         it.live(GATES, () => asTestFailure(once.pipe(Effect.flatMap(Runner.check))), timeout);
       });
     }

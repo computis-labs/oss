@@ -24,15 +24,19 @@ const withTextPage = <A>(
   withPage(handle, page, (pagePointer) => {
     const { lib } = handle;
     const textPage = lib.FPDFText_LoadPage(pagePointer);
+
     try {
       const count = Math.max(0, lib.FPDFText_CountChars(textPage));
+
       const characters =
         count === 0
           ? ""
           : withAllocation(lib, (count + 1) * BYTES_PER_UTF16_UNIT, (buffer) => {
               lib.FPDFText_GetText(textPage, 0, count, buffer);
+
               return lib.pdfium.UTF16ToString(buffer);
             });
+
       return read(lib, textPage, { characters, count });
     } finally {
       lib.FPDFText_ClosePage(textPage);
@@ -60,6 +64,7 @@ export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
       pattern.source,
       pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
     );
+
     const matches = Array.from(characters.matchAll(global), (match): PdfTextMatch | null => {
       const glyphs = Array.from({ length: match[0].length }, (_, offset) =>
         lib.FPDFText_GetCharIndexFromTextIndex(textPage, match.index + offset),
@@ -69,14 +74,17 @@ export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
           all.indexOf(index) === position &&
           lib.FPDFText_IsGenerated(textPage, index) !== GENERATED,
       );
+
       const boxes = glyphs.map((index) =>
         readDoubles(lib, 4, (box) =>
           lib.FPDFText_GetCharBox(textPage, index, box, box + 8, box + 16, box + 24),
         ),
       );
+
       const measured = boxes.flatMap((box) => (box === null ? [] : [box]));
       const [first] = glyphs;
       const origin = first === undefined ? null : charOrigin(lib, textPage, first);
+
       return origin === null || measured.length === 0 || measured.length < boxes.length
         ? null
         : {
@@ -92,7 +100,9 @@ export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
             text: match[0],
           };
     });
+
     const placed = matches.flatMap((match) => (match === null ? [] : [match]));
+
     return placed.length === matches.length
       ? Result.succeed(placed)
       : Result.fail(PdfPageError.unmeasurable(page));

@@ -12,6 +12,7 @@ export const pdfPageKinds = {
   mixed: "mixed",
   text: "text",
 } as const;
+
 export type PdfPageKind = (typeof pdfPageKinds)[keyof typeof pdfPageKinds];
 
 export const pdfImageOrigins = { embedded: "embedded", rendered: "rendered" } as const;
@@ -28,6 +29,7 @@ export const pdfFieldTypes = {
   text: "text",
   unknown: "unknown",
 } as const;
+
 export type PdfFieldType = (typeof pdfFieldTypes)[keyof typeof pdfFieldTypes];
 
 export const PdfRectSchema = Schema.Struct({
@@ -36,6 +38,7 @@ export const PdfRectSchema = Schema.Struct({
   right: Schema.Finite,
   top: Schema.Finite,
 });
+
 export type PdfRect = typeof PdfRectSchema.Type;
 
 export const PdfPageSchema = Schema.Struct({
@@ -44,6 +47,7 @@ export const PdfPageSchema = Schema.Struct({
   rotation: Schema.Int,
   width: Schema.Finite,
 });
+
 export type PdfPage = typeof PdfPageSchema.Type;
 
 const PdfPageKindSchema = Schema.Literals(Object.values(pdfPageKinds));
@@ -54,6 +58,7 @@ export const PdfPageClassificationSchema = Schema.Struct({
   kind: PdfPageKindSchema,
   visibleText: Schema.Boolean,
 });
+
 export type PdfPageClassification = typeof PdfPageClassificationSchema.Type;
 
 export interface PdfClassification {
@@ -66,6 +71,7 @@ export const PdfPageTextSchema = Schema.Struct({
   text: Schema.String,
   unicodeMapErrors: Schema.Int,
 });
+
 export type PdfPageText = typeof PdfPageTextSchema.Type;
 
 export const PdfPointSchema = Schema.Struct({ x: Schema.Finite, y: Schema.Finite });
@@ -77,6 +83,7 @@ export const PdfTextMatchSchema = Schema.Struct({
   page: Schema.Int,
   text: Schema.String,
 });
+
 export type PdfTextMatch = typeof PdfTextMatchSchema.Type;
 
 export const PdfImageSchema = Schema.Struct({
@@ -86,9 +93,11 @@ export const PdfImageSchema = Schema.Struct({
   origin: Schema.Literals(Object.values(pdfImageOrigins)),
   width: Schema.Int,
 });
+
 export type PdfImage = typeof PdfImageSchema.Type;
 
 export const PdfFieldValueSchema = Schema.Union([Schema.String, Schema.Boolean]);
+
 export type PdfFieldValue = typeof PdfFieldValueSchema.Type;
 
 export const PdfFieldValuesSchema = Schema.Record(Schema.String, PdfFieldValueSchema);
@@ -99,6 +108,7 @@ export const PdfFieldSchema = Schema.Struct({
   value: Schema.UndefinedOr(PdfFieldValueSchema),
   widgets: Schema.Array(Schema.Struct({ page: Schema.Int, rect: PdfRectSchema })),
 });
+
 export type PdfField = typeof PdfFieldSchema.Type;
 
 export const PdfSignatureFieldSchema = Schema.Struct({
@@ -106,6 +116,7 @@ export const PdfSignatureFieldSchema = Schema.Struct({
   page: Schema.Int,
   rect: PdfRectSchema,
 });
+
 export type PdfSignatureField = typeof PdfSignatureFieldSchema.Type;
 
 export interface PageSelection {
@@ -120,6 +131,7 @@ export const PdfRenderSizeSchema = Schema.Struct({
   dpi: Schema.optionalKey(Schema.Finite),
   width: Schema.optionalKey(Schema.Int),
 });
+
 export type PdfRenderSize = typeof PdfRenderSizeSchema.Type;
 
 export interface PdfDocument {

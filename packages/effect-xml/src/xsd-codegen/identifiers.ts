@@ -60,15 +60,19 @@ export const makeAllocator = () => {
     "element",
     "root",
   ]);
+
   return (preferred: string) => {
     const sanitized = preferred.replaceAll(/[^A-Za-z0-9_$]/gu, "_");
     const base = /^[0-9]/u.test(sanitized) ? `_${sanitized}` : sanitized;
+
     const candidate = used.has(base)
       ? (Array.from({ length: used.size }, (_, index) => `${base}${String(index + 2)}`).find(
           (suffixed) => !used.has(suffixed),
         ) ?? base)
       : base;
+
     used.add(candidate);
+
     return candidate;
   };
 };

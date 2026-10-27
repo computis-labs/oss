@@ -72,6 +72,7 @@ const defaultsOf = (
       Effect.forEach(([child, at]) => defaultsOf(child, at)),
       Effect.map((found) => found.flat()),
     );
+
   if (
     (ownEncoding && ast.encoding !== undefined) ||
     SchemaAST.isSuspend(ast) ||
@@ -79,25 +80,31 @@ const defaultsOf = (
   ) {
     return Effect.fail(new Cause.NoSuchElementError());
   }
+
   if (SchemaAST.isObjects(ast)) {
     return Effect.all([
       pipe(
         ast.propertySignatures,
         Effect.forEach((property): Effect.Effect<Defaults, Cause.NoSuchElementError> => {
           const at = `${path}/${String(property.name)}`;
+
           if (property.type.encoding === undefined) {
             return defaultsOf(property.type, at);
           }
+
           const [link, ...others] = property.type.encoding;
+
           const decodingDefault =
             SchemaAST.isOptional(link.to) &&
             SchemaTransformation.isTransformation(link.transformation) &&
             Predicate.isTagged(link.transformation.decode, getterTags.withDefault) &&
             (Predicate.isTagged(link.transformation.encode, getterTags.passthrough) ||
               Predicate.isTagged(link.transformation.encode, getterTags.omit));
+
           if (others.length > 0 || !decodingDefault) {
             return Effect.fail(new Cause.NoSuchElementError());
           }
+
           return Schema.decodeUnknownEffect(
             Schema.Struct({ [PROBE]: Schema.make<Schema.Codec<unknown, unknown>>(property.type) }),
           )({}).pipe(
@@ -119,14 +126,17 @@ const defaultsOf = (
       within(ast.indexSignatures.map((index) => [index.type, `${path}/*`] as const)),
     ]).pipe(Effect.map(([own, nested]) => [...own, ...nested]));
   }
+
   if (SchemaAST.isArrays(ast)) {
     return within(
       [...ast.elements, ...ast.rest].map((child, index) => [child, `${path}/${String(index)}`]),
     );
   }
+
   if (SchemaAST.isUnion(ast)) {
     return within(ast.types.map((child, index) => [child, `${path}|${String(index)}`]));
   }
+
   return Effect.succeed([]);
 };
 
@@ -134,17 +144,21 @@ export const make =
   <A, O, Rubric, RE, RIn>(options: JudgeOptions<A, O, Rubric, RE, RIn>): Scorer<A, O, RIn> =>
   (input, outcome) => {
     const expectation = options.expected?.(input.input) ?? present(JUDGED);
+
     const expectedText = Match.valueTags(expectation, {
       Absent: () => "",
       Present: ({ value }) => value,
       Unknown: () => "?",
     });
+
     const key = `judge:${options.name}`;
     const observationKey = Observations.keyOf(key);
+
     const ask = (prompt: Prompt.RawInput) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* askJudge() {
           const nested = yield* Ref.make(empty);
+
           const { exit, usage } = yield* observe(
             restore(
               LanguageModel.generateObject({
@@ -159,24 +173,32 @@ export const make =
               ),
             ),
           );
+
           const tracked = yield* Ref.get(nested);
           yield* recordUsage(labelled(tracked.calls > 0 ? tracked : usage, key));
+
           return yield* exit;
         }),
       ).pipe(Effect.map((response) => response.value));
+
     const judged = (output: O, actual: string) =>
       Effect.gen(function* judgeOutput() {
         const memory = yield* Judgements;
         const prompt = options.prompt(input, output);
+
         const shown = isJson(output)
           ? Option.some<Schema.Json>(output)
           : Option.fromNullishOr(options.show?.(output));
+
         const rubric = yield* Effect.try(() =>
           SchemaRepresentation.toJson(SchemaRepresentation.toRepresentation(options.rubric.ast)),
         ).pipe(Effect.option);
+
         const defaults = yield* defaultsOf(options.rubric.ast, "").pipe(Effect.option);
+
         const fingerprinted =
           (Option.isSome(defaults) && Option.isSome(rubric)) || options.version !== undefined;
+
         const hash: Option.Option<string> = yield* Option.match(
           shown.pipe(Option.filter(() => fingerprinted)),
           {
@@ -208,6 +230,7 @@ export const make =
               ),
           },
         );
+
         const stored = yield* Option.match(
           hash.pipe(
             Option.flatMap((value) =>
@@ -223,10 +246,13 @@ export const make =
               ),
           },
         );
+
         if (Option.isSome(stored)) {
           return stored.value;
         }
+
         const verdict = yield* ask(prompt);
+
         const result: Observation = Observations.compared({
           agreement: options.agreement(verdict),
           detail: {
@@ -237,6 +263,7 @@ export const make =
           key: observationKey,
           tags: input.tags,
         });
+
         const lossless = yield* encodeResult(result).pipe(
           Effect.flatMap((encoded) =>
             decodeResult(encoded).pipe(
@@ -247,13 +274,16 @@ export const make =
           ),
           Effect.orElseSucceed(() => Option.none<Schema.Json>()),
         );
+
         yield* Option.match(Option.all({ encoded: lossless, value: hash }), {
           onNone: () => Effect.void,
           onSome: ({ encoded, value }) =>
             memory.record({ hash: value, key, result: encoded }).pipe(Effect.ignore),
         });
+
         return result;
       });
+
     return Result.match(outcome, {
       onFailure: (failure) =>
         Effect.succeed([
@@ -269,6 +299,7 @@ export const make =
         ]),
       onSuccess: (output) => {
         const actual = options.show?.(output) ?? JUDGED;
+
         return Match.valueTags(expectation, {
           Absent: () =>
             Effect.succeed([

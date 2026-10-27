@@ -37,6 +37,7 @@ export const render = <E = never, R = never>(view: View, options: MarkdownOption
   const theme = options.theme ?? computis;
   const renderer = options.renderer ?? unsupported;
   const width = options.width ?? DEFAULT_WIDTH;
+
   const renderBlock = (block: Block, depth: number): Effect.Effect<string, E, R> =>
     $match(block, {
       Badge: ({ label, tone }) => Effect.succeed(`**${withTone(label.toUpperCase(), tone)}**`),
@@ -57,6 +58,7 @@ export const render = <E = never, R = never>(view: View, options: MarkdownOption
       Row: ({ children }) => {
         const separator =
           children.every($is("Figure")) || children.some($is("Table")) ? PARAGRAPH : " ";
+
         return pipe(
           children,
           Effect.forEach((child) => renderBlock(child, depth)),
@@ -88,6 +90,7 @@ export const render = <E = never, R = never>(view: View, options: MarkdownOption
         ),
       Text: ({ text, tone }) => Effect.succeed(withTone(text, tone)),
     });
+
   return pipe(
     view,
     Effect.forEach((block) => renderBlock(block, 2)),

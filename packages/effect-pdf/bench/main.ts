@@ -22,15 +22,18 @@ const picturedImages = (document: PdfDocument) =>
   Effect.gen(function* picturedPageImages() {
     const { pages } = yield* document.classify;
     const pictured = pages.flatMap(({ kind }, index) => (picturedKinds.has(kind) ? [index] : []));
+
     return yield* document.pageImages({ pages: pictured });
   });
 
 const documentRaster = (width: number, height: number, bitDepth: 1 | 8): Raster => {
   const channels = bitDepth === 1 ? 1 : 3;
   const rowBytes = bitDepth === 1 ? Math.ceil(width / 8) : width * channels;
+
   const data = Uint8Array.from({ length: rowBytes * height }, (_, index) =>
     Math.floor(index / rowBytes) % 40 < 14 && (index % rowBytes) % 9 < 6 ? 0x81 : 0xff,
   );
+
   return { bitDepth, channels, data, height, rowBytes, width };
 };
 
@@ -49,14 +52,17 @@ const program = Effect.gen(function* effectPdfBenchmark() {
   const path = yield* Path.Path;
   const services = yield* Effect.context<PdfEngine>();
   const baseline = yield* makeBaseline;
+
   const onDocument =
     <A, E>(bytes: Uint8Array, work: (document: PdfDocument) => Effect.Effect<A, E>) =>
     async () => {
       await Effect.runPromiseWith(services)(Effect.scoped(Effect.flatMap(open(bytes), work)));
     };
+
   const jpeg = yield* fs.readFile(
     yield* path.fromFileUrl(new URL("../tests/fixtures/scan.jpg", import.meta.url)),
   );
+
   const [invoice1, invoice8, scan1, scan5, jpegScan] = yield* attempt(
     async () =>
       await Promise.all([
@@ -67,6 +73,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
         jpegScanPdf(jpeg),
       ]),
   );
+
   const rasters = [
     { label: "render RGB 900×1273", raster: documentRaster(900, 1273, 8) },
     { label: "scansione 1 bit 1654×2339", raster: documentRaster(1654, 2339, 1) },
@@ -175,16 +182,21 @@ const program = Effect.gen(function* effectPdfBenchmark() {
               yield* attempt(async () => {
                 await bench.run();
               });
+
               const latencies = bench.tasks.flatMap((task) =>
                 task.result.state === "completed"
                   ? [{ latency: task.result.latency, name: task.name }]
                   : [],
               );
+
               const failed = bench.tasks.find((task) => task.result.state !== "completed");
+
               if (failed !== undefined) {
                 return yield* new BenchmarkError({ cause: failed.result });
               }
+
               const referenceMean = latencies[0]?.latency.mean ?? Number.NaN;
+
               return latencies.map(
                 ({ latency, name }) =>
                   `| ${label} | ${formatNumber(kilobytes, 1)} | ${name} | ${formatNumber(latency.mean, 2)} | ${formatNumber(latency.p99, 2)} | ${formatNumber(referenceMean / latency.mean, 1)}× |`,
@@ -192,6 +204,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
             }),
           ),
         );
+
         return [
           `## ${title}`,
           "",
@@ -206,6 +219,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
       }),
     ),
   );
+
   const report = [
     "# Benchmark effect-pdf",
     "",
@@ -215,6 +229,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
     "",
     ...measured,
   ].join("\n");
+
   const results = yield* path.fromFileUrl(new URL("results/", import.meta.url));
   yield* fs.makeDirectory(results, { recursive: true });
   yield* fs.writeFileString(path.join(results, "benchmark.md"), report);

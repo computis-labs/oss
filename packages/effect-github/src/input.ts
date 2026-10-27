@@ -21,6 +21,7 @@ export const YamlBoolean: Schema.Codec<boolean, string> = Schema.String.pipe(
 
 export const raw = Effect.fn("Input.raw")(function* raw(name: string) {
   const runner = yield* ActionRunner;
+
   return yield* runner.getInput(name).pipe(Effect.orDie);
 });
 
@@ -29,6 +30,7 @@ export const parse = Effect.fn("Input.parse")(function* parse<S extends Schema.T
   schema: S,
 ) {
   const value = yield* raw(name);
+
   return yield* Schema.decodeUnknownEffect(schema)(value).pipe(
     Effect.mapError(
       (cause) =>

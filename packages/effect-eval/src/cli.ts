@@ -20,6 +20,7 @@ export const formats = {
   markdown: "markdown",
   text: "text",
 } as const;
+
 export type Format = (typeof formats)[keyof typeof formats];
 
 const SAMPLE_SEPARATOR = ":";
@@ -34,6 +35,7 @@ const NOT_MEASURED = "—";
 export const parseSample = (text: string): Option.Option<SampleOptions> => {
   const [size, seed] = text.split(SAMPLE_SEPARATOR);
   const parsed = Number(size);
+
   return Number.isInteger(parsed) && parsed > 0
     ? Option.some({ seed: seed ?? DEFAULT_SEED, size: parsed })
     : Option.none();
@@ -168,7 +170,7 @@ export const command = <
   E,
   DE,
   R,
-  const Flags extends Command.Command.FlagConfig = Record<never, never>,
+  const Flags extends Command.Command.FlagConfig = Record<string, never>,
   ROut = never,
   VE = never,
   RIn = never,
@@ -180,6 +182,7 @@ export const command = <
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: without flags, Flags stays its default, the empty record.
   const customFlags = options.flags ?? ({} as Flags);
   const evalNameOf = (custom: CustomValues<Flags>) => options.evalName ?? options.eval(custom).name;
+
   const resolveReporters = (
     flags: {
       readonly reporter: readonly string[];
@@ -193,14 +196,18 @@ export const command = <
         flags.reporter.length > 0
           ? flags.reporter
           : (config.reporters ?? EvalConfig.defaultReporters);
+
       const historyOn = !flags.noHistory && EvalConfig.historyEnabled(config);
       const kept = chosen.filter((entry) => historyOn || entry !== EvalConfig.builtinNames.history);
+
       const resolved = yield* pipe(
         [...new Set(kept)],
         Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { config, cwd: CWD })),
       );
+
       return EvalConfig.withoutHistory(formatted(resolved, flags.format, config), historyOn);
     });
+
   const runCommand = Command.make(
     options.name,
     { custom: customFlags, run: runFlags },
@@ -210,12 +217,14 @@ export const command = <
         const historyServices = EvalConfig.historyLayer(config);
         const baseline = flags.baseline.pipe(Option.map((text) => History.parseSelector(text)));
         const defined = options.eval(custom);
+
         if (options.evalName !== undefined && options.evalName !== defined.name) {
           return yield* new EvalConfigError({
             message: `evalName is ${options.evalName}, but the eval is named ${defined.name}; leave evalName out or make them match.`,
             path: "evalName",
           });
         }
+
         const source = yield* Option.match(flags.rescore, {
           onNone: () => Effect.succeed(Option.none<Run>()),
           onSome: (text) =>
@@ -224,6 +233,7 @@ export const command = <
               Effect.map(Option.some),
             ),
         });
+
         const names = [
           ...new Set(
             flags.variant.length > 0
@@ -234,6 +244,7 @@ export const command = <
                 }),
           ),
         ];
+
         const resolved = yield* Option.match(baseline, {
           onNone: () => Effect.succeed<readonly Runner.ResolvedBaseline[]>([]),
           onSome: (selector) =>
@@ -243,6 +254,7 @@ export const command = <
               Effect.map((found): readonly Runner.ResolvedBaseline[] => [[selector, found]]),
             ),
         });
+
         const self = Option.match(baseline, {
           onNone: () => defined,
           onSome: (selector) => ({
@@ -250,6 +262,7 @@ export const command = <
             gates: [...defined.gates, Gate.noRegressions(selector)],
           }),
         });
+
         const filter: FilterOptions = {
           ...Option.match(nonEmpty(flags.case), { onNone: () => ({}), onSome: (ids) => ({ ids }) }),
           ...Option.match(nonEmpty(flags.tag), {
@@ -258,19 +271,24 @@ export const command = <
           }),
           ...Option.match(flags.limit, { onNone: () => ({}), onSome: (limit) => ({ limit }) }),
         };
+
         const selection = {
           filter,
           ...Option.match(flags.sample, { onNone: () => ({}), onSome: (sample) => ({ sample }) }),
         };
+
         const reporters = yield* resolveReporters(flags, config);
+
         const services = Reporter.layer(reporters).pipe(
           Layer.provideMerge(historyServices),
           Layer.merge(Git.layerProcess),
         );
+
         const trials = Option.match(flags.trials, {
           onNone: () => ({}),
           onSome: (count) => ({ trials: count }),
         });
+
         const comparing = {
           baselines: resolved,
           ...Option.match(baseline, {
@@ -278,6 +296,7 @@ export const command = <
             onSome: (reportBaseline) => ({ reportBaseline }),
           }),
         };
+
         const run = Option.isSome(source)
           ? yield* Runner.rescoreRun(self, source.value, {
               ...selection,
@@ -289,14 +308,17 @@ export const command = <
             }).pipe(Effect.provide(services))
           : yield* Effect.gen(function* liveRun() {
               const variants = names.map(options.variants.parse);
+
               const planned = yield* Runner.plan(self, {
                 ...selection,
                 ...trials,
                 variants: variants.length,
               });
+
               yield* Console.error(
                 `${self.name}: ${String(planned.cases)} cases (${String(planned.skipped)} skipped) × ${String(planned.variants)} variants × ${String(planned.trials)} trials = ${String(planned.invocations)} task calls`,
               );
+
               return yield* Runner.run(self, {
                 ...selection,
                 ...trials,
@@ -309,14 +331,17 @@ export const command = <
                 }),
               });
             }).pipe(Effect.provide(services));
+
         yield* Effect.forEach(
           resolved.flatMap(([, found]) => Option.toArray(found)),
           (base) => Reporter.compare(base, run).pipe(Effect.provide(services)),
           { discard: true },
         );
+
         return yield* Runner.check(run);
       }),
   ).pipe(Command.provide(logsToStderr));
+
   const historyCommand = Command.make(
     "history",
     {
@@ -339,6 +364,7 @@ export const command = <
         const historyServices = EvalConfig.historyLayer(config);
         const evalName = evalNameOf(custom);
         const entries = yield* History.list(evalName).pipe(Effect.provide(historyServices));
+
         const shown = entries
           .filter((entry) =>
             Option.match(flags.branch, {
@@ -353,6 +379,7 @@ export const command = <
             }),
           )
           .slice(0, flags.limit);
+
         const accuracies = yield* pipe(
           shown,
           Effect.forEach((entry) =>
@@ -379,6 +406,7 @@ export const command = <
           ),
           Effect.provide(historyServices),
         );
+
         const text = yield* ViewText.render(
           [
             View.table(
@@ -400,12 +428,14 @@ export const command = <
           ],
           { color: false, width: TABLE_WIDTH },
         );
+
         yield* Console.log(text);
       }),
   ).pipe(
     Command.withDescription("List the stored runs. No task calls."),
     Command.provide(logsToStderr),
   );
+
   const compareCommand = Command.make(
     "compare",
     {
@@ -422,6 +452,7 @@ export const command = <
         const config = yield* loadConfig;
         const historyServices = EvalConfig.historyLayer(config);
         const evalName = evalNameOf(custom);
+
         const [base, head] = yield* History.load(evalName, History.parseSelector(flags.head)).pipe(
           Effect.flatMap((loaded) =>
             History.resolve(
@@ -432,6 +463,7 @@ export const command = <
           ),
           Effect.provide(historyServices),
         );
+
         const reporters = yield* resolveReporters({ ...flags, noHistory: true }, config);
         yield* Reporter.compare(base, head).pipe(
           Effect.provide(Reporter.layer(reporters).pipe(Layer.provideMerge(historyServices))),
@@ -441,5 +473,6 @@ export const command = <
     Command.withDescription("Compare two stored runs through the chosen reporters. No task calls."),
     Command.provide(logsToStderr),
   );
+
   return runCommand.pipe(Command.withSubcommands([historyCommand, compareCommand]));
 };

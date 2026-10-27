@@ -25,6 +25,7 @@ const orderCodec = Effect.fromResult(codec(OrderDomain.Order));
 const generateOrder = (module: string, name: string) =>
   Effect.gen(function* generateWithDomain() {
     const fs = yield* FileSystem.FileSystem;
+
     return yield* generate({
       domain: { export: name, importer: IMPORTER, module },
       root: "Order",
@@ -50,6 +51,7 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation with a domai
   it.effect("keeps the XSD checks of the type under the domain function", () =>
     Effect.gen(function* test() {
       const { decode } = yield* orderCodec;
+
       const xml = order(ADA, "<Country>FR</Country>").replace(
         "<Quantity>2</Quantity>",
         "<Quantity>100</Quantity>",

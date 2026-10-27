@@ -41,6 +41,7 @@ export const codec = <S extends Encodable>(schema: S, options: CodecOptions = {}
       SchemaJITCompiler.enable(exactDecoder(schema).ast);
       SchemaJITCompiler.enable(SchemaAST.flip(schema.ast));
     }
+
     return {
       decode: makeDecoder(schema, plan, options.decoder),
       encode: makePlanEncoder(schema, plan, options.encoder),
@@ -61,5 +62,6 @@ export const make: <S extends Encodable>(
 ) {
   const { decode, encode } = yield* Effect.fromResult(codec(schema, options));
   const { validate } = yield* Xsd.make({ schema: options.xsd });
+
   return { decode, encode, validate };
 });

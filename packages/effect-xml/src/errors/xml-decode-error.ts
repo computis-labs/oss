@@ -20,6 +20,7 @@ export class XmlDecodeError extends Data.TaggedError("XmlDecodeError")<{
     readonly reason: string;
   }) {
     const at = `${reason} at ${fields.path}`;
+
     return new XmlDecodeError({
       ...fields,
       message: fields.position === undefined ? at : `${at} ${describePosition(fields.position)}`,

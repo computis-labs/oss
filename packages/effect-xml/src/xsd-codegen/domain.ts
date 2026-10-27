@@ -24,6 +24,7 @@ export interface Domain {
 
 export const parseDomainTarget = (target: string) => {
   const hash = target.lastIndexOf("#");
+
   return hash <= 0 || hash === target.length - 1
     ? Option.none()
     : Option.some({ export: target.slice(hash + 1), module: target.slice(0, hash) });
@@ -38,16 +39,19 @@ export const loadDomain = Effect.fn("XsdCodegen.loadDomain")(function* loadDomai
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const importer = path.resolve(options.importer);
+
   const unresolved = (cause: unknown) =>
     new XsdCodegenError({
       cause,
       message: `The module ${options.module} of the domain cannot be resolved from the generated file.`,
       path: importer,
     });
+
   const isPathSpecifier =
     options.module.startsWith("./") ||
     options.module.startsWith("../") ||
     options.module.startsWith("/");
+
   const url = isPathSpecifier
     ? new URL(options.module, yield* path.toFileUrl(importer).pipe(Effect.mapError(unresolved)))
         .href
@@ -58,13 +62,16 @@ export const loadDomain = Effect.fn("XsdCodegen.loadDomain")(function* loadDomai
             prefix: ".effect-xml-",
             suffix: ".mjs",
           });
+
           yield* fs.writeFileString(
             resolver,
             `export const url = import.meta.resolve(${JSON.stringify(options.module)});\n`,
           );
           const { href } = yield* path.toFileUrl(resolver);
+
           return yield* Effect.tryPromise(async () => {
             const resolved: unknown = await import(href);
+
             return decodeResolved(resolved);
           });
         }),
@@ -77,10 +84,13 @@ export const loadDomain = Effect.fn("XsdCodegen.loadDomain")(function* loadDomai
           }),
         ),
       );
+
   const file = yield* path.fromFileUrl(new URL(url)).pipe(Effect.mapError(unresolved));
+
   if (!(yield* fs.exists(file).pipe(Effect.orElseSucceed(() => false)))) {
     return yield* unresolved(url);
   }
+
   const exported = yield* Effect.tryPromise({
     catch: (cause) =>
       new XsdCodegenError({
@@ -90,29 +100,35 @@ export const loadDomain = Effect.fn("XsdCodegen.loadDomain")(function* loadDomai
       }),
     try: async () => {
       const namespace: unknown = await import(url);
+
       return decodeObject(namespace).pipe(
         Option.flatMap((module) => decodeObject(module[options.export])),
       );
     },
   });
+
   if (Option.isNone(exported)) {
     return yield* new XsdCodegenError({
       message: `The module ${options.module} does not export an object named ${options.export}, which the domain names.`,
       path: importer,
     });
   }
+
   const entries = Object.entries(exported.value);
   const invalid = entries.find(([, value]) => !Schema.is(ExportedFunction)(value));
+
   if (invalid !== undefined) {
     return yield* new XsdCodegenError({
       message: `The domain ${options.export} of the module ${options.module} maps the ${describeDomainKey(invalid[0])} to a value that is not a function.`,
       path: importer,
     });
   }
+
   const result: Domain = {
     export: options.export,
     keys: entries.map(([key]) => key),
     module: options.module,
   };
+
   return result;
 });

@@ -20,6 +20,7 @@ const collectArrayElementNames = (
       ]),
     ]);
   }
+
   if (SchemaAST.isObjects(ast)) {
     return new Set(
       ast.propertySignatures.flatMap((property) => [
@@ -27,11 +28,13 @@ const collectArrayElementNames = (
       ]),
     );
   }
+
   if (SchemaAST.isUnion(ast)) {
     return new Set(
       ast.types.flatMap((member) => [...collectArrayElementNames(member, elementName)]),
     );
   }
+
   return new Set();
 };
 
@@ -57,6 +60,7 @@ export const makeBaseline = (xsd: {
   readonly main: { readonly contents: string; readonly fileName: string };
 }) => {
   const arrayElements = collectArrayElementNames(SchemaAST.toEncoded(FatturaElettronicaSchema.ast));
+
   const parser = new XMLParser({
     attributeNamePrefix: "",
     ignoreAttributes: false,
@@ -66,11 +70,13 @@ export const makeBaseline = (xsd: {
     removeNSPrefix: true,
     trimValues: true,
   });
+
   const compactBuilder = new XMLBuilder({
     attributeNamePrefix: "@_",
     ignoreAttributes: false,
     suppressEmptyNode: true,
   });
+
   const prettyBuilder = new XMLBuilder({
     attributeNamePrefix: "@_",
     format: true,
@@ -78,6 +84,7 @@ export const makeBaseline = (xsd: {
     indentBy: "  ",
     suppressEmptyNode: true,
   });
+
   const encodeFattura = Schema.encodeSync(FatturaElettronicaSchema);
   const decodeParsed = Schema.decodeUnknownEffect(FatturaDocumentSchema);
 
@@ -86,10 +93,12 @@ export const makeBaseline = (xsd: {
     encoded: typeof FatturaElettronicaSchema.Encoded,
   ) => {
     const { SistemaEmittente, versione, ...elements } = encoded;
+
     const attributes =
       SistemaEmittente === undefined
         ? { "@_versione": versione }
         : { "@_SistemaEmittente": SistemaEmittente, "@_versione": versione };
+
     const root = {
       "p:FatturaElettronica": {
         ...attributes,
@@ -97,7 +106,9 @@ export const makeBaseline = (xsd: {
         ...elements,
       },
     };
+
     const document = format === "compact" ? compactBuilder.build(root) : prettyBuilder.build(root);
+
     return `${XML_DECLARATION}${document}`;
   };
 
@@ -106,6 +117,7 @@ export const makeBaseline = (xsd: {
       catch: (cause) => new BaselineDecodeError({ cause }),
       try: () => {
         const parsed: unknown = parser.parse(xml);
+
         return parsed;
       },
     }).pipe(
@@ -123,6 +135,7 @@ export const makeBaseline = (xsd: {
     parser,
     prepareSchemaDecode: (xml: string) => {
       const parsed: unknown = parser.parse(xml);
+
       return () => Effect.runSync(decodeParsed(parsed));
     },
     validateInvoiceXml: async (xml: string) =>

@@ -26,6 +26,7 @@ const categorizer = Eval.make({
 const collecting = () => {
   const lines: string[] = [];
   const write: Reporters.Write = (text) => Effect.sync(() => lines.push(text));
+
   return { lines, write };
 };
 
@@ -70,8 +71,10 @@ describe("Reporters.terminal with a slow writer", () => {
       Effect.gen(function* () {
         const gate = yield* Deferred.make<boolean>();
         const lines: string[] = [];
+
         const write: Reporters.Write = (text) =>
           Deferred.await(gate).pipe(Effect.andThen(Effect.sync(() => lines.push(text))));
+
         const many = Eval.make({
           dataset: Dataset.fromIterable(
             Array.from({ length: CASES }, (_, index) => `case-${String(index)}`),
@@ -95,6 +98,7 @@ describe("Reporters.terminal with a slow writer", () => {
             ]),
           ),
         );
+
         const summary = lines.at(-1) ?? "";
 
         expect(run.variants[0]?.summary.counts["wrong"]).toBe(1);
@@ -147,6 +151,7 @@ describe("Reporters.markdown with single-variant baselines", () => {
       }).pipe(
         Effect.provide(Layer.merge(Reporter.layer([Reporters.markdown({ write })]), onBranch("x"))),
       );
+
       const accuracyRows = lines
         .join("\n")
         .split("\n")
@@ -169,6 +174,7 @@ describe("Reporters.json", () => {
       const { lines, write } = collecting();
 
       yield* runWith([Reporters.json({ write })]);
+
       const decoded = yield* pipe(
         lines,
         Effect.forEach((line) => Events.decodeLine(line)),
@@ -186,6 +192,7 @@ describe("Reporters.json", () => {
 const inTempFolder = <A, E, R>(use: (folder: string) => Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+
     return yield* use(yield* fs.makeTempDirectoryScoped());
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
@@ -211,6 +218,7 @@ describe("Reporters writing files", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const file = `${folder}/report.md`;
+
         const reporters = [
           Reporters.markdown({ file }),
           Reporters.markdown({ compareFile: `${folder}/diff.md`, file: `${folder}/other.md` }),
@@ -236,6 +244,7 @@ describe("Reporters writing files", () => {
 
         yield* runWith([Reporters.json({ file })]);
         const lines = (yield* fs.readFileString(file)).trimEnd().split("\n");
+
         const decoded = yield* pipe(
           lines,
           Effect.forEach((line) => Events.decodeLine(line)),
@@ -312,6 +321,7 @@ describe("Reporters with a sensitive history", () => {
             ),
         }),
       ]);
+
       const printed = [
         ...markdown.lines,
         ...terminal.lines,

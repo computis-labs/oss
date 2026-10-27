@@ -31,10 +31,12 @@ const onDocument = <A, E>(
 const program = Effect.gen(function* effectPdfPoolBenchmark() {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+
   const [invoice, scan, contract] = yield* attempt(
     async () =>
       await Promise.all([invoicePdf(20), bilevelScanPdf(1), invoicePdf(LONG_DOCUMENT_LINES)]),
   );
+
   const scenarios: readonly {
     readonly title: string;
     readonly work: Effect.Effect<unknown, unknown, PdfEngine>;
@@ -83,8 +85,10 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
                 const run = attempt(async () => {
                   await runtime.runPromise(work);
                 });
+
                 yield* Effect.all(Array.from({ length: WARMUP_RUNS }, () => run));
                 const delay = monitorEventLoopDelay({ resolution: 1 });
+
                 const durations = yield* Effect.all(
                   Array.from({ length: MEASURED_RUNS }, () =>
                     Effect.gen(function* measureRun() {
@@ -95,10 +99,12 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
                       const elapsed = performance.now() - started;
                       yield* Effect.sleep(SETTLE_MILLISECONDS);
                       delay.disable();
+
                       return elapsed;
                     }),
                   ),
                 );
+
                 return {
                   blocked: delay.max / NANOSECONDS_PER_MILLISECOND,
                   label,
@@ -121,6 +127,7 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
   const sections = scenarios.map(({ title }) => {
     const rows = measurements.flat().filter((measurement) => measurement.title === title);
     const reference = rows[0]?.typical ?? Number.NaN;
+
     return [
       `## ${title}`,
       "",
@@ -133,6 +140,7 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
       "",
     ].join("\n");
   });
+
   const report = [
     "# Benchmark effect-pdf: pool di worker",
     "",
@@ -142,6 +150,7 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
     "",
     ...sections,
   ].join("\n");
+
   const results = yield* path.fromFileUrl(new URL("results/", import.meta.url));
   yield* fs.makeDirectory(results, { recursive: true });
   yield* fs.writeFileString(path.join(results, "pool.md"), report);

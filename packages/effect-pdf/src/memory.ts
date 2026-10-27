@@ -8,6 +8,7 @@ export const bitmapFormats = { bgr: 2, bgra: 4, gray: 1 } as const;
 
 export const withAllocation = <A>(lib: Pdfium, size: number, action: (pointer: number) => A): A => {
   const pointer = lib.pdfium._malloc(Math.max(size, 1));
+
   try {
     return action(pointer);
   } finally {
@@ -17,8 +18,10 @@ export const withAllocation = <A>(lib: Pdfium, size: number, action: (pointer: n
 
 export const withUtf16 = <A>(lib: Pdfium, value: string, action: (pointer: number) => A): A => {
   const size = (value.length + 1) * BYTES_PER_UTF16_UNIT;
+
   return withAllocation(lib, size, (pointer) => {
     lib.pdfium.stringToUTF16(value, pointer, size);
+
     return action(pointer);
   });
 };
@@ -28,13 +31,16 @@ export const readUtf16 = (
   read: (buffer: number, size: number) => number,
 ): string | null => {
   const size = read(0, 0);
+
   if (size === 0) {
     return null;
   }
+
   return size <= BYTES_PER_UTF16_UNIT
     ? ""
     : withAllocation(lib, size, (buffer) => {
         read(buffer, size);
+
         return lib.pdfium.UTF16ToString(buffer);
       });
 };
@@ -48,6 +54,7 @@ export const readFloats = (
 ): readonly number[] | null =>
   withAllocation(lib, count * BYTES_PER_FLOAT, (pointer): readonly number[] | null => {
     const start = pointer / BYTES_PER_FLOAT;
+
     return fill(pointer)
       ? Array.from(
           lib.pdfium.HEAPF32.subarray(start, start + count),
@@ -66,5 +73,6 @@ export const readDoubles = (
 ): readonly number[] | null =>
   withAllocation(lib, count * BYTES_PER_DOUBLE, (pointer): readonly number[] | null => {
     const start = pointer / BYTES_PER_DOUBLE;
+
     return fill(pointer) ? [...lib.pdfium.HEAPF64.subarray(start, start + count)] : null;
   });

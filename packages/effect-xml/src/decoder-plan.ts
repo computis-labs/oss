@@ -28,14 +28,18 @@ export interface Frame {
 
 export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node => {
   const cached = nodes.get(plan);
+
   if (cached !== undefined) {
     return cached;
   }
+
   const lists: Step[] = [];
   const sequence: Step[] = [];
   const children = new Map<string, Step>();
+
   for (const child of plan.sequence) {
     const many = child.arity === "many";
+
     const step: Step = {
       element: child.node.kind === "element" ? toNode(child.node, nodes) : undefined,
       index: child.index,
@@ -43,12 +47,15 @@ export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node =
       name: child.name,
       slot: many ? lists.length : -1,
     };
+
     if (many) {
       lists.push(step);
     }
+
     children.set(child.name, step);
     sequence.push(step);
   }
+
   const node: Node = {
     attributes: plan.attributes,
     children,
@@ -58,7 +65,9 @@ export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node =
     ),
     sequence,
   };
+
   nodes.set(plan, node);
+
   return node;
 };
 
@@ -75,6 +84,7 @@ export const store = (parent: Frame, child: Step, value: XmlValue) => {
   if (child.many) {
     parent.lists ??= [];
     const list = parent.lists[child.slot];
+
     if (list === undefined) {
       parent.lists[child.slot] = [value];
     } else {

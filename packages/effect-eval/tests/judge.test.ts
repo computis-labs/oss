@@ -106,6 +106,7 @@ describe("Judge.make", () => {
   it.effect("errors the observation when the model fails or answers outside the rubric", () =>
     Effect.gen(function* () {
       const down = yield* judge(failing)(caseOf("Canone"), Result.succeed("rent"));
+
       const malformed = yield* judge(answering('{"faithful":"maybe"}'))(
         caseOf("Canone"),
         Result.succeed("rent"),
@@ -138,6 +139,7 @@ describe("Judge.make", () => {
           judge(failing, expected)(caseOf("Canone"), Result.fail("provider down")),
         ),
       );
+
       const judged = observations.flat().map((observation) => ({
         observation,
         verdict: Verdict.of(observation),
@@ -160,6 +162,7 @@ describe("Judge.make", () => {
         caseOf("Canone"),
         Result.succeed("rent"),
       );
+
       const unknown = yield* judge(failing, () => Scorer.unknown)(
         caseOf("Canone"),
         Result.succeed("rent"),

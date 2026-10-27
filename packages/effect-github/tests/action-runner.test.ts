@@ -13,6 +13,7 @@ const githubOutputFile = Effect.fn("githubOutputFile")(function* githubOutputFil
   const file = path.join(yield* fs.makeTempDirectoryScoped(), "output");
   yield* fs.writeFileString(file, "");
   vi.stubEnv("GITHUB_OUTPUT", file);
+
   return file;
 });
 

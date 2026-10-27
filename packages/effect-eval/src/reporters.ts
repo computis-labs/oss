@@ -46,6 +46,7 @@ const destinationOf = (options: {
   if (options.file !== undefined) {
     return { destination: Reporter.destinations.file };
   }
+
   return options.write === undefined ? { destination: Reporter.destinations.stdout } : {};
 };
 
@@ -70,10 +71,13 @@ export const terminalWidth = Effect.serviceOption(Terminal.Terminal).pipe(
 
 export const colorSupported = Effect.gen(function* detectColor() {
   const noColor = yield* Effect.orElseSucceed(NO_COLOR, () => Option.none<string>());
+
   if (Option.isSome(noColor)) {
     return false;
   }
+
   const stdio = yield* Effect.serviceOption(Stdio.Stdio);
+
   return Option.isSome(stdio) ? yield* stdio.value.stdoutIsTerminal : false;
 });
 
@@ -96,12 +100,14 @@ export const terminal = <E = never, R = never>(
     TerminalBuffer.pipe(
       Effect.flatMap((buffer) => Option.getOrElse(buffer, () => options.write ?? stdout)(text)),
     );
+
   const progress = (line: () => string) =>
     TerminalBuffer.pipe(
       Effect.flatMap((buffer) =>
         options.progress === false || Option.isSome(buffer) ? Effect.void : write(line()),
       ),
     );
+
   return Reporter.make<E, R>({
     acceptsSensitive: true,
     delivery: Reporter.deliveries.sliding,
@@ -111,12 +117,14 @@ export const terminal = <E = never, R = never>(
       Effect.gen(function* drawComparison() {
         const width = options.width ?? (yield* terminalWidth);
         const color = options.color ?? (yield* colorSupported);
+
         const text = yield* ViewText.render(View.compare(base, head), {
           color,
           width,
           ...whenDefined(options.renderer, (renderer) => ({ renderer })),
           ...whenDefined(options.theme, (theme) => ({ theme })),
         });
+
         yield* write(text);
       }),
     onRunFinished: (run) =>
@@ -124,12 +132,14 @@ export const terminal = <E = never, R = never>(
         const history = yield* snapshotOf(run);
         const width = options.width ?? (yield* terminalWidth);
         const color = options.color ?? (yield* colorSupported);
+
         const text = yield* ViewText.render((options.view ?? View.summary)(run, history), {
           color,
           width,
           ...whenDefined(options.renderer, (renderer) => ({ renderer })),
           ...whenDefined(options.theme, (theme) => ({ theme })),
         });
+
         yield* write(text);
       }),
     onRunStarted: (started) =>
@@ -158,6 +168,7 @@ export const compareFileOf = (file: string) =>
   Path.Path.pipe(
     Effect.map((paths) => {
       const parsed = paths.parse(file);
+
       return paths.join(parsed.dir, `${parsed.name}${COMPARE_SUFFIX}${parsed.ext}`);
     }),
   );
@@ -180,6 +191,7 @@ export const html = <E = never, R = never>(
     ...whenDefined(options.renderer, (renderer) => ({ renderer })),
     ...whenDefined(options.theme, (theme) => ({ theme })),
   };
+
   return Reporter.make({
     acceptsSensitive: true,
     destination: Reporter.destinations.file,
@@ -210,8 +222,10 @@ export const markdown = <E = never, R = never>(
   } = {},
 ): Reporter.Reporter<E | PlatformError.PlatformError, R | FileSystem.FileSystem | Path.Path> => {
   const { file } = options;
+
   const output = (text: string) =>
     file === undefined ? (options.write ?? stdout)(text) : writeFile(file, text);
+
   const comparisonOutput = (text: string) =>
     file === undefined
       ? (options.write ?? stdout)(text)
@@ -219,10 +233,12 @@ export const markdown = <E = never, R = never>(
           file,
           ...whenDefined(options.compareFile, (compareFile) => ({ compareFile })),
         })(text);
+
   const drawing = {
     ...whenDefined(options.renderer, (renderer) => ({ renderer })),
     ...whenDefined(options.theme, (theme) => ({ theme })),
   };
+
   return Reporter.make({
     ...destinationOf(options),
     name: "markdown",
@@ -247,11 +263,15 @@ export const json = (
       const lines = events.pipe(
         Stream.mapEffect((event) => Effect.orDie(Events.encodeLine(event))),
       );
+
       const { file } = options;
+
       if (file === undefined) {
         const write = options.write ?? stdout;
+
         return Stream.runForEach(lines, write);
       }
+
       return pipe(
         Stream.runCollect(lines),
         Effect.flatMap((all) => writeFile(file, `${all.join(LINE_BREAK)}${LINE_BREAK}`)),

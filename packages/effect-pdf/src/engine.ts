@@ -78,6 +78,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
     const replaced = yield* Deferred.make<Connection, PdfEngineError>();
     const platform = Context.getOption(services, Worker.WorkerPlatform);
     const spawner = Context.getOption(services, Worker.Spawner);
+
     const watched =
       Option.isSome(platform) && Option.isSome(spawner)
         ? services.pipe(
@@ -99,6 +100,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
             ),
             Context.add(Worker.Spawner, (id: number) => {
               const spawned = spawner.value(id);
+
               if (spawned instanceof EventTarget) {
                 spawned.addEventListener(
                   "close",
@@ -108,21 +110,25 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
                   { once: true },
                 );
               }
+
               return spawned;
             }),
           )
         : services;
+
     const client = yield* connect(scope).pipe(
       Effect.provideContext(watched),
       Effect.mapError(workerFailure),
       Effect.onError(() => Scope.close(scope, Exit.void)),
     );
+
     return { client, died, generation, replaced, scope } satisfies Connection;
   });
 
   const workers = yield* Effect.all(
     Array.from({ length: size }, () => Effect.flatMap(open(0), SynchronizedRef.make)),
   );
+
   const loads = yield* SynchronizedRef.make<readonly number[]>(workers.map(() => 0));
 
   const supervise = Effect.fn("PdfEngine.supervise")(function* superviseWorker(
@@ -131,19 +137,23 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
   ): Effect.fn.Return<void> {
     const replace = Effect.gen(function* replaceDeadWorker() {
       const cause = yield* Deferred.await(connection.died);
+
       return yield* SynchronizedRef.updateAndGetEffect(worker, (current) =>
         Effect.gen(function* swapConnection() {
           if (current.generation !== connection.generation || (yield* Ref.get(shuttingDown))) {
             return current;
           }
+
           yield* Effect.logWarning("effectPdf.worker.replaced", { cause });
           const next = yield* open(current.generation + 1);
           yield* Scope.close(current.scope, Exit.void);
           yield* supervise(worker, next);
+
           return next;
         }),
       );
     });
+
     yield* replace.pipe(
       Effect.onExit((exit) => Deferred.done(connection.replaced, exit)),
       Effect.tapError((failure) =>
@@ -170,16 +180,19 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
   ) {
     const worker = workers[lease.worker];
     const connection = worker === undefined ? undefined : yield* SynchronizedRef.get(worker);
+
     if (worker === undefined || connection?.generation !== lease.generation) {
       return yield* new PdfEngineError({
         message: "The PDF worker restarted after a failure: open the document again.",
       });
     }
+
     const gone = (cause: unknown) =>
       Effect.andThen(
         Deferred.succeed(connection.died, cause),
         Effect.fail(new PdfWorkerGone({ cause })),
       );
+
     return yield* request(connection.client, lease.document).pipe(
       Effect.raceFirst(Effect.flatMap(Deferred.await(connection.died), gone)),
       Effect.catchIf(
@@ -214,7 +227,9 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
       const [least] = current
         .flatMap((load, index) => (excluded.has(index) ? [] : [{ index, load }]))
         .toSorted((left, right) => left.load - right.load);
+
       const index = least?.index ?? 0;
+
       return [index, current.map((load, position) => (position === index ? load + 1 : load))];
     });
 
@@ -234,23 +249,30 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
     ) {
       const documentScope = yield* Effect.scope;
       const document = yield* Ref.getAndUpdate(nextDocument, (id) => id + 1);
+
       const startOnLeastLoaded = Effect.gen(function* startOnWorker() {
         const attemptScope = yield* Scope.fork(documentScope);
+
         return yield* Effect.gen(function* openOnChosenWorker() {
           const chosen = yield* Effect.acquireRelease(reserve(excluded), unreserve);
           const worker = workers[chosen];
+
           if (worker === undefined) {
             return yield* new PdfEngineError({ message: "The PDF worker pool is empty." });
           }
+
           const connection = yield* SynchronizedRef.get(worker);
+
           const lease: PdfWorkerLease = {
             document,
             generation: connection.generation,
             worker: chosen,
           };
+
           yield* Effect.addFinalizer(() =>
             Effect.ignore(call(lease, (client, id) => client.Close({ document: id }))),
           );
+
           return {
             lease,
             value: yield* attempt(lease, start).pipe(
@@ -266,6 +288,7 @@ const makePool = Effect.fn("PdfEngine.makePool")(function* makePool<R>(
           ),
         );
       });
+
       return yield* startOnLeastLoaded.pipe(
         Effect.retry({ times: 1, while: isWorkerGone }),
         Effect.catchIf(isWorkerGone, ({ cause }) => Effect.fail(workerFailure(cause))),
@@ -302,6 +325,7 @@ export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof with
             const protocol = yield* RpcClient.makeProtocolWorker({ size: 1 }).pipe(
               Scope.provide(scope),
             );
+
             return yield* RpcClient.make(PdfRpcs).pipe(
               Effect.provideService(RpcClient.Protocol, protocol),
               Scope.provide(scope),
@@ -316,6 +340,7 @@ export class PdfEngine extends Context.Service<PdfEngine, ReturnType<typeof with
           PdfWorkerInit,
           Effect.gen(function* sharedPdfium() {
             const { module } = yield* PdfiumWasm;
+
             return { wasm: module };
           }),
         ),

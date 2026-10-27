@@ -10,6 +10,7 @@ import { make } from "../src/index.ts";
 
 const XSD_DIRECTORY = new URL("fixtures/xsd/", import.meta.url);
 const fatturaXsdPath = fileURLToPath(new URL("Schema_VFPR12_v1.2.3.xsd", XSD_DIRECTORY));
+
 const singleLineFattura = readFileSync(
   new URL("fixtures/fattura-1-linea.xml", import.meta.url),
   "utf-8",

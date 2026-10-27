@@ -43,6 +43,7 @@ const noop = FileSystem.makeNoop({});
 const MemoryFileSystem = FileSystem.layerNoop({
   readFile: (path) => {
     const bytes = files.get(path);
+
     return bytes === undefined ? noop.readFile(path) : Effect.succeed(bytes);
   },
 });

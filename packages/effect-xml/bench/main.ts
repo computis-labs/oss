@@ -41,18 +41,22 @@ const formatNumber = (value: number, digits: number) =>
 
 const program = Effect.gen(function* effectXmlBenchmark() {
   const stringSubclass = process.argv.includes(STRING_SUBCLASS_FLAG);
+
   if (stringSubclass) {
     Reflect.defineProperty(globalThis, "BenchString", { value: class extends String {} });
   }
+
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const directory = yield* path.fromFileUrl(new URL(XSD_DIRECTORY, import.meta.url));
   const mainPath = path.join(directory, "Schema_VFPR12_v1.2.3.xsd");
   const dsigPath = path.join(directory, "xmldsig-core-schema.xsd");
+
   const baseline = makeBaseline({
     dsig: { contents: yield* fs.readFileString(dsigPath), fileName: "xmldsig-core-schema.xsd" },
     main: { contents: yield* fs.readFileString(mainPath), fileName: "Schema_VFPR12_v1.2.3.xsd" },
   });
+
   const fixtures = makeFixtures(baseline);
   const xml = yield* Effect.fromResult(codec(FatturaXml));
   const decodeEncodedFattura = Schema.decodeUnknownEffect(FatturaXml);
@@ -64,6 +68,7 @@ const program = Effect.gen(function* effectXmlBenchmark() {
     const decoded = yield* xml.decode(fixture.xml);
     const encoded = yield* xml.encode(fixture.fattura);
     yield* validator.validate(encoded);
+
     if (JSON.stringify(encodeFattura(decoded)) !== JSON.stringify(encodeFattura(fixture.fattura))) {
       yield* Effect.die(`decode diverso per ${fixture.name}`);
     }
@@ -82,6 +87,7 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   for (const fixture of fixtures) {
     yield* Console.log(`▶ ${fixture.name} (${formatNumber(fixture.bytes / 1024, 1)} KB)`);
     const encoded = baseline.encodeFattura(fixture.fattura);
+
     const tasks: readonly (readonly [Phase, string, () => void | Promise<void>])[] = [
       [
         "tokenize",
@@ -182,16 +188,21 @@ const program = Effect.gen(function* effectXmlBenchmark() {
         },
       ],
     ];
+
     const bench = new Bench({ name: fixture.name, time: 1000, warmupTime: 300 });
     const labels = new Map<string, readonly [Phase, string]>();
+
     for (const [phase, implementation, run] of tasks) {
       const name = `${phase} · ${implementation}`;
       labels.set(name, [phase, implementation]);
       bench.add(name, run);
     }
+
     yield* Effect.promise(async () => await bench.run());
+
     for (const task of bench.tasks) {
       const label = labels.get(task.name);
+
       if (task.result.state === "completed" && label !== undefined) {
         rows.push({
           fixture: fixture.name,
@@ -213,18 +224,24 @@ const program = Effect.gen(function* effectXmlBenchmark() {
     "",
     "| Fixture | KB | Implementazione | media (ms) | p99 (ms) | ops/s | × |",
     "|---|---:|---|---:|---:|---:|---:|",
-    ...rows
-      .filter((row) => row.phase === phase)
-      .map((row) => {
-        const base = rows.find(
-          (candidate) =>
-            candidate.phase === row.phase &&
-            candidate.fixture === row.fixture &&
-            candidate.implementation === reference,
-        );
-        const speedup = base === undefined ? "" : `${formatNumber(base.meanMs / row.meanMs, 2)}×`;
-        return `| ${row.fixture} | ${formatNumber(row.kb, 1)} | ${row.implementation} | ${formatNumber(row.meanMs, 3)} | ${formatNumber(row.p99Ms, 3)} | ${formatNumber(row.opsPerSecond, 0)} | ${speedup} |`;
-      }),
+    ...rows.flatMap((row) => {
+      if (row.phase !== phase) {
+        return [];
+      }
+
+      const base = rows.find(
+        (candidate) =>
+          candidate.phase === row.phase &&
+          candidate.fixture === row.fixture &&
+          candidate.implementation === reference,
+      );
+
+      const speedup = base === undefined ? "" : `${formatNumber(base.meanMs / row.meanMs, 2)}×`;
+
+      return [
+        `| ${row.fixture} | ${formatNumber(row.kb, 1)} | ${row.implementation} | ${formatNumber(row.meanMs, 3)} | ${formatNumber(row.p99Ms, 3)} | ${formatNumber(row.opsPerSecond, 0)} | ${speedup} |`,
+      ];
+    }),
     "",
   ]);
 
@@ -242,6 +259,7 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   const output = yield* path.fromFileUrl(
     new URL(`results/benchmark${stringSubclass ? "-string-subclass" : ""}.md`, import.meta.url),
   );
+
   yield* fs.makeDirectory(path.dirname(output), { recursive: true });
   yield* fs.writeFileString(output, report);
   yield* Console.log(report);

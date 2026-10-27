@@ -70,6 +70,7 @@ describe("Bus.open", () => {
       Effect.gen(function* () {
         const redacted: EvalEvent[] = [];
         const trusted: EvalEvent[] = [];
+
         const bus = yield* Bus.open(
           "run-2",
           [recording(redacted), Reporter.acceptingSensitive(recording(trusted))],
@@ -101,11 +102,13 @@ describe("Bus.open", () => {
     Effect.gen(function* () {
       const redacted: EvalEvent[] = [];
       const trusted: EvalEvent[] = [];
+
       const bus = yield* Bus.open(
         "run-2b",
         [recording(redacted), Reporter.acceptingSensitive(recording(trusted))],
         true,
       );
+
       const failure = "Invalid response for RSSMRA80A01H501U";
 
       yield* bus.emit({

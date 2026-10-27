@@ -10,12 +10,14 @@ const SHARED_OBJECT_PREFIX = "g_";
 const decodeImageArgs = Schema.decodeUnknownOption(
   Schema.Tuple([Schema.String, Schema.Finite, Schema.Finite]),
 );
+
 const PdfJsImage = Schema.Struct({
   data: Schema.Union([Schema.instanceOf(Uint8Array), Schema.instanceOf(Uint8ClampedArray)]),
   height: Schema.Finite,
   kind: Schema.Finite,
   width: Schema.Finite,
 });
+
 const decodeImage = Schema.decodeUnknownOption(PdfJsImage);
 const decodeTextItem = Schema.decodeUnknownOption(Schema.Struct({ str: Schema.String }));
 
@@ -25,6 +27,7 @@ const operatorsOf = (document: Awaited<ReturnType<typeof getDocumentProxy>>, pag
   attempt(async () => {
     const page = await document.getPage(pageNumber);
     const operators = await page.getOperatorList();
+
     return { operators, page };
   });
 
@@ -33,8 +36,10 @@ export const makeBaseline = Effect.gen(function* makePdfJsBaseline() {
     await definePDFJSModule(async () => await import("pdfjs-dist/legacy/build/pdf.mjs"));
   });
   const { ImageKind, OPS } = yield* attempt(async () => await getResolvedPDFJS());
+
   const wasmUrl = new URL("../../wasm/", import.meta.resolve("pdfjs-dist/legacy/build/pdf.mjs"))
     .href;
+
   const channelsOf = new Map([
     [ImageKind.GRAYSCALE_1BPP, { channels: 1, depth: 1 }],
     [ImageKind.RGB_24BPP, { channels: 3, depth: 8 }],
@@ -79,6 +84,7 @@ export const makeBaseline = Effect.gen(function* makePdfJsBaseline() {
           attempt(async () => {
             const page = await document.getPage(pageNumber);
             const content = await page.getTextContent();
+
             return content.items
               .flatMap((item) => Option.toArray(decodeTextItem(item)))
               .map(({ str }) => str)
@@ -95,18 +101,22 @@ export const makeBaseline = Effect.gen(function* makePdfJsBaseline() {
         pageNumbers(document.numPages).map((pageNumber) =>
           Effect.gen(function* pageImage() {
             const { operators, page } = yield* operatorsOf(document, pageNumber);
+
             const key = Option.match(
               decodeImageArgs(
                 operators.argsArray[operators.fnArray.indexOf(OPS.paintImageXObject)],
               ),
               { onNone: () => "", onSome: ([name]) => name },
             );
+
             const objects = key.startsWith(SHARED_OBJECT_PREFIX) ? page.commonObjs : page.objs;
+
             const object = yield* Effect.callback<unknown>((resume) => {
               objects.get(key, (value: typeof PdfJsImage.Encoded) => {
                 resume(Effect.succeed(value));
               });
             });
+
             return Option.flatMap(decodeImage(object), (image) =>
               Option.map(Option.fromNullishOr(channelsOf.get(image.kind)), (layout) =>
                 encode({

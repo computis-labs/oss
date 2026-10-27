@@ -41,9 +41,11 @@ export const runMain = <A, E>(
         if (Cause.hasInterruptsOnly(cause)) {
           return;
         }
+
         if (options.disableErrorReporting !== true) {
           yield* Effect.logError(cause);
         }
+
         setFailed(
           Option.match(Cause.findErrorOption(cause), {
             onNone: () => Cause.pretty(cause),
@@ -59,6 +61,7 @@ export const runMain = <A, E>(
       options.disablePrettyLogger === true ? Layer.empty : Logger.layer([Logger.consolePretty()]),
     ),
   );
+
   Effect.runFork(
     Effect.tryPromise({
       catch: () => new PlatformMissing({ platform: "@effect/platform-node" }),

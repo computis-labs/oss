@@ -34,6 +34,7 @@ const readJson = Effect.fn("readJson")(function* readJsonProgram<
   S extends Schema.Top & { readonly DecodingServices: never },
 >(schema: S, file: string) {
   const fs = yield* FileSystem.FileSystem;
+
   return yield* fs.readFileString(file).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(schema))),
     Effect.mapError(() => OssCheckError.make({ message: `${file} is not the expected JSON.` })),
@@ -46,18 +47,22 @@ const run = Effect.fn("run")(function* runProgram(
   cwd: string,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
   const handle = yield* spawner.spawn(
     ChildProcess.make(command, args, { cwd, stderr: "inherit", stdin: "ignore" }),
   );
+
   const [output, code] = yield* Effect.all(
     [handle.stdout.pipe(Stream.decodeText, Stream.mkString), handle.exitCode],
     { concurrency: 2 },
   );
+
   if (code !== 0) {
     return yield* OssCheckError.make({
       message: `${command} ${args.join(" ")} exited with code ${code}.\n${output}`,
     });
   }
+
   return output;
 }, Effect.scoped);
 
@@ -66,6 +71,7 @@ const runWithoutPlatform = Effect.fn("runWithoutPlatform")(function* runWithoutP
   cwd: string,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
   const handle = yield* spawner.spawn(
     ChildProcess.make(process.execPath, [bin, "--help"], {
       cwd,
@@ -73,10 +79,12 @@ const runWithoutPlatform = Effect.fn("runWithoutPlatform")(function* runWithoutP
       stdout: "ignore",
     }),
   );
+
   const [errors, code] = yield* Effect.all(
     [handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode],
     { concurrency: 2 },
   );
+
   if (code === 0 || !errors.includes(`install ${platformPackage}`)) {
     yield* OssCheckError.make({
       message: `${bin} without ${platformPackage} should fail and name it, but exited with code ${code}.\n${errors}`,
@@ -99,9 +107,11 @@ const packTarball = Effect.fn("packTarball")(function* packTarballProgram(
     path.join(root, "packages", name),
   );
   const [tarball] = yield* fs.readDirectory(destination);
+
   if (tarball === undefined) {
     return yield* OssCheckError.make({ message: `pnpm pack wrote no tarball for ${name}.` });
   }
+
   return path.join(destination, tarball);
 });
 
@@ -112,22 +122,27 @@ const exportSpecifiers = Effect.fn("exportSpecifiers")(function* exportSpecifier
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const specifiers: string[] = [];
+
   for (const [key, target] of Object.entries(manifest.exports)) {
     if (key === "./package.json") {
       continue;
     }
+
     if (!key.includes("*")) {
       specifiers.push(`${manifest.name}${key.slice(1)}`);
       continue;
     }
+
     const [targetDir, targetExtension] = [path.dirname(target), path.extname(target)];
     const keyDir = path.dirname(key).slice(1);
+
     for (const entry of yield* fs.readDirectory(path.join(installed, targetDir))) {
       if (entry.endsWith(targetExtension)) {
         specifiers.push(`${manifest.name}${keyDir}/${entry.slice(0, -targetExtension.length)}`);
       }
     }
   }
+
   return specifiers;
 });
 
@@ -142,6 +157,7 @@ const program = Effect.gen(function* ossCheckProgram() {
   yield* fs.makeDirectory(smoke);
 
   const tarballs = new Map<string, string>();
+
   for (const name of publicPackages) {
     tarballs.set(`@computis/${name}`, yield* packTarball(root, packs, name));
   }
@@ -153,9 +169,11 @@ const program = Effect.gen(function* ossCheckProgram() {
   }
 
   const { devDependencies } = yield* readJson(RootManifest, path.join(root, "package.json"));
+
   const local = Object.fromEntries(
     [...tarballs].map(([name, tarball]) => [name, `file:${tarball}`]),
   );
+
   yield* fs.writeFileString(
     path.join(smoke, "package.json"),
     JSON.stringify({
@@ -169,6 +187,7 @@ const program = Effect.gen(function* ossCheckProgram() {
   const imports: string[] = [];
   const bins: string[] = [];
   const peers: string[] = [];
+
   for (const name of publicPackages) {
     const installed = path.join(smoke, "node_modules", "@computis", name);
     const manifest = yield* readJson(PublishedManifest, path.join(installed, "package.json"));
@@ -176,9 +195,11 @@ const program = Effect.gen(function* ossCheckProgram() {
     bins.push(...Object.values(manifest.bin ?? {}).map((bin) => path.join(installed, bin)));
     peers.push(...optionalPeers(manifest));
   }
+
   if (peers.length > 0) {
     yield* run("npm", ["install", "--no-audit", "--no-fund", ...new Set(peers)], smoke);
   }
+
   yield* fs.writeFileString(
     path.join(smoke, "smoke.mjs"),
     `for (const specifier of ${JSON.stringify(imports)}) {
@@ -188,6 +209,7 @@ const program = Effect.gen(function* ossCheckProgram() {
 `,
   );
   yield* run(process.execPath, ["smoke.mjs"], smoke);
+
   for (const bin of bins) {
     yield* runWithoutPlatform(bin, smoke);
   }
@@ -198,6 +220,7 @@ const program = Effect.gen(function* ossCheckProgram() {
     ["install", "--no-audit", "--no-fund", `${platformPackage}@${platformVersion ?? "latest"}`],
     smoke,
   );
+
   for (const bin of bins) {
     yield* run(process.execPath, [bin, "--help"], smoke);
   }

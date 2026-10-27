@@ -12,6 +12,7 @@ import * as Scorer from "../src/scorer.ts";
 
 const recordRun = Effect.gen(function* () {
   const events: EvalEvent[] = [];
+
   const categorize = Eval.make({
     dataset: Dataset.fromIterable(["rent", "fuel", "fail", Dataset.skip("gone", "no truth")], {
       id: (id: string) => id,
@@ -24,6 +25,7 @@ const recordRun = Effect.gen(function* () {
     task: (input) => (input.id === "fail" ? Effect.fail("timeout") : Effect.succeed(input.input)),
     trials: 2,
   });
+
   yield* Runner.run(categorize).pipe(
     Effect.provide(
       Reporter.layer([
@@ -34,6 +36,7 @@ const recordRun = Effect.gen(function* () {
       ]),
     ),
   );
+
   return events;
 });
 

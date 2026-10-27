@@ -28,11 +28,14 @@ export const normalQuantile = (p: number) => {
   if (p < QUANTILE_TAIL) {
     return tailQuantile(Math.sqrt(-2 * Math.log(p)));
   }
+
   if (p > 1 - QUANTILE_TAIL) {
     return -tailQuantile(Math.sqrt(-2 * Math.log(1 - p)));
   }
+
   const q = p - 0.5;
   const r = q * q;
+
   return (
     (polynomial(
       [
@@ -62,12 +65,14 @@ export const wilson = (
   if (n <= 0) {
     return Option.none();
   }
+
   const z = normalQuantile(1 - (1 - (options.confidence ?? DEFAULT_CONFIDENCE)) / 2);
   const share = successes / n;
   const z2 = z * z;
   const denominator = 1 + z2 / n;
   const center = (share + z2 / (2 * n)) / denominator;
   const half = (z * Math.sqrt((share * (1 - share)) / n + z2 / (4 * n * n))) / denominator;
+
   return Option.some([Math.max(0, center - half), Math.min(1, center + half)] as const);
 };
 
@@ -78,10 +83,12 @@ export const seededRandom = (seed: string) => {
       FNV_OFFSET,
     ),
   };
+
   return () => {
     state.value = (state.value + MULBERRY_INCREMENT) | 0;
     const first = Math.imul(state.value ^ (state.value >>> 15), 1 | state.value);
     const second = (first + Math.imul(first ^ (first >>> 7), 61 | first)) ^ first;
+
     return ((second ^ (second >>> 14)) >>> 0) / UINT32_RANGE;
   };
 };
@@ -93,7 +100,9 @@ export const standardDeviation = (values: readonly number[]) => {
   if (values.length < 2) {
     return 0;
   }
+
   const average = mean(values);
+
   return Math.sqrt(
     values.reduce((total, value) => total + (value - average) ** 2, 0) / (values.length - 1),
   );
@@ -112,10 +121,13 @@ const percentiles = (
   if (sampled.length === 0) {
     return Option.none();
   }
+
   const sorted = sampled.toSorted((left, right) => left - right);
   const tail = (1 - confidence) / 2;
+
   const at = (share: number) =>
     sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(share * sorted.length)))] ?? 0;
+
   return Option.some([at(tail), at(1 - tail)] as const);
 };
 
@@ -126,7 +138,9 @@ export const bootstrap = (
   if (values.length === 0) {
     return Option.none();
   }
+
   const random = seededRandom(options.seed);
+
   return percentiles(
     Array.from({ length: options.resamples ?? DEFAULT_RESAMPLES }, () =>
       mean(Array.from(values, () => values[Math.floor(random() * values.length)] ?? 0)),
@@ -142,8 +156,10 @@ export const pairedBootstrap = (
   if (pairs.length === 0) {
     return Option.none();
   }
+
   const random = seededRandom(options.seed);
   const differences = pairs.map(([before, after]) => after - before);
+
   return percentiles(
     Array.from({ length: options.resamples ?? DEFAULT_RESAMPLES }, () =>
       mean(
@@ -156,9 +172,11 @@ export const pairedBootstrap = (
 
 export const mcnemar = (onlyLeft: number, onlyRight: number) => {
   const n = onlyLeft + onlyRight;
+
   if (n === 0) {
     return { pValue: 1 };
   }
+
   const tail = Array.from({ length: Math.min(onlyLeft, onlyRight) + 1 }, (_, k) =>
     Math.exp(
       Array.from({ length: k }, (__, index) => Math.log((n - index) / (index + 1))).reduce(
@@ -168,6 +186,7 @@ export const mcnemar = (onlyLeft: number, onlyRight: number) => {
         n * Math.LN2,
     ),
   ).reduce((total, value) => total + value, 0);
+
   return { pValue: Math.min(1, 2 * tail) };
 };
 
@@ -175,6 +194,7 @@ export const passAtK = (n: number, correct: number, k: number) => {
   if (n - correct < k) {
     return 1;
   }
+
   return (
     1 -
     Array.from({ length: correct }, (_, index) => 1 - k / (n - correct + 1 + index)).reduce(
@@ -188,6 +208,7 @@ export const passHatK = (n: number, correct: number, k: number) => {
   if (correct < k) {
     return 0;
   }
+
   return Array.from({ length: k }, (_, index) => (correct - index) / (n - index)).reduce(
     (total, value) => total * value,
     1,

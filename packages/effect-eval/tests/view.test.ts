@@ -101,6 +101,7 @@ describe("View.summary", () => {
       const { head, history } = yield* sampleRuns;
 
       const metrics = tableWith(View.summary(head, history), "Δ baseline (paired)");
+
       const accuracy = metrics?.rows.find(
         (row) => row[0]?.text === "small" && row[1]?.text === "accuracy",
       );
@@ -114,11 +115,14 @@ describe("View.summary", () => {
       scoredAs({ case: "a", right: true }),
       scoredAs({ case: "b", right: false }),
     ]);
+
     const removed = runOf("head", [scoredAs({ case: "a", right: true })]);
+
     const added = runOf("head", [
       scoredAs({ case: "a", right: true }),
       scoredAs({ case: "c", right: false }),
     ]);
+
     const accuracyChange = (head: Run.Run, base: Run.Run) =>
       tableWith(
         View.summary(head, { baseline: Option.some(base), recent: [base] }),
@@ -182,6 +186,7 @@ describe("View.summary", () => {
 
   it("also lists unclassified exclusions and closed gaps, and shows the notes", () => {
     const right = scoredAs({ case: "m1", right: true });
+
     const run = runOf("run-a", [
       {
         ...right,
@@ -243,13 +248,17 @@ describe("View.summary", () => {
           task: (input) => Effect.succeed(input.id),
         }),
       );
+
       const view = View.summary(run);
+
       const review = view
         .filter(View.$is("Section"))
         .find((section) => section.title === "To look at");
+
       const violations = view
         .filter(View.$is("Section"))
         .find((section) => section.title === "Gate violations");
+
       expect(
         tableWith(review?.children ?? [], "key")
           ?.rows.slice(0, 2)
@@ -285,12 +294,15 @@ describe("View.summary", () => {
             task: () => Effect.succeed("wrong"),
           }),
         ).pipe(Effect.provide(Reporter.layer([History.reporter])));
+
         const stored = yield* History.load("many-violations", History.latest);
         expect(stored.gates[0]?.violations).toHaveLength(48);
         const view = View.summary(run);
+
         const violations = view
           .filter(View.$is("Section"))
           .find((section) => section.title === "Gate violations");
+
         expect(run.gates[0]?.violations).toHaveLength(48);
         expect(tableWith(violations?.children ?? [], "key")?.rows).toHaveLength(20);
         expect(texts(violations?.children ?? [])).toContain(
@@ -309,10 +321,12 @@ describe("View.summary", () => {
       "unclassified",
       "legal form",
     ];
+
     const observations = excluded.map((reason, index) => ({
       ...scoredAs({ case: `p-${String(index)}`, right: false }),
       observation: Observation.exclude(reason)(scoredAs({ right: false }).observation),
     }));
+
     const view = View.summary(runOf("excluded", observations));
     expect(tableWith(view, "reason")?.rows.map((row) => row.map((entry) => entry.text))).toEqual([
       ["default", "convention", "1"],
@@ -329,6 +343,7 @@ describe("View.summary", () => {
 
   it("lists the outputs it could not store, with the reason", () => {
     const base = runOf("run-a", [scoredAs({ case: "m1", right: true })]);
+
     const run: Run.Run = {
       ...base,
       outputs: [
@@ -354,6 +369,7 @@ describe("View.summary", () => {
 
   it("says the cost is unknown when a call has no price", () => {
     const base = runOf("run-a", [scoredAs({ case: "m1", right: true })]);
+
     const run: Run.Run = {
       ...base,
       variants: base.variants.map((variant) => ({
@@ -396,6 +412,7 @@ describe("View.summary groups and case outcomes", () => {
           trials: 2,
         }),
       );
+
       const summary = View.summary(run);
 
       expect(sectionTitles(summary)).toEqual(expect.arrayContaining(["Groups", "Cases"]));
@@ -451,6 +468,7 @@ describe("View.summary trials", () => {
     const short = View.summary(
       runOf("run-a", [scoredAs({ case: "m1", right: true, trial: 1 })], 2),
     );
+
     const partial = View.summary(
       runOf(
         "run-a",

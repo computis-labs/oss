@@ -20,6 +20,7 @@ const render = {
   theme: Theme.computis,
   width: 40,
 };
+
 const contentOf = Option.match({
   onNone: () => "",
   onSome: (drawn: View.Drawing) => drawn.content,
@@ -112,6 +113,7 @@ describe("ChartVega warnings of a sensitive run", () => {
   it.effect("draw from charts that hold no output, detail or failure of the run", () =>
     Effect.gen(function* () {
       const secret = "CUSTOMER-SECRET-123";
+
       const run = yield* Runner.run(
         Eval.make({
           dataset: Dataset.fromIterable(["a", "b"], { id: (id: string) => id }),
@@ -126,6 +128,7 @@ describe("ChartVega warnings of a sensitive run", () => {
             input.id === "a" ? Effect.succeed(secret) : Effect.fail(`failed on ${secret}`),
         }),
       );
+
       const comparison = Run.compare(run, run);
       const logged: string[] = [];
 
@@ -137,6 +140,7 @@ describe("ChartVega warnings of a sensitive run", () => {
         ...Charts.caseMap([run, run]),
         Charts.costVsAccuracy(run),
       ];
+
       yield* ChartVega.svg()(charts, render).pipe(
         Effect.provide(
           Logger.layer([Logger.formatLogFmt.pipe(Logger.map((line) => logged.push(line)))]),
@@ -169,6 +173,7 @@ describe("ChartVega.terminal", () => {
         charts.slice(1, 2),
         render,
       );
+
       const text = contentOf(drawn);
 
       expect(text.startsWith("\u001B_Gf=100,a=T,c=40,")).toBe(true);
@@ -203,6 +208,7 @@ describe("ChartVega.detectProtocol", () => {
         withEnvironment({ TERM: "xterm-kitty" }),
         Effect.provide(Stdio.layerTest({ stdoutIsTerminal: Effect.succeed(false) })),
       );
+
       const unknown = yield* ChartVega.detectProtocol.pipe(
         withEnvironment({ TERM: "xterm-kitty" }),
       );
@@ -216,9 +222,11 @@ describe("ChartVega.detectProtocol", () => {
       const ghostty = yield* ChartVega.detectProtocol.pipe(
         withEnvironment({ TERM_PROGRAM: "ghostty" }),
       );
+
       const iterm = yield* ChartVega.detectProtocol.pipe(
         withEnvironment({ TERM_PROGRAM: "iTerm.app" }),
       );
+
       const other = yield* ChartVega.detectProtocol.pipe(
         withEnvironment({ TERM: "xterm-256color" }),
       );
@@ -236,6 +244,7 @@ describe("ChartVega.detectProtocol", () => {
       const forced = yield* ChartVega.detectProtocol.pipe(
         withEnvironment({ CI: "true", EVAL_IMAGE_PROTOCOL: "iterm" }),
       );
+
       const unknown = yield* ChartVega.detectProtocol.pipe(
         withEnvironment({ EVAL_IMAGE_PROTOCOL: "sixel" }),
       );

@@ -12,12 +12,14 @@ const countFields = {
 };
 
 export const UsageCountsSchema = Schema.Struct(countFields);
+
 export type UsageCounts = typeof UsageCountsSchema.Type;
 
 export const UsageSchema = Schema.Struct({
   ...countFields,
   labels: Schema.Record(Schema.String, UsageCountsSchema),
 });
+
 export type Usage = typeof UsageSchema.Type;
 
 export interface Recorded {
@@ -49,6 +51,7 @@ const totalCounts = (usages: readonly UsageCounts[]): UsageCounts => {
       usage.reasoningTokens > 0 ||
       Option.isSome(usage.costUsd),
   );
+
   return {
     calls: sum(usages.map((usage) => usage.calls)),
     costUsd:
@@ -64,12 +67,13 @@ const totalCounts = (usages: readonly UsageCounts[]): UsageCounts => {
 export const total = (usages: readonly Usage[]): Usage => {
   const labelled = usages.flatMap((usage) => Object.entries(usage.labels));
   const names = [...new Set(labelled.map(([label]) => label))].toSorted();
+
   return {
     ...totalCounts(usages),
     labels: Object.fromEntries(
       names.map((name) => [
         name,
-        totalCounts(labelled.filter(([label]) => label === name).map(([, counts]) => counts)),
+        totalCounts(labelled.flatMap(([label, counts]) => (label === name ? [counts] : []))),
       ]),
     ),
   };
@@ -85,6 +89,7 @@ export const fromRecorded = (recorded: Recorded): Usage => {
     outputTokens: recorded.outputTokens ?? 0,
     reasoningTokens: recorded.reasoningTokens ?? 0,
   };
+
   return {
     ...counts,
     labels: { ...whenDefined(recorded.label, (label) => ({ [label]: counts })) },
@@ -109,6 +114,7 @@ export const labelled = (usage: Usage, label: string): Usage => {
     outputTokens: usage.outputTokens,
     reasoningTokens: usage.reasoningTokens,
   };
+
   return { ...counts, labels: { [label]: counts } };
 };
 
@@ -130,24 +136,29 @@ export const observe = <A extends { readonly usage: Response.Usage }, E, R>(
     Effect.gen(function* observeRequest() {
       const seen = MutableRef.make(Option.none<Response.Usage>());
       const parent = yield* Effect.serviceOption(Telemetry.CurrentSpanTransformer);
+
       const exit = yield* restore(request).pipe(
         Effect.provideService(Telemetry.CurrentSpanTransformer, (options) => {
           const finish = options.response.find((part) => part.type === "finish");
+
           if (finish !== undefined && finish.type === "finish") {
             MutableRef.set(seen, Option.some(finish.usage));
           }
+
           if (Option.isSome(parent)) {
             parent.value(options);
           }
         }),
         Effect.exit,
       );
+
       const usage = fromRecorded(
         Option.match(Exit.isSuccess(exit) ? Option.some(exit.value.usage) : MutableRef.get(seen), {
           onNone: () => ({}),
           onSome: fromResponse,
         }),
       );
+
       return { exit, usage };
     }),
   );
@@ -163,6 +174,7 @@ const tracked = <
         Effect.flatMap(({ exit, usage }) => recordUsage(usage).pipe(Effect.andThen(exit))),
       ),
     );
+
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: wrapped takes the options of generate and returns its effect unchanged, after it records one call with the usage of the response, when there is one, also when the request is interrupted.
   return wrapped as F;
 };
@@ -214,6 +226,7 @@ export const trackLanguageModel: Layer.Layer<
               ),
             ),
           );
+
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: wrapped takes the options of stream and returns its parts unchanged, after it records one call per run of the stream with the usage of its finish part, when there is one, also when the stream fails or is interrupted.
         return wrapped as F;
       })(model.streamText),

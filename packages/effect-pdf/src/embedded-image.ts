@@ -10,9 +10,11 @@ const JPEG_FILTER = "DCTDecode";
 const PASSTHROUGH_COLORSPACES: ReadonlySet<number> = new Set([1, 2, 4, 5, 7]);
 const PASSTHROUGH_COMPONENTS: ReadonlySet<number> = new Set([1, 3]);
 const JPEG_MARKER = 0xff;
+
 const JPEG_FRAME_MARKERS: ReadonlySet<number> = new Set([
   0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
 ]);
+
 const JPEG_FIRST_SEGMENT = 2;
 const JPEG_COMPONENTS_OFFSET = 9;
 
@@ -28,22 +30,28 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
     { length: lib.FPDFImageObj_GetImageFilterCount(image.pointer) },
     (_, index) => {
       const size = lib.FPDFImageObj_GetImageFilter(image.pointer, index, 0, 0);
+
       return withAllocation(lib, size, (buffer) => {
         lib.FPDFImageObj_GetImageFilter(image.pointer, index, buffer, size);
+
         return lib.pdfium.UTF8ToString(buffer);
       });
     },
   );
+
   const rawSize =
     filters.length === 1 &&
     filters[0] === JPEG_FILTER &&
     PASSTHROUGH_COLORSPACES.has(image.colorspace)
       ? lib.FPDFImageObj_GetImageDataRaw(image.pointer, 0, 0)
       : 0;
+
   const jpeg = withAllocation(lib, rawSize, (buffer) => {
     lib.FPDFImageObj_GetImageDataRaw(image.pointer, buffer, rawSize);
+
     return lib.pdfium.HEAPU8.slice(buffer, buffer + rawSize);
   });
+
   const frameComponents = (): number | null => {
     for (
       let position = JPEG_FIRST_SEGMENT;
@@ -54,8 +62,10 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
         return jpeg[position + JPEG_COMPONENTS_OFFSET] ?? null;
       }
     }
+
     return null;
   };
+
   if (rawSize > 0 && PASSTHROUGH_COMPONENTS.has(frameComponents() ?? 0)) {
     return {
       bytes: jpeg,
@@ -65,10 +75,13 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
       width: image.width,
     };
   }
+
   const bitmap = lib.FPDFImageObj_GetBitmap(image.pointer);
+
   if (bitmap === 0) {
     return undefined;
   }
+
   try {
     const width = lib.FPDFBitmap_GetWidth(bitmap);
     const height = lib.FPDFBitmap_GetHeight(bitmap);
@@ -76,6 +89,7 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
     const format = lib.FPDFBitmap_GetFormat(bitmap);
     const start = lib.FPDFBitmap_GetBuffer(bitmap);
     const heap = lib.pdfium.HEAPU8;
+
     const raster = Match.value({
       bilevel: image.bitsPerPixel === 1,
       gray: format === bitmapFormats.gray,
@@ -105,6 +119,7 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
         ),
       ),
     );
+
     return {
       height,
       mediaType: pdfImageMediaTypes.png,

@@ -30,6 +30,7 @@ export const PromptSyntaxErrorReason = {
   UnterminatedString: "UnterminatedString",
   UnterminatedTag: "UnterminatedTag",
 } as const;
+
 export type SyntaxErrorReason =
   (typeof PromptSyntaxErrorReason)[keyof typeof PromptSyntaxErrorReason];
 
@@ -57,6 +58,7 @@ export interface SourceFile {
 export const locate = (text: string, offset: number) => {
   const before = text.slice(0, Math.max(offset, 0));
   const lineStart = before.lastIndexOf("\n") + 1;
+
   return { column: offset - lineStart + 1, line: before.split("\n").length };
 };
 
@@ -76,11 +78,14 @@ export const syntaxError = (
 
 export const didYouMean = (value: string, candidates: Iterable<string>) => {
   const needle = value.toLowerCase();
+
   const distanceTo = (candidate: string) => {
     const rows = [Array.from({ length: candidate.length + 1 }, (_, index) => index)];
+
     for (let row = 1; row <= needle.length; row += 1) {
       const previous = rows[row - 1] ?? [];
       const current = [row];
+
       for (let column = 1; column <= candidate.length; column += 1) {
         const cost = needle[row - 1] === candidate[column - 1] ? 0 : 1;
         current.push(
@@ -91,17 +96,22 @@ export const didYouMean = (value: string, candidates: Iterable<string>) => {
           ),
         );
       }
+
       rows.push(current);
     }
+
     return rows[needle.length]?.[candidate.length] ?? 0;
   };
+
   const maxDistance = Math.max(2, Math.floor(value.length / 3)) + 1;
+
   const [closest] = Array.from(candidates, (candidate) => ({
     candidate,
     score: distanceTo(candidate.toLowerCase()),
   }))
     .filter(({ score }) => score < maxDistance)
     .toSorted((left, right) => left.score - right.score);
+
   return closest !== undefined && closest.candidate.length > 0
     ? ` Did you mean '${closest.candidate}'?`
     : "";

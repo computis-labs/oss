@@ -151,16 +151,21 @@ layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", 
     () =>
       Effect.gen(function* test() {
         const validator = yield* Xsd.make({ schema: { path: FACETS_XSD } });
+
         const states = Arr.scan(
           Arr.makeBy(SAMPLES.length * 12 * 4, () => 0),
           1,
           (state) => (state * 1_103_515_245 + 12_345) % 2_147_483_648,
         );
+
         const random = (draw: number, bound: number) =>
           Math.floor(((states[draw + 1] ?? 0) / 2_147_483_648) * bound);
+
         const values = new Set(SAMPLES);
+
         for (const [sampleIndex, sample] of SAMPLES.entries()) {
           const chars = Array.from(sample.matchAll(/[\s\S]/gu), ([char]) => char);
+
           for (let step = 0; step < 12; step += 1) {
             const draw = (sampleIndex * 12 + step) * 4;
             const position = random(draw, chars.length + 1);
@@ -173,22 +178,28 @@ layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", 
             values.add(chars.join(""));
           }
         }
+
         const unsound: string[] = [];
         const incomplete: string[] = [];
+
         for (const [name, schema] of Object.entries(Facets)) {
           const accepts = Schema.is(schema);
+
           for (const value of name === "Facets" ? [] : values) {
             const text = value
               .replaceAll("&", "&amp;")
               .replaceAll("<", "&lt;")
               .replaceAll(">", "&gt;")
               .replaceAll("\r", "&#13;");
+
             const exit = yield* Effect.exit(
               validator.validate(`<Facets><${name}>${text}</${name}></Facets>`),
             );
+
             if (accepts(value) && Exit.isFailure(exit)) {
               unsound.push(`${name} ${JSON.stringify(value)}`);
             }
+
             if (!accepts(value) && Exit.isSuccess(exit) && name !== "Base64") {
               incomplete.push(`${name} ${JSON.stringify(value)}`);
             }

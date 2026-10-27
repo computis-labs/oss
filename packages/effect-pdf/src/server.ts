@@ -43,9 +43,11 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
       task: (open: OpenDocument) => Result.Result<A, E>,
     ) {
       const open = Option.fromNullishOr((yield* Ref.get(documents)).get(document));
+
       if (Option.isNone(open)) {
         return yield* new PdfEngineError({ message: "The document is already closed." });
       }
+
       return yield* runtime.run(open.value.handle.lib, () => task(open.value));
     });
 
@@ -72,8 +74,10 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
               ),
             ),
           );
+
           return yield* Ref.update(documents, (open) => {
             const entry = open.get(document);
+
             return entry === undefined
               ? open
               : new Map(open).set(document, {
@@ -90,16 +94,20 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
             (open): [OpenDocument | undefined, ReadonlyMap<number, OpenDocument>] => {
               const rest = new Map(open);
               rest.delete(document);
+
               return [open.get(document), rest];
             },
           );
+
           if (entry === undefined) {
             return;
           }
+
           yield* runtime
             .run(entry.handle.lib, (lib) => {
               lib.FPDF_CloseDocument(entry.handle.document);
               lib.pdfium._free(entry.pointer);
+
               return Result.void;
             })
             .pipe(Effect.ignore);
@@ -113,6 +121,7 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
       Open: ({ bytes, document, password }) =>
         Effect.gen(function* openDocument() {
           const lib = yield* runtime.current;
+
           const opened = yield* runtime.run(
             lib,
             (
@@ -128,19 +137,24 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
               const pointer = pdfium.pdfium._malloc(Math.max(bytes.length, 1));
               pdfium.pdfium.HEAPU8.set(bytes, pointer);
               const handle = pdfium.FPDF_LoadMemDocument(pointer, bytes.length, password);
+
               if (handle === 0) {
                 const error = PdfOpenError.fromPdfiumError(pdfium.FPDF_GetLastError());
                 pdfium.pdfium._free(pointer);
+
                 return Result.fail(error);
               }
+
               const pages = Result.all(
                 Array.from({ length: pdfium.FPDF_GetPageCount(handle) }, (_, index) => {
                   const size = readFloats(pdfium, 2, (target) =>
                     pdfium.FPDF_GetPageSizeByIndexF(handle, index, target),
                   );
+
                   const quarterTurns = pdfium.EPDF_GetPageRotationByIndex(handle, index);
                   const [shownWidth = 0, shownHeight = 0] = size ?? [];
                   const sideways = quarterTurns % 2 === 1;
+
                   return size === null
                     ? Result.fail(PdfPageError.unreadable(index))
                     : Result.succeed({
@@ -151,14 +165,18 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
                       });
                 }),
               );
+
               if (Result.isFailure(pages)) {
                 pdfium.FPDF_CloseDocument(handle);
                 pdfium.pdfium._free(pointer);
+
                 return Result.fail(pages.failure);
               }
+
               return Result.succeed({ handle, pages: pages.success, pointer });
             },
           );
+
           yield* Ref.update(documents, (open) =>
             new Map(open).set(document, {
               handle: { document: opened.handle, lib, pageCount: opened.pages.length },
@@ -166,6 +184,7 @@ export const PdfRpcHandlers = PdfRpcs.toLayer(
               signatureFields: new Set<number>(),
             }),
           );
+
           return opened.pages;
         }),
       PageImages: ({ document, dpi, pages }) =>

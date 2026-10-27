@@ -22,10 +22,12 @@ const RGB_CHANNELS = 3;
 export const renderedSize = (lib: Pdfium, pagePointer: number, { dpi, width }: PdfRenderSize) => {
   const pageWidth = lib.FPDF_GetPageWidthF(pagePointer);
   const pageHeight = lib.FPDF_GetPageHeightF(pagePointer);
+
   const pixelWidth = Math.max(
     1,
     Math.round(width ?? (pageWidth / POINTS_PER_INCH) * (dpi ?? DEFAULT_RENDER_DPI)),
   );
+
   return {
     height: Math.max(1, Math.round((pageHeight / pageWidth) * pixelWidth)),
     width: pixelWidth,
@@ -40,6 +42,7 @@ export const renderPng = (
 ): PdfImageDraft => {
   const rowBytes = width * RGB_CHANNELS;
   const bitmap = lib.FPDFBitmap_CreateEx(width, height, bitmapFormats.bgr, 0, rowBytes);
+
   try {
     lib.FPDFBitmap_FillRect(bitmap, 0, 0, width, height, WHITE);
     lib.FPDF_RenderPageBitmap(bitmap, pagePointer, 0, 0, width, height, 0, RENDER_FLAGS);
@@ -47,6 +50,7 @@ export const renderPng = (
     lib.FPDF_FFLDraw(form, bitmap, pagePointer, 0, 0, width, height, 0, RENDER_FLAGS);
     const pixels = lib.FPDFBitmap_GetBuffer(bitmap);
     const stride = lib.FPDFBitmap_GetStride(bitmap);
+
     return {
       height,
       mediaType: pdfImageMediaTypes.png,
@@ -70,6 +74,7 @@ export const renderPage = (handle: PdfHandle, page: number, size: PdfRenderSize)
   withFormEnvironment(handle, (form) =>
     withFormPage(handle, form, page, (pagePointer) => {
       const pixels = renderedSize(handle.lib, pagePointer, size);
+
       return pixels.width * pixels.height > MAX_RENDER_PIXELS
         ? Result.fail(
             new PdfPageError({

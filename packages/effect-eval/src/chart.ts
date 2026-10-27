@@ -155,12 +155,14 @@ export const caseMap = (
   options: { readonly onlyUnstable?: boolean } = {},
 ): readonly Chart[] => {
   const names = [...new Set(runs.flatMap((run) => run.variants.map((variant) => variant.variant)))];
+
   return names.map((name) => {
     const columns = runs.flatMap((run) =>
       run.variants.some((variant) => variant.variant === name)
         ? Arr.range(1, run.trials).map((trial) => columnOf(run, trial))
         : [],
     );
+
     const cells = runs.flatMap((run) =>
       run.variants
         .filter((variant) => variant.variant === name)
@@ -172,6 +174,7 @@ export const caseMap = (
           })),
         ),
     );
+
     const rows = Object.entries(Arr.groupBy(cells, (cell) => cell.row))
       .filter(
         ([, group]) =>
@@ -179,7 +182,9 @@ export const caseMap = (
       )
       .map(([row]) => row)
       .toSorted();
+
     const kept = new Set(rows);
+
     return CaseMap({
       cells: cells.filter((cell) => kept.has(cell.row)),
       columns,
@@ -270,6 +275,7 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
     height: CHART_HEIGHT,
     width: CHART_WIDTH,
   };
+
   return $match(chart, {
     CaseMap: ({ cells, columns, rows, title }) => ({
       ...frame,
@@ -394,6 +400,7 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
     Trend: ({ metric, points, title }) => {
       const names = [...new Set(points.map((point) => point.variant))];
       const columns = trendColumns(points);
+
       return {
         ...frame,
         data: {

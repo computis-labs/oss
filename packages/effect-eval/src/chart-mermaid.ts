@@ -42,9 +42,11 @@ export const renderer = (): ChartRenderer => (charts) =>
           Trend: ({ metric, points, title }) => {
             const columns = Charts.trendColumns(points);
             const variants = [...new Set(points.map((point) => point.variant))];
+
             if (columns.length === 0) {
               return Option.none();
             }
+
             return Option.map(
               Option.all(
                 variants.map((variant) =>

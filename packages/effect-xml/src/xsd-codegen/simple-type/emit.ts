@@ -54,26 +54,33 @@ const INTEGER = /^[+-]?[0-9]+$/u;
 
 const lengthChecks = (spec: SimpleSpec, codePoints: boolean): readonly Check[] => {
   const { maxLength, minLength } = spec;
+
   const options: LengthOptions = {
     collapse: spec.whiteSpace === "collapse",
     maximum: maxLength,
     minimum: minLength,
   };
+
   const test = (value: string) => hasXsdLength(value, options);
+
   if (minLength === undefined && maxLength === undefined) {
     return [];
   }
+
   if (codePoints) {
     const fields = [
       `collapse: ${String(options.collapse)}`,
       ...(maxLength === undefined ? [] : [`maximum: ${String(maxLength)}`]),
       ...(minLength === undefined ? [] : [`minimum: ${String(minLength)}`]),
     ];
+
     return [{ code: `xsdLength({ ${fields.join(", ")} })`, helper: "xsdLength", test }];
   }
+
   if (minLength !== undefined && maxLength !== undefined) {
     return [{ code: `Schema.isLengthBetween(${String(minLength)}, ${String(maxLength)})`, test }];
   }
+
   return [
     minLength === undefined
       ? { code: `Schema.isMaxLength(${String(maxLength)})`, test }
@@ -83,6 +90,7 @@ const lengthChecks = (spec: SimpleSpec, codePoints: boolean): readonly Check[] =
 
 const regexCheck = (helper: Helper, source: string, args: readonly string[]): Check => {
   const regExp = new RegExp(source, "u");
+
   return {
     code: `${helper}(${[regexLiteral(source), ...args].join(", ")})`,
     helper,
@@ -99,6 +107,7 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
     const emitEnumeration = (last: readonly string[]) =>
       Result.gen(function* emitEnumerationType() {
         const text = info.family === "text";
+
         const space: EnumerationSpace =
           info.family === "text"
             ? spec.whiteSpace
@@ -109,18 +118,25 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
                   number: "decimal",
                 } as const satisfies Record<string, EnumerationSpace>
               )[info.family];
+
         const valueKey = (value: string) => {
           const key = enumerationKey(space, value);
+
           return text && key !== value ? null : key;
         };
+
         const passes = (value: string) => checks.every((check) => check.test(value));
+
         const layers = spec.enumerations.map(
           (enumeration) => new Set(enumeration.map((value) => valueKey(value))),
         );
+
         const seen = new Set<string>();
         const allowed: string[] = [];
+
         for (const value of last) {
           const key = valueKey(value);
+
           if (
             key !== null &&
             !seen.has(key) &&
@@ -131,10 +147,13 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
             allowed.push(value);
           }
         }
+
         const [first] = allowed;
+
         if (first === undefined) {
           return yield* fail(node, "No enumeration value satisfies the other facets.");
         }
+
         if (
           text &&
           (space === "preserve" ||
@@ -147,14 +166,18 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
                 : `Schema.Literals([${allowed.map(quote).join(", ")}])`,
             helpers: [],
           };
+
           return scalar;
         }
+
         const examples = allowed.filter(passes);
+
         const enumeration = `xsdEnumeration(${[
           quote(space),
           `[${allowed.map(quote).join(", ")}]`,
           ...(examples.length === allowed.length ? [] : [`[${examples.map(quote).join(", ")}]`]),
         ].join(", ")})`;
+
         const scalar: Scalar = {
           code: `Schema.String.check(${[...checks.map((check) => check.code), enumeration].join(", ")})`,
           helpers: [
@@ -162,11 +185,13 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
             "xsdEnumeration",
           ],
         };
+
         return scalar;
       });
 
     const integerGenerator = (): string | null => {
       const { maxInclusive, minInclusive } = spec;
+
       if (
         spec.builtin !== "integer" ||
         minInclusive === undefined ||
@@ -176,37 +201,48 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
       ) {
         return null;
       }
+
       const low = BigInt(minInclusive);
       const high = BigInt(maxInclusive);
+
       if (high < 0n) {
         return `^(?:-(?:${naturalRange(-high, -low)}))$`;
       }
+
       if (low < 0n) {
         return `^(?:-(?:${naturalRange(1n, -low)})|${naturalRange(0n, high)})$`;
       }
+
       return `^(?:${naturalRange(low, high)})$`;
     };
 
     const textChecks = (): readonly Check[] => {
       const XML_CHARACTER: RegexNode = { kind: "set", set: CharSet.XML_CHAR };
+
       if (info.family !== "text") {
         return [];
       }
+
       if (spec.patterns.length > 0) {
         const bmp = spec.patterns.every((step) => isBmpOnly(step.node));
+
         return lengthChecks(spec, !bmp || spec.whiteSpace === "collapse");
       }
+
       if (spec.whiteSpace !== "collapse") {
         const source = render(
           { kind: "repeat", max: spec.maxLength, min: spec.minLength ?? 0, node: XML_CHARACTER },
           spec.whiteSpace,
         );
+
         return [regexCheck("xsdText", source, [])];
       }
+
       const source = render(
         { kind: "repeat", max: undefined, min: 0, node: XML_CHARACTER },
         "preserve",
       );
+
       return [regexCheck("xsdText", source, []), ...lengthChecks(spec, true)];
     };
 
@@ -214,11 +250,14 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
       if (spec.minInclusive === undefined && spec.maxInclusive === undefined) {
         return [];
       }
+
       const range: RangeOptions = { maximum: spec.maxInclusive, minimum: spec.minInclusive };
+
       const fields = [
         ...(spec.maxInclusive === undefined ? [] : [`maximum: ${quote(spec.maxInclusive)}`]),
         ...(spec.minInclusive === undefined ? [] : [`minimum: ${quote(spec.minInclusive)}`]),
       ].join(", ");
+
       return [
         info.family === "date"
           ? {
@@ -237,15 +276,19 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
     const lexicalImplied =
       info.family === "number" &&
       spec.patterns.some((step) => impliesNumberLexical(step.node, spec.builtin === "decimal"));
+
     const lexical = info.lexical === undefined || lexicalImplied ? undefined : parse(info.lexical);
+
     if (lexical !== undefined && Result.isFailure(lexical)) {
       return yield* fail(node, lexical.failure);
     }
+
     if (lexical !== undefined && Result.isSuccess(lexical)) {
       const source = render(
         lexical.success,
         info.family === "date" && !enumerated ? "preserve" : spec.whiteSpace,
       );
+
       const generator = integerGenerator() ?? render(lexical.success, "canonical");
       checks.push(
         regexCheck("xsdLexical", source, [
@@ -254,12 +297,15 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
         ]),
       );
     }
+
     if (spec.builtin === "base64Binary") {
       checks.push({ code: "xsdBase64Binary", helper: "xsdBase64Binary", test: isBase64Binary });
     }
+
     if (info.family === "date") {
       checks.push({ code: "xsdCalendarDate", helper: "xsdCalendarDate", test: isCalendarDate });
     }
+
     for (const step of spec.patterns) {
       checks.push(
         regexCheck("xsdPattern", render(step.node, spec.whiteSpace), [
@@ -270,14 +316,18 @@ export const emitScalar = (spec: SimpleSpec, node: XsdNode) =>
         ]),
       );
     }
+
     checks.push(...textChecks(), ...rangeChecks());
     const [lastEnumeration] = spec.enumerations.toReversed();
+
     if (lastEnumeration === undefined) {
       const scalar: Scalar = {
         code: `Schema.String.check(${checks.map((check) => check.code).join(", ")})`,
         helpers: checks.flatMap((check) => (check.helper === undefined ? [] : [check.helper])),
       };
+
       return scalar;
     }
+
     return yield* emitEnumeration(lastEnumeration);
   });

@@ -26,6 +26,7 @@ describe("ChartUnicode.renderer case map colours", () => {
   it.effect("paints every verdict in its own colour", () =>
     Effect.gen(function* () {
       const everyVerdict = Object.values(verdicts);
+
       const text = yield* draw(
         [
           Charts.CaseMap({
@@ -38,6 +39,7 @@ describe("ChartUnicode.renderer case map colours", () => {
         ],
         { color: true },
       );
+
       const codes = text
         .split("\n")
         .slice(2, 2 + everyVerdict.length)
@@ -144,6 +146,7 @@ describe("ChartUnicode.renderer", () => {
           variant: "default",
         }),
       ]);
+
       const lines = text.split("\n").map((line) => line.trimEnd());
 
       expect(lines.slice(1, 4).map((line) => line.slice(-2))).toEqual(["12", "G~", "?·"]);

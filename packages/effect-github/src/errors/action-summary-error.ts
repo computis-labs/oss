@@ -17,6 +17,7 @@ export class ActionSummaryError extends Schema.TaggedError<ActionSummaryError>()
     if (this.reason === ActionSummaryErrorReason.NotAvailable) {
       return "Job summary is not available in this environment";
     }
+
     return `Failed to write job summary${this.description === undefined ? "" : `: ${this.description}`}`;
   }
 }

@@ -214,6 +214,7 @@ describe("Scorer.fields", () => {
         });
 
         const onlyActual = yield* pending(caseOf("p9", {}), Result.succeed({ causale: "14" }));
+
         const both = yield* pending(
           caseOf("p9", { causale: "12" }),
           Result.succeed({ causale: "14" }),
@@ -262,6 +263,7 @@ describe("Scorer.fields", () => {
         caseOf("p7", { natura: "placeholder" }),
         Result.succeed({}),
       );
+
       const failed = yield* placeholder(
         caseOf("p8", { natura: "placeholder" }),
         Result.fail("invalid XML"),
@@ -419,9 +421,11 @@ describe("Scorer.each", () => {
     readonly invoices: readonly string[];
     readonly gap: string | null;
   }
+
   interface Statement {
     readonly movements: readonly StatementMovement[];
   }
+
   const scorer = Scorer.each<
     { readonly movements: readonly { readonly id: string; readonly invoice: string | null }[] },
     ReadonlyMap<string, string>,
@@ -536,6 +540,7 @@ describe("Scorer.each", () => {
         expectTypeOf(reconcile).toEqualTypeOf<
           Scorer.Scorer<Statement, ReadonlyMap<string, readonly string[]>>
         >();
+
         const observations = yield* reconcile(
           caseOf("march", {
             movements: [

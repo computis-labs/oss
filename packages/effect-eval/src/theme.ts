@@ -7,6 +7,7 @@ export const verdictClasses = {
   right: "right",
   wrong: "wrong",
 } as const;
+
 export type VerdictClass = (typeof verdictClasses)[keyof typeof verdictClasses];
 
 export const tones = {
@@ -16,6 +17,7 @@ export const tones = {
   neutral: "neutral",
   warn: "warn",
 } as const;
+
 export type Tone = (typeof tones)[keyof typeof tones];
 
 export const ThemeSchema = Schema.Struct({
@@ -44,6 +46,7 @@ export const ThemeSchema = Schema.Struct({
     wrong: Schema.String,
   }),
 });
+
 export type Theme = typeof ThemeSchema.Type;
 
 export const computis: Theme = {

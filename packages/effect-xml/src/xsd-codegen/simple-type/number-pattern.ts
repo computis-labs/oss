@@ -17,16 +17,21 @@ const tokens = (node: RegexNode): string => {
   if (node.kind === "sequence") {
     return node.items.map(tokens).join("");
   }
+
   const { max, min, node: item } = node.kind === "repeat" ? node : { max: 1, min: 1, node };
+
   if (isWithin(item, DIGITS)) {
     return min >= 1 ? "d" : "o";
   }
+
   if (max === 1 && isWithin(item, SIGNS)) {
     return "s";
   }
+
   if (min === 1 && max === 1 && isWithin(item, DOT)) {
     return ".";
   }
+
   return min === 0 && max === 1 && FRACTION.test(tokens(item)) ? "f" : "x";
 };
 

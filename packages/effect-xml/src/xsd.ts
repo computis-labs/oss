@@ -37,6 +37,7 @@ const libxml2Message = (cause: unknown) =>
 
 const validationError = (summary: string, cause: unknown, note = "") => {
   const issues = libxml2Issues(cause);
+
   return XsdValidationError.make({
     cause,
     issues,
@@ -46,6 +47,7 @@ const validationError = (summary: string, cause: unknown, note = "") => {
 
 const toSchemaError = (cause: unknown) => {
   const issues = libxml2Issues(cause);
+
   return new XsdSchemaError({
     cause,
     message: `XSD schema could not be compiled: ${
@@ -71,6 +73,7 @@ export const make: (
   Scope.Scope | FileSystem.FileSystem | Path.Path
 > = Effect.fn("Xsd.make")(function* makeXsdValidator({ schema }) {
   const fs = yield* FileSystem.FileSystem;
+
   const source =
     "path" in schema
       ? {
@@ -86,6 +89,7 @@ export const make: (
           url: schema.path,
         }
       : schema;
+
   const schemaDocument = yield* Effect.acquireRelease(
     Effect.try({
       catch: toSchemaError,
@@ -93,7 +97,9 @@ export const make: (
     }),
     disposeDocument,
   );
+
   yield* provideImportedSchemas(schemaDocument, source.url, PARSE_OPTION);
+
   const validator = yield* Effect.acquireRelease(
     Effect.try({ catch: toSchemaError, try: () => XsdValidator.fromDoc(schemaDocument) }),
     (compiled) =>
@@ -101,6 +107,7 @@ export const make: (
         compiled.dispose();
       }),
   );
+
   const scope = yield* Effect.scope;
 
   return {
@@ -121,6 +128,7 @@ export const make: (
                   catch: (cause) => {
                     const { dtd } = document;
                     dtd?.dispose();
+
                     return validationError(
                       "XSD validation failed",
                       cause,

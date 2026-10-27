@@ -264,6 +264,7 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
         expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(Exit.void);
         expect(yield* decode(xml)).toStrictEqual(expected);
       }
+
       const partial = "<Order><FirstName>Ada</FirstName></Order>";
       expect(Exit.isFailure(yield* Effect.exit(validator.validate(partial)))).toBe(true);
       expect(Exit.isFailure(yield* Effect.exit(decode(partial)))).toBe(true);
@@ -434,6 +435,7 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
     Effect.gen(function* test() {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+
       const { decode } = yield* Effect.fromResult(
         codec(SignedOrder.Order, { decoder: { unknownElements: "skip" } }),
       );
@@ -441,6 +443,7 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
       const order = yield* decode(
         `<o:Order xmlns:o="${NAMESPACE}"><Number>7</Number><s:Signature xmlns:s="urn:example:signature"><s:Value>x</s:Value></s:Signature></o:Order>`,
       );
+
       const code = yield* fs.readFileString(
         path.join(path.dirname(fixture("signed-order.xsd")), "signed-order.gen.ts"),
       );

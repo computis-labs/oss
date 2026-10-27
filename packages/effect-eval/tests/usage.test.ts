@@ -29,6 +29,7 @@ const metered = <A, E, R>(self: Effect.Effect<A, E, R>) =>
         record: (usage) => Ref.update(recorded, (all) => [...all, usage]),
       }),
     );
+
     return yield* Ref.get(recorded);
   });
 

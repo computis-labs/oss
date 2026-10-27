@@ -10,14 +10,17 @@ import * as ActionRunnerTest from "../src/testing/action-runner-test.ts";
 describe("module accessors", () => {
   it.effect("read and write through the provided services, as upstream code does", () => {
     const runner = ActionRunnerTest.make({ inputs: { "pr-number": "42" } });
+
     return Effect.gen(function* () {
       const prNumber = yield* ActionRunner.getInput("pr-number", { required: true });
       const { repo } = yield* ActionContext.repo;
+
       const comment = yield* ActionClient.requestDecoded(
         Schema.Struct({ id: Schema.Number }),
         "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
         { body: "hello", issue_number: Number(prNumber), owner: "computis-labs", repo },
       );
+
       yield* ActionRunner.setOutput("comment-id", comment.id);
 
       expect(runner.recording.outputs.get("comment-id")).toBe(7);

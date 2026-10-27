@@ -10,6 +10,7 @@ const collect = Effect.fn("collectFixtureOutput")(function* collectFixtureOutput
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const handle = yield* spawner.spawn(command);
+
   const [stdout, stderr, exitCode] = yield* Effect.all(
     [
       Stream.mkString(Stream.decodeText(handle.stdout)),
@@ -18,11 +19,13 @@ const collect = Effect.fn("collectFixtureOutput")(function* collectFixtureOutput
     ],
     { concurrency: "unbounded" },
   );
+
   return { exitCode, output: `${stdout}${stderr}` };
 }, Effect.scoped);
 
 const run = Effect.fn("runMainFixture")(function* runMainFixture(scenario: string) {
   const path = yield* Config.String("PATH");
+
   return yield* collect(
     ChildProcess.make(process.execPath, [fixture, scenario], { env: { PATH: path } }),
   );
@@ -77,6 +80,7 @@ layer(NodeServices.layer)("runMain", (it) => {
   it.effect("logs the failure with the pretty logger on a terminal", () =>
     Effect.gen(function* () {
       const path = yield* Config.String("PATH");
+
       const result = yield* collect(
         ChildProcess.make(
           "script",
@@ -88,6 +92,7 @@ layer(NodeServices.layer)("runMain", (it) => {
       const logHeaders = result.output
         .split("\n")
         .filter((line) => /ERROR\S* \(#\d+\)/u.test(line));
+
       expect(logHeaders).not.toStrictEqual([]);
       expect(logHeaders.filter((line) => !line.includes("\u001B[31mERROR\u001B[0m"))).toStrictEqual(
         [],

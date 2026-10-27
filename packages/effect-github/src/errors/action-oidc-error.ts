@@ -14,6 +14,7 @@ export class ActionOIDCError extends Schema.TaggedError<ActionOIDCError>()("Acti
     if (this.reason === ActionOIDCErrorReason.NotAvailable) {
       return "OIDC token is not available in this environment";
     }
+
     return `OIDC token request failed${this.description === undefined ? "" : `: ${this.description}`}`;
   }
 }

@@ -32,6 +32,7 @@ const ManifestSchema = Schema.Struct({
 
 const packageFolder = Effect.gen(function* () {
   const paths = yield* Path.Path;
+
   return paths.resolve(import.meta.dirname, "..");
 });
 
@@ -40,6 +41,7 @@ const sourcesOf = (folder: string) =>
     const fs = yield* FileSystem.FileSystem;
     const paths = yield* Path.Path;
     const names = yield* fs.readDirectory(folder, { recursive: true });
+
     return names.filter((name) => name.endsWith(".ts")).map((name) => paths.join(folder, name));
   });
 
@@ -52,10 +54,12 @@ const importsWithPeersDenied = (files: readonly string[]) =>
     const hook = paths.join(folder, "deny-optional-peers.mjs");
     yield* fs.writeFileString(hook, denyingHook);
     const hookUrl = yield* paths.toFileUrl(hook);
+
     const urls = yield* pipe(
       files,
       Effect.forEach((file) => paths.toFileUrl(file).pipe(Effect.map((url) => url.href))),
     );
+
     const script = `import { register } from "node:module";
 register(${JSON.stringify(hookUrl.href)});
 const refused = [];
@@ -64,11 +68,13 @@ for (const url of ${JSON.stringify(urls)}) {
 }
 process.stdout.write(JSON.stringify(refused));
 `;
+
     const output = yield* spawner.string(
       ChildProcess.make("node", ["--no-warnings", "--input-type=module", "-e", script], {
         extendEnv: true,
       }),
     );
+
     return yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String, Schema.String]))),
     )(output);
@@ -82,13 +88,16 @@ describe("the published package", () => {
         const folder = yield* packageFolder;
         const fs = yield* FileSystem.FileSystem;
         const paths = yield* Path.Path;
+
         const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestSchema))(
           yield* fs.readFileString(paths.join(folder, "package.json")),
         );
+
         const core = Object.entries(manifest.exports)
           .filter(([entry, file]) => !PEER_ENTRYPOINTS.has(entry) && file.endsWith(".ts"))
           .filter(([, file]) => !file.includes("*"))
           .map(([, file]) => paths.join(folder, file));
+
         const errors = yield* sourcesOf(paths.join(folder, "src/errors"));
 
         expect(yield* importsWithPeersDenied([...core, ...errors])).toEqual([]);
@@ -118,18 +127,19 @@ describe("the published package", () => {
       const fs = yield* FileSystem.FileSystem;
       const paths = yield* Path.Path;
       const files = yield* sourcesOf(paths.join(folder, "src"));
+
       const forbidden = yield* pipe(
         files,
         Effect.forEach((file) =>
           fs.readFileString(file).pipe(
             Effect.map((text) =>
-              [...text.matchAll(IMPORT_SPECIFIER)]
-                .map((match) => match.groups?.["specifier"] ?? "")
-                .filter(
-                  (specifier) =>
-                    specifier.startsWith("node:") || specifier.startsWith("@computis/"),
-                )
-                .map((specifier) => `${paths.relative(folder, file)}: ${specifier}`),
+              [...text.matchAll(IMPORT_SPECIFIER)].flatMap((match) => {
+                const specifier = match.groups?.["specifier"] ?? "";
+
+                return specifier.startsWith("node:") || specifier.startsWith("@computis/")
+                  ? [`${paths.relative(folder, file)}: ${specifier}`]
+                  : [];
+              }),
             ),
           ),
         ),

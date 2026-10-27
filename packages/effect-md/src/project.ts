@@ -23,6 +23,7 @@ const render = (options: ProjectOptions) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(options.root, { recursive: true });
+
     const sources = yield* Effect.all(
       entries
         .filter((entry) => sourcePattern.test(entry))
@@ -33,23 +34,31 @@ const render = (options: ProjectOptions) =>
           })),
         ),
     );
+
     const cwd = path.resolve(".");
+
     const display = (file: string) => {
       const absolute = path.resolve(options.root, file);
       const relative = path.relative(cwd, absolute);
+
       return relative.startsWith("..") ? absolute : relative;
     };
+
     const code = yield* compile(sources, {
       displayPath: display,
       ...whenDefined(options.runtime, (runtime) => ({ runtime })),
     });
+
     const output = display(outputName);
+
     if (options.format === undefined) {
       return { code, output };
     }
+
     const [command, ...args] = Array.from(options.format.matchAll(argumentPattern), ([part]) =>
       part.replaceAll(quotePattern, "$<double>$<single>").replaceAll("{file}", output),
     );
+
     if (command === undefined) {
       return yield* PromptProjectError.make({
         detail: "The format command is empty.",
@@ -57,7 +66,9 @@ const render = (options: ProjectOptions) =>
         reason: PromptProjectErrorReason.FormatFailed,
       });
     }
+
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
     const [formatted, stderr, exitCode] = yield* Effect.scoped(
       Effect.gen(function* formatProgram() {
         const handle = yield* spawner
@@ -75,6 +86,7 @@ const render = (options: ProjectOptions) =>
               }),
             ),
           );
+
         return yield* Effect.all(
           [
             Stream.mkString(Stream.decodeText(handle.stdout)),
@@ -85,6 +97,7 @@ const render = (options: ProjectOptions) =>
         );
       }),
     );
+
     if (exitCode !== 0) {
       return yield* PromptProjectError.make({
         detail: [`'${options.format}' exited with code ${exitCode}.`, stderr.trim()]
@@ -94,6 +107,7 @@ const render = (options: ProjectOptions) =>
         reason: PromptProjectErrorReason.FormatFailed,
       });
     }
+
     return { code: formatted, output };
   });
 
@@ -101,6 +115,7 @@ const readCurrent = (output: string) =>
   Effect.gen(function* readCurrentProgram() {
     const fs = yield* FileSystem.FileSystem;
     const exists = yield* fs.exists(output);
+
     return exists ? yield* fs.readFileString(output) : null;
   });
 
@@ -109,10 +124,13 @@ export const generate = (options: ProjectOptions) =>
     const fs = yield* FileSystem.FileSystem;
     const { code, output } = yield* render(options);
     const current = yield* readCurrent(output);
+
     if (current === code) {
       return { changed: false, output };
     }
+
     yield* fs.writeFileString(output, code);
+
     return { changed: true, output };
   });
 
@@ -120,6 +138,7 @@ export const check = (options: ProjectOptions) =>
   Effect.gen(function* checkProgram() {
     const { code, output } = yield* render(options);
     const current = yield* readCurrent(output);
+
     if (current !== code) {
       return yield* PromptProjectError.make({
         detail:
@@ -130,6 +149,7 @@ export const check = (options: ProjectOptions) =>
         reason: PromptProjectErrorReason.Outdated,
       });
     }
+
     return { output };
   });
 
@@ -139,12 +159,14 @@ export const report = (result: { readonly changed: boolean; readonly output: str
 export const watch = (options: ProjectOptions) =>
   Effect.gen(function* watchProgram() {
     const fs = yield* FileSystem.FileSystem;
+
     const once = generate(options).pipe(
       Effect.matchEffect({
         onFailure: (failure) => Console.error(failure.message),
         onSuccess: report,
       }),
     );
+
     yield* Console.log(`Watching ${options.root} for prompt changes`);
     yield* Stream.merge(
       Stream.make(options.root),

@@ -40,6 +40,7 @@ export const generate: (
 > = Effect.fn("XsdCodegen.generate")(function* generateSchema(options) {
   const fs = yield* FileSystem.FileSystem;
   const { xsd } = options;
+
   const source =
     "path" in xsd
       ? {
@@ -56,6 +57,7 @@ export const generate: (
           url: xsd.path,
         }
       : xsd;
+
   yield* Effect.scoped(Xsd.make({ schema: source })).pipe(
     Effect.mapError(
       (cause) => new XsdCodegenError({ cause, message: cause.message, path: source.url }),
@@ -63,6 +65,7 @@ export const generate: (
   );
   const document = yield* readSchemaDocument(source);
   const domain = options.domain === undefined ? undefined : yield* loadDomain(options.domain);
+
   const code = yield* Effect.fromResult(
     compileSchema(document, {
       domain,
@@ -72,14 +75,18 @@ export const generate: (
       source: source.url.split(/[\\/]/u).at(-1) ?? source.url,
     }),
   );
+
   if (options.format === undefined) {
     return code;
   }
+
   const formatOptions = options.format;
+
   return yield* Effect.gen(function* formatCode() {
     const { args: formatArgs, command, path } = formatOptions;
     const args = formatArgs.map((arg) => arg.replaceAll("{file}", path));
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
     const [formatted, stderr, exitCode] = yield* Effect.scoped(
       Effect.gen(function* runFormatter() {
         const handle = yield* spawner.spawn(
@@ -87,6 +94,7 @@ export const generate: (
             stdin: Stream.make(new TextEncoder().encode(code)),
           }),
         );
+
         return yield* Effect.all(
           [
             Stream.mkString(Stream.decodeText(handle.stdout)),
@@ -106,12 +114,14 @@ export const generate: (
           }),
       ),
     );
+
     if (exitCode !== 0) {
       return yield* new XsdCodegenError({
         message: `'${[command, ...args].join(" ")}' exited with code ${String(exitCode)}: ${stderr.trim()}`,
         path,
       });
     }
+
     return formatted;
   }).pipe(Effect.withSpan("XsdCodegen.format"));
 });

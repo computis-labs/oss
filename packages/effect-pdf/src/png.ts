@@ -21,6 +21,7 @@ const CRC_TABLE = Uint32Array.from({ length: BYTE_VALUES }, (_, byte) => {
       ? crc
       : // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
         round(crc & 1 ? CRC_POLYNOMIAL ^ (crc >>> 1) : crc >>> 1, bits - 1);
+
   return round(byte, BITS_PER_BYTE);
 });
 
@@ -48,13 +49,16 @@ const chunk = (type: string, data: Uint8Array) => {
   view.setUint32(0, data.length);
   out.set(ascii.encode(type), 4);
   out.set(data, 8);
+
   const crc = out.subarray(4, 8 + data.length).reduce(
     // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
     (current, byte) => (CRC_TABLE[(current ^ byte) & BYTE_MASK] ?? 0) ^ (current >>> BITS_PER_BYTE),
     CRC_INITIAL,
   );
+
   // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
   view.setUint32(8 + data.length, (crc ^ CRC_INITIAL) >>> 0);
+
   return out;
 };
 
@@ -74,9 +78,11 @@ export const packBilevel = (
   const whole = Math.floor(width / BITS_PER_BYTE);
   const lit = (at: number, weight: number) => ((heap[at] ?? 0) >= INK_THRESHOLD ? weight : 0);
   const data = new Uint8Array(rowBytes * height);
+
   for (let row = 0; row < height; row += 1) {
     const source = start + row * stride;
     const target = row * rowBytes;
+
     for (let column = 0; column < whole; column += 1) {
       const at = source + column * BITS_PER_BYTE;
       data[target + column] =
@@ -89,6 +95,7 @@ export const packBilevel = (
         lit(at + 6, 2) +
         lit(at + 7, 1);
     }
+
     if (width > whole * BITS_PER_BYTE) {
       data[target + whole] = BIT_WEIGHTS.slice(0, width - whole * BITS_PER_BYTE).reduce(
         (byte, weight, bit) => byte + lit(source + whole * BITS_PER_BYTE + bit, weight),
@@ -96,6 +103,7 @@ export const packBilevel = (
       );
     }
   }
+
   return { bitDepth: 1, channels: 1, data, height, rowBytes, width };
 };
 
@@ -116,6 +124,7 @@ export const bgrToRgb = (
 ): Raster => {
   const rowBytes = width * channels;
   const data = new Uint8Array(rowBytes * height);
+
   for (let row = 0; row < height; row += 1) {
     for (let column = 0; column < width; column += 1) {
       const from = start + row * stride + column * sourceChannels;
@@ -123,11 +132,13 @@ export const bgrToRgb = (
       data[to] = heap[from + 2] ?? 0;
       data[to + 1] = heap[from + 1] ?? 0;
       data[to + 2] = heap[from] ?? 0;
+
       if (channels === 4) {
         data[to + 3] = heap[from + 3] ?? 0;
       }
     }
   }
+
   return { bitDepth: 8, channels, data, height, rowBytes, width };
 };
 
@@ -150,12 +161,14 @@ export const pngScanlines = ({
   );
   const lineBytes = Math.ceil((width * channels * bitDepth) / BITS_PER_BYTE);
   const scanlines = new Uint8Array((lineBytes + 1) * height);
+
   for (let row = 0; row < height; row += 1) {
     scanlines.set(
       data.subarray(row * rowBytes, row * rowBytes + lineBytes),
       row * (lineBytes + 1) + 1,
     );
   }
+
   return { header, scanlines };
 };
 
@@ -168,15 +181,18 @@ export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
     try: async () => {
       const compression = new CompressionStream("deflate");
       const writer = compression.writable.getWriter();
+
       const [, deflated] = await Promise.all([
         writer.write(scanlines).then(async () => {
           await writer.close();
         }),
         new Response(compression.readable).arrayBuffer(),
       ]);
+
       return new Uint8Array(deflated);
     },
   });
+
   const ihdr = chunk("IHDR", header);
   const idat = chunk("IDAT", compressed);
   const iend = chunk("IEND", new Uint8Array(0));
@@ -185,6 +201,7 @@ export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
   png.set(ihdr, SIGNATURE.length);
   png.set(idat, SIGNATURE.length + ihdr.length);
   png.set(iend, png.length - iend.length);
+
   return png;
 });
 
@@ -194,6 +211,8 @@ export const finishImage = Effect.fn("EffectPdf.finishImage")(function* finishIm
   if ("bytes" in draft) {
     return draft;
   }
+
   const { height, mediaType, origin, png, width } = draft;
+
   return { bytes: yield* encodePng(png), height, mediaType, origin, width };
 });

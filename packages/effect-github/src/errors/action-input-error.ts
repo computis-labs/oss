@@ -16,6 +16,7 @@ export class ActionInputError extends Schema.TaggedError<ActionInputError>()("Ac
     if (this.reason === ActionInputErrorReason.InvalidType) {
       return `Input "${this.name}" has invalid type`;
     }
+
     return this.reason === ActionInputErrorReason.Missing
       ? `Input required and not supplied: ${this.name}`
       : `Failed to parse input "${this.name}"`;

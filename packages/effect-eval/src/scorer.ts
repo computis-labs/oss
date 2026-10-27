@@ -50,11 +50,13 @@ const observe = <T>(options: {
     Present: () => expectedStates.present,
     Unknown: () => expectedStates.unknown,
   });
+
   const expectedText = Match.valueTags(options.expected, {
     Absent: () => NOTHING,
     Present: ({ value }) => options.show(value),
     Unknown: () => NOT_KNOWN,
   });
+
   return Result.match(options.outcome, {
     onFailure: (failure) =>
       Observations.errored(options.key, failure, {
@@ -73,6 +75,7 @@ const observe = <T>(options: {
         }),
       onSome: (value) => {
         const detail = { actual: options.show(value), expected: expectedText };
+
         return Match.valueTags(options.expected, {
           Absent: () =>
             Observations.make({
@@ -145,6 +148,7 @@ export const set =
   }): Scorer<A, O> =>
   (input, outcome) => {
     const expected = options.expected(input.input);
+
     return Effect.succeed([
       observe({
         compare: options.compare,
@@ -161,6 +165,7 @@ export const set =
           outcome,
           Result.map((output) => {
             const items = options.actual(output);
+
             return items.length === 0 ? Option.none() : Option.some(items);
           }),
         ),
@@ -191,6 +196,7 @@ export const onlyActualPolicies = {
   exclude: "exclude",
   falsePositive: "falsePositive",
 } as const;
+
 export type OnlyActual = (typeof onlyActualPolicies)[keyof typeof onlyActualPolicies];
 
 export interface Leaves<T> {
@@ -209,12 +215,15 @@ export const fields =
   (input, outcome) => {
     const expected = options.expected(input.input);
     const actual = Result.getSuccess(outcome);
+
     const scoreField = (field: Field<T>): readonly Observation[] => {
       const expectedValue = field.read(expected);
       const actualValue = actual.pipe(Option.flatMap(field.read));
+
       if (Option.isNone(expectedValue) && Option.isNone(actualValue)) {
         return [];
       }
+
       const compared = observe({
         compare: field.compare,
         expected: Option.match(expectedValue, { onNone: () => absent, onSome: present }),
@@ -226,7 +235,9 @@ export const fields =
         show: (value) => value,
         tags: [...input.tags, `${GROUP_TAG}:${field.group}`],
       });
+
       const observation = withGap(options.gap?.(input.input, field.key))(compared);
+
       const known = Option.all({ actual, expectedValue }).pipe(
         Option.flatMap((values) =>
           Verdicts.of(observation) === verdicts.right
@@ -234,6 +245,7 @@ export const fields =
             : (field.exclude?.({ ...values, actualValue, expected }) ?? Option.none()),
         ),
       );
+
       const reason = Option.firstSomeOf([
         Option.isNone(expectedValue) && options.onlyActual === onlyActualPolicies.exclude
           ? Option.some(extra)
@@ -241,6 +253,7 @@ export const fields =
         Option.fromNullishOr(field.excluded),
         known,
       ]);
+
       return [
         Option.match(reason, {
           onNone: () => observation,
@@ -248,22 +261,29 @@ export const fields =
         }),
       ];
     };
+
     const fieldObservations = options.fields.flatMap(scoreField);
     const { leaves } = options;
+
     if (leaves === undefined || Option.isNone(actual)) {
       return Effect.succeed(fieldObservations);
     }
+
     const covered = new Set(options.fields.flatMap((field) => field.covers ?? []));
     const expectedLeaves = leaves.of(expected);
     const actualLeaves = leaves.of(actual.value);
+
     const scoreLeaf = (path: string) => {
       const wanted = expectedLeaves.get(path) ?? [];
       const given = actualLeaves.get(path) ?? [];
+
       const detail = {
         actual: given.join(LEAF_SEPARATOR),
         expected: wanted.join(LEAF_SEPARATOR),
       };
+
       const shared = { detail, key: Observations.pathKey(path), tags: input.tags };
+
       const observation = () => {
         if (wanted.length > 0 && given.length > 0) {
           return Observations.compared({
@@ -271,6 +291,7 @@ export const fields =
             agreement: detail.actual === detail.expected ? exact : different,
           });
         }
+
         if (wanted.length > 0) {
           return Observations.make({
             ...shared,
@@ -278,16 +299,19 @@ export const fields =
             expected: expectedStates.present,
           });
         }
+
         return Observations.make({
           ...shared,
           actual: given.length > 0 ? actualStates.present : actualStates.absent,
           expected: expectedStates.absent,
         });
       };
+
       return Observations.exclude(Option.getOrElse(leaves.rule(path), () => unclassified))(
         observation(),
       );
     };
+
     return Effect.succeed([
       ...fieldObservations,
       ...[...new Set([...expectedLeaves.keys(), ...actualLeaves.keys()])]

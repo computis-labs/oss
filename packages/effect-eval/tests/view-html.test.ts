@@ -30,6 +30,7 @@ describe("ViewHtml.render with a hostile chart label", () => {
       title: "accuracy by variant",
     }),
   );
+
   const page = (renderer: View.ChartRenderer) =>
     ViewHtml.render([hostile, View.Text({ text: "AFTER-CHART", tone: "neutral" })], {
       renderer,
@@ -117,6 +118,7 @@ describe("ViewHtml.render", () => {
       const { head, history } = yield* sampleRuns;
 
       const html = yield* ViewHtml.render(View.dashboard(head, history), { title: "categorizer" });
+
       const labels = [...html.matchAll(/<label for="[^"]+">(?<title>[^<]+)<\/label>/gu)].map(
         (match) => match.groups?.["title"],
       );
@@ -136,9 +138,11 @@ describe("ViewHtml.render", () => {
       });
 
       const html = yield* ViewHtml.render([tabs, tabs], { title: "run" });
+
       const names = [...html.matchAll(/type="radio" name="(?<name>[^"]+)"/gu)].map(
         (match) => match.groups?.["name"],
       );
+
       const ids = [...html.matchAll(/ id="(?<id>[^"]+)"/gu)].map((match) => match.groups?.["id"]);
 
       expect(new Set(names).size).toBe(2);

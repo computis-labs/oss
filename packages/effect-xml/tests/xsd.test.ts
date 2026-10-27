@@ -156,6 +156,7 @@ layer(NodeServices.layer)("XSD validator", (it) => {
       const parseFailure = yield* Effect.flip(
         validator.validate("<FatturaElettronica><CAP></Sede>"),
       );
+
       const validationFailure = yield* Effect.flip(validator.validate(fatturaWithFourWrongFields));
 
       expect(parseFailure.cause).toBeInstanceOf(XmlParseError);
@@ -180,6 +181,7 @@ layer(NodeServices.layer)("XSD validator", (it) => {
   it.effect("keeps non-ASCII text intact when a string is converted to bytes", () =>
     Effect.gen(function* () {
       const validator = yield* makeFatturaValidator;
+
       const xml = singleLineFattura.replace(
         "<Denominazione>Fornitore Esempio S.r.l.</Denominazione>",
         "<Denominazione>Società Città € Ωmega</Denominazione>",
@@ -208,6 +210,7 @@ layer(NodeServices.layer)("XSD validator", (it) => {
   it.effect("frees the libxml2 memory of every document it validates", () =>
     Effect.gen(function* () {
       const validator = yield* makeFatturaValidator;
+
       const documents = [
         singleLineFattura,
         fatturaWithFourWrongFields,

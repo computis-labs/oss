@@ -7,12 +7,14 @@ export const expectedStates = {
   present: "present",
   unknown: "unknown",
 } as const;
+
 export type ExpectedState = (typeof expectedStates)[keyof typeof expectedStates];
 
 export const actualStates = {
   absent: "absent",
   present: "present",
 } as const;
+
 export type ActualState = (typeof actualStates)[keyof typeof actualStates];
 
 const PATH_SEPARATOR = "/";
@@ -38,6 +40,7 @@ export const DetailSchema = Schema.Struct({
   expected: Schema.String,
   note: Schema.optionalKey(Schema.String),
 });
+
 export type Detail = typeof DetailSchema.Type;
 
 export const ObservationSchema = Schema.Struct({
@@ -62,6 +65,7 @@ export const ObservationSchema = Schema.Struct({
           ? true
           : "a failed observation has no actual value and no agreement";
       }
+
       if (
         observation.expected === expectedStates.present &&
         observation.actual === actualStates.present
@@ -70,6 +74,7 @@ export const ObservationSchema = Schema.Struct({
           ? true
           : "an expected and an actual value need an agreement: use Observation.compared";
       }
+
       return Option.isNone(observation.agreement)
         ? true
         : "an agreement needs an expected and an actual value";
@@ -77,6 +82,7 @@ export const ObservationSchema = Schema.Struct({
     { expected: "a coherent observation" },
   ),
 );
+
 export type Observation = typeof ObservationSchema.Type;
 
 const blank = {

@@ -29,6 +29,7 @@ const layoutLines = (cells: readonly PlacedText[]) =>
   Effect.gen(function* () {
     const document = yield* open(placedTextPdf(cells));
     const [page] = yield* document.text({ layout: true });
+
     return (page?.text ?? "").split("\n").map((line) => line.replaceAll(/\s+/gu, " ").trim());
   });
 

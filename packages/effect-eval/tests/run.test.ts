@@ -36,6 +36,7 @@ describe("Run.fold", () => {
   it.effect("rebuilds from the events the run the runner returned", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(["m1", "m2", Dataset.skip("m3", "no truth")], {
           id: (id: string) => id,
@@ -58,6 +59,7 @@ describe("Run.fold", () => {
           ]),
         ),
       );
+
       const folded = yield* Run.fold(events);
 
       expect(folded).toMatchObject({
@@ -75,12 +77,14 @@ describe("Run.fold", () => {
   it.effect("marks a run without RunFinished as interrupted and not passed", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(["m1"], { id: (id: string) => id }),
         name: "categorizer",
         score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
         task: (input) => Effect.succeed(input.input),
       });
+
       yield* Runner.run(categorize).pipe(
         Effect.provide(
           Reporter.layer([
@@ -116,6 +120,7 @@ describe("Run.succeededObservations", () => {
       { case: "page-a", failure: Option.some("model down"), trial: 1, variant: "large" },
       { case: "page-b", failure: Option.none<string>(), trial: 1, variant: "small" },
     ];
+
     const base = runOf(
       "excluded",
       entries.map(({ case: id, trial, variant }) => ({
@@ -124,6 +129,7 @@ describe("Run.succeededObservations", () => {
       })),
       2,
     );
+
     const run = {
       ...base,
       outputs: entries.map((entry) => ({
@@ -134,6 +140,7 @@ describe("Run.succeededObservations", () => {
         outputError: Option.none<string>(),
       })),
     };
+
     const succeeded = Run.succeededObservations(run);
     expect(succeeded.map((entry) => [entry.variant, entry.case, entry.trial])).toEqual([
       ["small", "page-a", 1],
@@ -159,6 +166,7 @@ describe("Run.compare", () => {
     scoredAs({ case: "d", right: false }),
     scoredAs({ case: "gone", right: true }),
   ]);
+
   const run = runOf("head", [
     scoredAs({ case: "a", right: true }),
     scoredAs({ case: "b", right: false }),
@@ -166,6 +174,7 @@ describe("Run.compare", () => {
     scoredAs({ case: "d", right: true }),
     scoredAs({ case: "new", right: true }),
   ]);
+
   const comparison = Run.compare(run, baseline);
 
   it("lists the regressions and the fixes with their verdicts", () => {
@@ -189,6 +198,7 @@ describe("Run.compare", () => {
         scoredAs({ case: "case", key: "", right: true, variant: "model=a · reasoning=b" }),
       ]),
     );
+
     const moreTrials = Run.compare(
       runOf("head", [scoredAs({ right: true, trial: 1 }), scoredAs({ right: true, trial: 2 })], 2),
       runOf("base", [scoredAs({ right: true, trial: 1 })]),
@@ -289,6 +299,7 @@ describe("Run.compare with sub-cases", () => {
 
 const unchanged = (run: Run.Run) => {
   const comparison = Run.compare(run, run);
+
   return {
     changedTransitions: comparison.transitions.filter(
       (count) => count.from !== count.to && count.count > 0,
@@ -436,6 +447,7 @@ describe("Run.compare with composed scorers", () => {
             }),
           ),
         );
+
         const composed = Eval.make({
           dataset: Dataset.fromIterable(["case"], { id: (id: string) => id }),
           name: "composed",
@@ -470,6 +482,7 @@ describe("Run.compare with composed scorers", () => {
 
 const excludedAs = (id: string): Scored => {
   const base = scoredAs({ case: id, right: false });
+
   return { ...base, observation: Observation.exclude("convention")(base.observation) };
 };
 
@@ -479,6 +492,7 @@ const accuracyDelta = (comparison: Run.Comparison) =>
 describe("Run.compare McNemar", () => {
   it("counts only the pairs that accuracy measures on both sides", () => {
     const ids = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
     const comparison = Run.compare(
       runOf(
         "head",
@@ -502,6 +516,7 @@ describe("Run.compare McNemar", () => {
 
 describe("Run.compare delta intervals", () => {
   const ids = Array.from({ length: 20 }, (_, index) => `case-${String(index)}`);
+
   const comparison = Run.compare(
     runOf(
       "head",
@@ -516,6 +531,7 @@ describe("Run.compare delta intervals", () => {
   it("gives each delta a paired interval around it", () => {
     const accuracy = accuracyDelta(comparison);
     const delta = Option.getOrElse(accuracy?.delta ?? Option.none(), () => Number.NaN);
+
     const [low, high] = Option.getOrElse(accuracy?.interval ?? Option.none(), () => [
       Number.NaN,
       Number.NaN,
@@ -545,6 +561,7 @@ describe("Run.compare delta intervals", () => {
         scoredAs({ case: "removed", right: false }),
       ]),
     );
+
     const addedNine = Run.compare(
       runOf("head", [
         scoredAs({ case: "paired", right: true }),
@@ -558,6 +575,7 @@ describe("Run.compare delta intervals", () => {
     expect(
       [removedOne, addedNine].map((compared) => {
         const accuracy = accuracyDelta(compared);
+
         return [accuracy?.before.value, accuracy?.after.value, accuracy?.delta, accuracy?.interval];
       }),
     ).toEqual([
@@ -595,6 +613,7 @@ describe("Run.variantRun trial stats", () => {
       [scored("a", true, 1), scored("a", true, 2), scored("b", true, 1), scored("b", false, 2)],
       2,
     );
+
     const trials = Option.getOrUndefined(run.trials);
 
     expect(trials?.flaky.map((group) => group.case)).toEqual(["b"]);
@@ -611,6 +630,7 @@ describe("Run.variantRun trial stats", () => {
       [scored("a", true, 1), scored("b", true, 1), scored("a", false, 2), scored("b", false, 2)],
       2,
     );
+
     const trials = Option.getOrUndefined(run.trials);
 
     expect([trials?.metrics["wrong"], trials?.metrics["right"]]).toEqual([
@@ -628,10 +648,12 @@ describe("Run.variantRun trial stats", () => {
       ...scored("x", true, trial),
       observation: Observation.exclude("convention")(scored("x", true, trial).observation),
     });
+
     const run = variantOf(
       [scored("a", true, 1), scored("a", true, 2), excluded(1), excluded(2)],
       2,
     );
+
     const trials = Option.getOrUndefined(run.trials);
 
     expect(trials?.passAtK).toEqual(Option.some(1));
@@ -644,9 +666,11 @@ describe("Run.variantRun trial stats", () => {
       ...scored(id, true, trial),
       observation: Observation.exclude("convention")(scored(id, true, trial).observation),
     });
+
     const short = Option.getOrUndefined(
       variantOf([scored("x", true, 1), excluded("x", 2)], 2).trials,
     );
+
     const mixed = Option.getOrUndefined(
       variantOf(
         [scored("a", true, 1), scored("a", false, 2), scored("x", true, 1), excluded("x", 2)],
@@ -672,6 +696,7 @@ describe("Run.variantRun trial stats", () => {
       ...scored("x", true, trial),
       observation: Observation.exclude("convention")(scored("x", true, trial).observation),
     });
+
     const trials = Option.getOrUndefined(variantOf([excluded(1), excluded(2)], 2).trials);
 
     expect(trials?.metrics["accuracy"]).toEqual({

@@ -9,6 +9,7 @@ import * as Scorer from "../src/scorer.ts";
 
 const dataset = Dataset.fromIterable(["rent", "fuel"], { id: (label) => label });
 const score = Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present });
+
 const cases = [
   { id: "rent", input: "rent", tags: [] },
   { id: "fuel", input: "fuel", tags: [] },
@@ -23,6 +24,7 @@ const Categories = Context.Service<{
 }>("tests/Categories");
 
 const MovementSchema = Schema.Struct({ description: Schema.String, expected: Schema.String });
+
 type Movement = typeof MovementSchema.Type;
 
 const movements = Dataset.json(MovementSchema, "/movements.json", {
@@ -37,18 +39,23 @@ const scoreMovement = Scorer.label<Movement, string>({
 const seedMovements = Effect.gen(function* seedMovements() {
   const scenarios = yield* Scenarios;
   const scenario = yield* scenarios.seed;
+
   if (scenario === "") {
     return yield* new Cause.NoSuchElementError("no scenario");
   }
+
   return { scenario };
 });
+
 const pickCategory = (movement: Movement, seeded: Effect.Success<typeof seedMovements>) =>
   Effect.gen(function* askForCategory() {
     const categories = yield* Categories;
     const category = yield* categories.pick(seeded.scenario, movement.description);
+
     if (category === "") {
       return yield* new Cause.TimeoutError("the model did not answer");
     }
+
     return category;
   });
 
@@ -121,6 +128,7 @@ describe("Eval.make", () => {
           task: (input, prompt) => Effect.succeed(`${prompt.toUpperCase()}:${input.input}`),
         },
       );
+
     const batchedWithoutSetup = () =>
       Eval.makeBatched<string, string, string>(
         // @ts-expect-error a task that reads a setup value needs a setup
@@ -196,6 +204,7 @@ describe("Eval inference", () => {
         ? Effect.fail(new Cause.NoSuchElementError())
         : Effect.succeed(prefix.value),
     );
+
     const single = Eval.make<string, string, string, Cause.NoSuchElementError, never, Prefix>({
       dataset,
       name: "explicit single",
@@ -203,6 +212,7 @@ describe("Eval inference", () => {
       setup,
       task: (input, seeded) => Effect.succeed(seeded === "ready" ? input.input : "not ready"),
     });
+
     const batch = Eval.makeBatched<string, string, string, Cause.NoSuchElementError, never, Prefix>(
       {
         dataset,
@@ -214,6 +224,7 @@ describe("Eval inference", () => {
           Effect.succeed(inputs.map((input) => (seeded === "ready" ? input.input : "not ready"))),
       },
     );
+
     expectTypeOf(single).toEqualTypeOf<
       Eval.Eval<string, string, Cause.NoSuchElementError, never, Prefix>
     >();

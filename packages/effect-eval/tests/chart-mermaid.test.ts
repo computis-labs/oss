@@ -126,6 +126,7 @@ describe("ChartMermaid.renderer", () => {
   it.effect("draws nothing for the kinds mermaid has no chart for", () =>
     Effect.gen(function* () {
       const charts = yield* everyChart;
+
       const unsupported = charts.filter(
         (chart) =>
           Charts.$is("CaseMap")(chart) ||

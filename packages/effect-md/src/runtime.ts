@@ -38,15 +38,19 @@ export const isFilled = (value: Value) => {
   if (value === null || value === undefined) {
     return false;
   }
+
   if (Predicate.isString(value)) {
     return value.length > 0;
   }
+
   if (Predicate.isNumber(value)) {
     return value !== 0;
   }
+
   if (Predicate.isBoolean(value)) {
     return value;
   }
+
   return !Array.isArray(value) || value.length > 0;
 };
 
@@ -54,7 +58,9 @@ export const untrusted = (text: string, lang = "") => {
   const longest = Arr.reduce(text.matchAll(backtickRunPattern), 0, (max, match) =>
     Math.max(max, match[0].length),
   );
+
   const fence = "`".repeat(Math.max(3, longest + 1));
+
   return `${fence}${lang}\n${text}\n${fence}`;
 };
 
@@ -71,9 +77,11 @@ export const file = (value: typeof File.Type) =>
 
 const toContent = (parts: readonly Part[]) => {
   const content: (Prompt.TextPart | Prompt.FilePart)[] = [];
+
   for (const part of parts) {
     if (Predicate.isString(part)) {
       const text = part.trim();
+
       if (text.length > 0) {
         content.push(Prompt.textPart({ text }));
       }
@@ -81,6 +89,7 @@ const toContent = (parts: readonly Part[]) => {
       content.push(part);
     }
   }
+
   return content;
 };
 
@@ -98,6 +107,7 @@ export const definePrompt = <S extends Schema.Top>(definition: {
   readonly render: (input: S["Type"]) => Prompt.Prompt;
 }) => {
   const decodeInput = Schema.decodeEffect(definition.input);
+
   return {
     Input: definition.input,
     decode: (input: S["Encoded"]) =>

@@ -31,13 +31,14 @@ const identify = {
 
 const files = (contents: ReadonlyMap<string, string>) => {
   const missing = FileSystem.makeNoop({});
+
   return Layer.merge(
     FileSystem.layerNoop({
       readDirectory: (folder) =>
         Effect.succeed(
-          [...contents.keys()]
-            .filter((file) => file.startsWith(`${folder}/`))
-            .map((file) => file.slice(folder.length + 1)),
+          [...contents.keys()].flatMap((file) =>
+            file.startsWith(`${folder}/`) ? [file.slice(folder.length + 1)] : [],
+          ),
         ),
       readFileString: (file) =>
         Option.match(Option.fromNullishOr(contents.get(file)), {
@@ -315,6 +316,7 @@ describe("Dataset.directory", () => {
   it.effect("reads the files with the extension in name order", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
+
       const loaded = yield* Dataset.load(
         Dataset.directory("/pages", {
           extension: ".txt",
@@ -347,6 +349,7 @@ describe("Dataset.optional", () => {
     MovementSchema,
     identify,
   );
+
   const disk = files(
     new Map([["/secret/real.json", '[{"id":"r1","description":"BONIFICO","group":"bank"}]']]),
   );
@@ -408,7 +411,9 @@ describe("Dataset.guard", () => {
         id: Schema.String,
         note: Schema.optionalKey(Schema.String),
       });
+
       const strict = Schema.Struct({ id: Schema.String });
+
       const guarded = <S extends Schema.Codec<{ readonly id: string }, Schema.Json>>(schema: S) =>
         Effect.flip(
           Dataset.load(

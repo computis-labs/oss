@@ -14,5 +14,6 @@ export const runDocumento = (jit: boolean) =>
   Effect.gen(function* decodeAndEncodeDocumento() {
     const { decode, encode } = yield* Effect.fromResult(codec(Documento, { jit }));
     const documento = yield* decode(xml);
+
     return { documento, written: yield* encode(documento) };
   });

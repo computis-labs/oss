@@ -23,14 +23,18 @@ export class PdfiumWasm extends Context.Service<
     Effect.gen(function* compilePdfium() {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+
       const wasmPath = yield* path
         .fromFileUrl(new URL(import.meta.resolve("@embedpdf/pdfium/pdfium.wasm")))
         .pipe(Effect.mapError(missingBinary));
+
       const bytes = yield* fs.readFile(wasmPath).pipe(Effect.mapError(missingBinary));
+
       const module = yield* Effect.tryPromise({
         catch: missingBinary,
         try: async () => await WebAssembly.compile(new Uint8Array(bytes)),
       });
+
       return { module };
     }),
   );

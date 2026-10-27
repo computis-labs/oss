@@ -72,6 +72,7 @@ export const decodePayload = Effect.fn("ActionContext.decodePayload")(function* 
   S extends Schema.Top,
 >(schema: S) {
   const current = yield* ActionContext;
+
   return yield* Schema.decodeUnknownEffect(schema)(current.payload).pipe(
     Effect.mapError(
       (cause) =>

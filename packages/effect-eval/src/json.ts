@@ -8,12 +8,14 @@ export const canonical = (value: Schema.Json): string => {
   if (isList(value)) {
     return `[${value.map(canonical).join(",")}]`;
   }
+
   if (isRecord(value)) {
     return `{${Object.keys(value)
       .toSorted()
       .map((key) => `${JSON.stringify(key)}:${canonical(value[key] ?? null)}`)
       .join(",")}}`;
   }
+
   return JSON.stringify(value);
 };
 

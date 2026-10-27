@@ -9,6 +9,7 @@ export class ActionApiError extends Schema.TaggedError<ActionApiError>()("Action
   override get message() {
     const status = this.status === undefined ? "" : ` (${this.status})`;
     const description = this.description === undefined ? "" : ` - ${this.description}`;
+
     return `GitHub API error${status}: ${this.method}${description}`;
   }
 

@@ -68,16 +68,20 @@ export const sampleRuns = Effect.gen(function* runSamples() {
   const base = yield* Runner.run(categorizer, { variants: variantsWith({ m3: "rent" }) }).pipe(
     Effect.provide(gitAt("fedcba9876543210")),
   );
+
   const head = yield* Runner.run(categorizer, {
     variants: variantsWith({ m1: "fuel", m2: "fuel" }),
   }).pipe(Effect.provide(gitAt("0123456789abcdef")));
+
   const history: HistorySnapshot = { baseline: Option.some(base), recent: [base] };
+
   return { base, head, history };
 });
 
 export const everyChart = sampleRuns.pipe(
   Effect.map(({ base, head }): readonly Chart[] => {
     const comparison = Run.compare(head, base);
+
     return [
       Charts.trend([base, head]),
       Charts.variants(head),

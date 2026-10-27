@@ -21,16 +21,20 @@ const RUN_LENGTH_REPEAT_BASE = 257;
 
 export const assemblePdf = (objects: readonly Uint8Array[]) => {
   const header = latin1("%PDF-1.7\n");
+
   const chunks = objects.map((body, index) =>
     concat([latin1(`${(index + 1).toString()} 0 obj\n`), body, latin1("\nendobj\n")]),
   );
+
   const offsets = Arr.scan(chunks, header.length, (position, chunk) => position + chunk.length);
+
   const table = [
     "xref",
     `0 ${(objects.length + 1).toString()}`,
     "0000000000 65535 f ",
     ...offsets.slice(0, -1).map((offset) => `${offset.toString().padStart(10, "0")} 00000 n `),
   ].join("\n");
+
   return concat([
     header,
     ...chunks,
@@ -46,9 +50,11 @@ export const onePagePdf = (
 ) => {
   const names = Object.keys(xobjects);
   const fontNumber = 5 + names.length;
+
   const xobjectRefs = names
     .map((name, index) => `/${name} ${(5 + index).toString()} 0 R`)
     .join(" ");
+
   return assemblePdf([
     latin1("<< /Type /Catalog /Pages 2 0 R >>"),
     latin1("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
@@ -112,6 +118,7 @@ export const scanPageKinds = {
   searchable: "searchable",
   strips: "strips",
 } as const;
+
 export type ScanPageKind = (typeof scanPageKinds)[keyof typeof scanPageKinds];
 
 const OVERSIZED_SIDE = 4224;
@@ -119,6 +126,7 @@ const OVERSIZED_RUNS = (OVERSIZED_SIDE * OVERSIZED_SIDE) / RUN_LENGTH_MAX_REPEAT
 const WHITE = 255;
 const pagePlacement = `${A4.width.toString()} 0 0 ${A4.height.toString()} 0 0 cm`;
 const halfHeight = (A4.height / 2).toString();
+
 const ocrLines = Array.from(
   { length: 5 },
   (_, index) => `Riga ${(index + 1).toString()} del testo letto dallo scanner sotto l'immagine`,
@@ -151,6 +159,7 @@ const scanContent = {
 export const scansPdf = (pages: readonly ScanPageKind[]) => {
   const firstPage = 7;
   const kids = pages.map((_, index) => `${(firstPage + index * 2).toString()} 0 R`).join(" ");
+
   return assemblePdf([
     latin1("<< /Type /Catalog /Pages 2 0 R >>"),
     latin1(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length.toString()} >>`),

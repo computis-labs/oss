@@ -93,6 +93,7 @@ describe("Cli.command", () => {
       yield* cli([...quiet, "--format", "json", "--case", "rent"]);
 
       const lines = yield* TestConsole.logLines;
+
       const decoded = yield* pipe(
         lines,
         Effect.forEach((line) => Events.decodeLine(String(line))),
@@ -218,6 +219,7 @@ describe("Cli.command with a history", () => {
             "latest",
           ]),
         );
+
         const printed = (yield* TestConsole.logLines).map(String).join("\n");
 
         expect(failure).toMatchObject({ results: [{ actual: "1 regressions", passed: false }] });
@@ -241,6 +243,7 @@ describe("Cli.command with a history", () => {
           "latest",
         ]).pipe(Effect.ignore);
         const lines = yield* TestConsole.logLines;
+
         const decoded = yield* pipe(
           lines,
           Effect.forEach((line) => Events.decodeLine(String(line)).pipe(Effect.option)),
@@ -279,6 +282,7 @@ describe("Cli.command with a history", () => {
           () => "CUSTOMER_SECRET",
           true,
         )(["--reporter", "history"]).pipe(Effect.ignore);
+
         const [first] = yield* pipe(
           (files.get(".eval/history/categorizer/index.jsonl") ?? "")
             .split("\n")
@@ -321,6 +325,7 @@ describe("Cli.command with a history", () => {
           yield* answering((label) => label)(["--reporter", module, "--no-history"]);
           const off = [...files.keys()];
           yield* answering((label) => label)(["--reporter", module]);
+
           return [off, [...files.keys()].length > 0];
         }),
       );
@@ -352,9 +357,11 @@ describe("Cli.command with a history", () => {
             "json",
             "--no-history",
           ]);
+
           return (yield* TestConsole.logLines).map(String);
         }),
       );
+
       const decoded = yield* pipe(
         lines,
         Effect.forEach((line) => Events.decodeLine(line).pipe(Effect.option)),
@@ -370,6 +377,7 @@ describe("Cli.command with a history", () => {
       Effect.gen(function* () {
         yield* freshHistory;
         const parsed: string[] = [];
+
         const withModels = (known: readonly string[]) =>
           Command.runWith(
             Cli.command({
@@ -389,15 +397,18 @@ describe("Cli.command with a history", () => {
                 defaults: ["current-model"],
                 parse: (name) => {
                   parsed.push(name);
+
                   if (!known.includes(name)) {
                     throw new Error(`unknown model ${name}`);
                   }
+
                   return Variant.make(name, Layer.empty);
                 },
               },
             }),
             { renderErrors: false, version: "0.0.0" },
           );
+
         yield* withModels(["retired-model"])([
           "--reporter",
           "history",
@@ -414,6 +425,7 @@ describe("Cli.command with a history", () => {
           "--reporter",
           "history",
         ]);
+
         const index = (files.get(".eval/history/categorizer/index.jsonl") ?? "")
           .split("\n")
           .filter((line) => line.length > 0);
@@ -434,6 +446,7 @@ describe("Cli.command with a history", () => {
         const failure = yield* Effect.flip(
           models("fuel")(["--baseline", "latest", "--reporter", "terminal", "--no-history"]),
         );
+
         const printed = (yield* TestConsole.logLines).map(String).join("\n");
 
         expect(failure).toMatchObject({ _tag: "EvalGateFailed" });
@@ -449,6 +462,7 @@ describe("Cli.command with a history", () => {
       inMemory(
         Effect.gen(function* () {
           yield* freshHistory;
+
           const golden = Command.runWith(
             Cli.command({
               eval: (custom) =>
@@ -472,12 +486,15 @@ describe("Cli.command with a history", () => {
           );
 
           yield* golden(["--reporter", "history"]);
+
           const [entry] = (files.get(".eval/history/autofattura/index.jsonl") ?? "")
             .split("\n")
             .filter((line) => line.length > 0)
             .map((line) => Schema.decodeUnknownSync(IndexLineSchema)(line));
+
           yield* golden(["history"]);
           const listed = (yield* TestConsole.logLines).map(String).join("\n");
+
           const compared = yield* Effect.exit(
             golden(["compare", "latest", "latest", "--reporter", "silent"]),
           );
@@ -528,6 +545,7 @@ describe("Cli.command with a history", () => {
         yield* answering(() => "rent")(["--reporter", "history"]);
 
         yield* answering((label) => label)(["history"]);
+
         const rows = (yield* TestConsole.logLines)
           .map(String)
           .join("\n")
@@ -547,6 +565,7 @@ describe("Cli.command with a history", () => {
         yield* freshHistory;
         yield* answering(() => "rent")(["--reporter", "history"]).pipe(Effect.ignore);
         yield* answering((label) => label)(["--reporter", "history"]);
+
         const [wrong] = yield* pipe(
           (files.get(".eval/history/categorizer/index.jsonl") ?? "")
             .split("\n")
@@ -599,6 +618,7 @@ describe("Cli.command with a history", () => {
         yield* freshHistory;
         yield* answering((label) => label)(["--reporter", "history"]);
         yield* answering(() => "rent")(["--reporter", "history"]).pipe(Effect.ignore);
+
         const [first] = yield* pipe(
           (files.get(".eval/history/categorizer/index.jsonl") ?? "")
             .split("\n")
@@ -639,6 +659,7 @@ describe("Cli.command output", () => {
       yield* cli(["--no-history", "--format", "json", "--case", "rent"]).pipe(Effect.ignore);
 
       const lines = yield* TestConsole.logLines;
+
       const decoded = yield* pipe(
         lines,
         Effect.forEach((line) => Events.decodeLine(String(line))),
@@ -674,6 +695,7 @@ describe("Cli.command output", () => {
         Effect.provide(Logger.layer([Logger.defaultLogger])),
         Effect.ignore,
       );
+
       const decoded = yield* pipe(
         yield* TestConsole.logLines,
         Effect.forEach((line) => Events.decodeLine(String(line)).pipe(Effect.option)),
@@ -691,6 +713,7 @@ describe("Cli.command output", () => {
         Effect.gen(function* () {
           yield* freshHistory;
           const custom = Reporter.make({ name: "slack" });
+
           const reporters = Cli.formatted(
             [
               Reporters.terminal({ color: false, progress: false }),
@@ -713,6 +736,7 @@ describe("Cli.command output", () => {
               task: (input) => Effect.succeed(input.input),
             }),
           ).pipe(Effect.provide(Reporter.layer(reporters)));
+
           const decoded = yield* pipe(
             yield* TestConsole.logLines,
             Effect.forEach((line) => Events.decodeLine(String(line)).pipe(Effect.option)),
@@ -761,6 +785,7 @@ describe("Cli.command output", () => {
       );
 
       const config = yield* EvalConfig.load(folder);
+
       const reporters = config.pipe(
         Option.flatMap((loaded) => Option.fromNullishOr(loaded.reporters)),
         Option.getOrElse((): readonly EvalConfig.ReporterEntry[] => []),

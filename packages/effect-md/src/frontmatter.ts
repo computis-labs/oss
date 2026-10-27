@@ -46,14 +46,17 @@ const contentOffset = (node: ParsedNode, base: number) =>
 const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<TypeNode> =>
   Result.gen(function* typeFromNodeProgram() {
     const span = { end: base + node.range[1], start: base + node.range[0] };
+
     if (isMap(node)) {
       const seen = new Set<string>();
+
       const readField = (pair: Pair<ParsedNode, ParsedNode | null>): Parsed<Field> =>
         Result.gen(function* fieldProgram() {
           const keyOffset = base + pair.key.range[0];
           const key = scalarText(pair.key) ?? "";
           const optional = key.endsWith("?");
           const name = optional ? key.slice(0, -1) : key;
+
           if (reservedWords.has(name)) {
             return yield* Result.fail(
               syntaxError(
@@ -64,6 +67,7 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
               ),
             );
           }
+
           if (!identifierPattern.test(name)) {
             return yield* Result.fail(
               syntaxError(
@@ -74,6 +78,7 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
               ),
             );
           }
+
           if (seen.has(name)) {
             return yield* Result.fail(
               syntaxError(
@@ -84,13 +89,17 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
               ),
             );
           }
+
           seen.add(name);
+
           if (pair.value === null) {
             return yield* Result.fail(
               syntaxError(file, keyOffset, Reason.InvalidType, `The field '${name}' has no type.`),
             );
           }
+
           const type = yield* typeFromNode(file, pair.value, base);
+
           return {
             name,
             optional,
@@ -98,14 +107,19 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
             type,
           };
         });
+
       const fields: Field[] = [];
+
       for (const pair of node.items) {
         fields.push(yield* readField(pair));
       }
+
       return { _tag: "Struct" as const, fields, span };
     }
+
     if (isSeq(node)) {
       const [element, ...rest] = node.items;
+
       if (element === undefined || element === null || rest.length > 0) {
         return yield* Result.fail(
           syntaxError(
@@ -116,9 +130,12 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           ),
         );
       }
+
       return { _tag: "Array" as const, element: yield* typeFromNode(file, element, base), span };
     }
+
     const source = scalarText(node);
+
     if (source === undefined) {
       return yield* Result.fail(
         syntaxError(
@@ -131,8 +148,10 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
         ),
       );
     }
+
     const typeStart = contentOffset(node, base);
     const tokens = yield* lex(file, source, 0, source.length, typeStart);
+
     const fail = (token: Lexeme | undefined, detail: string) =>
       Result.fail(
         syntaxError(
@@ -142,21 +161,28 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           detail,
         ),
       );
+
     const expect = (punctuation: string, at: number): Parsed<Lexeme> => {
       const token = tokens[at];
+
       return token?.text === punctuation
         ? Result.succeed(token)
         : fail(token, `Expected '${punctuation}' but found ${describeLexeme(token)}.`);
     };
+
     const literal = (at: number): Parsed<LiteralType> => {
       const token = tokens[at];
+
       if (token?.kind === LexemeKinds.string) {
         return Result.succeed(unescapeString(token.text));
       }
+
       if (token?.kind === LexemeKinds.number) {
         return Result.succeed(Number(token.text));
       }
+
       const bool = token === undefined ? undefined : booleanWords.get(token.text);
+
       return bool === undefined
         ? fail(
             token,
@@ -164,13 +190,17 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           )
         : Result.succeed(bool);
     };
+
     const parseType = (at: number): Parsed<{ readonly type: TypeNode; readonly next: number }> =>
       Result.gen(function* typeProgram() {
         const token = tokens[at];
+
         if (token?.kind !== LexemeKinds.word) {
           return yield* fail(token, `Expected a type but found ${describeLexeme(token)}.`);
         }
+
         const primitive = lookup(PrimitiveTypes, token.text);
+
         if (primitive !== undefined) {
           return {
             next: at + 1,
@@ -181,15 +211,19 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
             },
           };
         }
+
         switch (token.text) {
           case TypeConstructors.Literal: {
             yield* expect("(", at + 1);
             const values: [LiteralType, ...LiteralType[]] = [yield* literal(at + 2)];
+
             for (let comma = at + 3; tokens[comma]?.text === ","; comma += 2) {
               values.push(yield* literal(comma + 1));
             }
+
             const closeAt = at + 2 * values.length + 1;
             const close = yield* expect(")", closeAt);
+
             return {
               next: closeAt + 1,
               type: {
@@ -199,10 +233,12 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
               },
             };
           }
+
           case TypeConstructors.Array: {
             yield* expect("(", at + 1);
             const element = yield* parseType(at + 2);
             const close = yield* expect(")", element.next);
+
             return {
               next: element.next + 1,
               type: {
@@ -212,10 +248,12 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
               },
             };
           }
+
           case TypeConstructors.NullOr: {
             yield* expect("(", at + 1);
             const inner = yield* parseType(at + 2);
             const close = yield* expect(")", inner.next);
+
             return {
               next: inner.next + 1,
               type: {
@@ -225,6 +263,7 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
               },
             };
           }
+
           default: {
             return yield* fail(
               token,
@@ -241,11 +280,14 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           }
         }
       });
+
     const { type, next } = yield* parseType(0);
     const rest = tokens[next];
+
     if (rest !== undefined) {
       return yield* fail(rest, `Unexpected ${describeLexeme(rest)} after the type.`);
     }
+
     return type;
   });
 
@@ -255,7 +297,9 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
       prettyErrors: false,
       uniqueKeys: true,
     });
+
     const [yamlError] = document.errors;
+
     if (yamlError !== undefined) {
       return yield* Result.fail(
         syntaxError(
@@ -266,12 +310,16 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
         ),
       );
     }
+
     const span = { end, start };
     const { contents } = document;
+
     if (contents === null) {
       const empty: Frontmatter = { span };
+
       return empty;
     }
+
     if (!isMap(contents)) {
       return yield* Result.fail(
         syntaxError(
@@ -282,8 +330,10 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
         ),
       );
     }
+
     const readDescription = (value: ParsedNode | null, keyOffset: number): Parsed<string> => {
       const description = scalarText(value);
+
       return description === undefined
         ? Result.fail(
             syntaxError(
@@ -295,6 +345,7 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
           )
         : Result.succeed(description);
     };
+
     const readInput = (value: ParsedNode | null, keyOffset: number): Parsed<InputSpec> =>
       Result.gen(function* inputProgram() {
         if (value === null || !isMap(value)) {
@@ -307,18 +358,23 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
             ),
           );
         }
+
         const type = yield* typeFromNode(file, value, start);
+
         if (Predicate.isTagged(type, "Struct")) {
           return { _tag: "Inline" as const, type };
         }
+
         return yield* Result.fail(
           syntaxError(file, keyOffset, Reason.InvalidFrontmatter, "'input' must be a map."),
         );
       });
+
     const readSchema = (value: ParsedNode | null, keyOffset: number): Parsed<InputSpec> => {
       const reference = scalarText(value)?.trim() ?? "";
       const separator = reference.lastIndexOf("#");
       const exportName = reference.slice(separator + 1);
+
       return value === null || separator <= 0 || !identifierPattern.test(exportName)
         ? Result.fail(
             syntaxError(
@@ -335,14 +391,18 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
             span: { end: start + value.range[1], start: start + value.range[0] },
           });
     };
+
     const isInputKey = (pair: Pair<ParsedNode, ParsedNode | null>) => {
       const key = scalarText(pair.key);
+
       return key === FrontmatterKeys.input || key === FrontmatterKeys.schema;
     };
+
     const entries = yield* Result.all(
       contents.items.map((pair, index): Parsed<Omit<Frontmatter, "span">> => {
         const keyOffset = start + pair.key.range[0];
         const key = scalarText(pair.key) ?? "";
+
         if (isInputKey(pair) && contents.items.slice(0, index).some(isInputKey)) {
           return Result.fail(
             syntaxError(
@@ -353,18 +413,22 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
             ),
           );
         }
+
         switch (key) {
           case FrontmatterKeys.description: {
             return Result.map(readDescription(pair.value, keyOffset), (description) => ({
               description,
             }));
           }
+
           case FrontmatterKeys.input: {
             return Result.map(readInput(pair.value, keyOffset), (input) => ({ input }));
           }
+
           case FrontmatterKeys.schema: {
             return Result.map(readSchema(pair.value, keyOffset), (input) => ({ input }));
           }
+
           default: {
             return Result.fail(
               syntaxError(
@@ -378,12 +442,15 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
         }
       }),
     );
+
     const description = entries.find((entry) => entry.description !== undefined)?.description;
     const input = entries.find((entry) => entry.input !== undefined)?.input;
+
     const frontmatter: Frontmatter = {
       ...whenDefined(description, (value) => ({ description: value })),
       ...whenDefined(input, (value) => ({ input: value })),
       span,
     };
+
     return frontmatter;
   });

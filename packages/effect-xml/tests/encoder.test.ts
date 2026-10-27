@@ -29,10 +29,12 @@ const InvoicesLive = Layer.effect(
     const schemaPath = yield* path.fromFileUrl(new URL(FATTURA_XSD, import.meta.url));
     const validator = yield* Xsd.make({ schema: { path: schemaPath } });
     const fixtureDirectory = yield* path.fromFileUrl(new URL("fixtures/", import.meta.url));
+
     const expectedXml = (slug: string) =>
       fs
         .readFileString(path.join(fixtureDirectory, `fattura-${slug}.expected.xml`))
         .pipe(Effect.map((contents) => contents.trimEnd()));
+
     return { expectedXml, validate: validator.validate };
   }),
 ).pipe(Layer.provide(NodeServices.layer));
@@ -42,6 +44,7 @@ const encoderFor = <S extends Encodable>(schema: S, options: Partial<EncoderOpti
 
 const fatturaNamed = (name: string) => {
   const fixture = fatturaFixtures.find((candidate) => candidate.name === name);
+
   return fixture?.fattura ?? expect.fail(`fixture ${name} is missing`);
 };
 
@@ -98,6 +101,7 @@ layer(InvoicesLive, { timeout: 60_000 })("encoder on FatturaPA", (it) => {
     Effect.gen(function* test() {
       const { expectedXml, validate } = yield* Invoices;
       const encode = yield* encoderFor(FatturaXml);
+
       const fattura = yield* fatturaChanged((source) => ({
         ...source,
         FatturaElettronicaHeader: {
@@ -128,6 +132,7 @@ layer(InvoicesLive, { timeout: 60_000 })("encoder on FatturaPA", (it) => {
     Effect.gen(function* test() {
       const { expectedXml, validate } = yield* Invoices;
       const encode = yield* encoderFor(FatturaXml);
+
       const fattura = yield* fatturaChanged((source) => ({
         ...source,
         SistemaEmittente: "GESTIONALE",
@@ -196,6 +201,7 @@ describe("codec encode", () => {
         Codice: Schema.String,
         tipo: Schema.optionalKey(Schema.String),
       }).pipe(element({ attributes: ["tipo"] }));
+
       const Ordine = Schema.Struct({
         Testata: Schema.Struct({
           Numero: Schema.String,
@@ -203,6 +209,7 @@ describe("codec encode", () => {
           data: Schema.String,
         }).pipe(element({ attributes: ["data"] })),
       }).pipe(root("Ordine"));
+
       const encode = yield* encoderFor(Ordine);
 
       const xml = yield* encode({
@@ -410,6 +417,7 @@ describe("codec encode", () => {
           Schema.Struct({ Codice: Schema.String.pipe(Schema.check(Schema.isMaxLength(3))) }),
         ),
       }).pipe(root("Limitato"));
+
       const encode = yield* encoderFor(Limitato);
 
       const error = yield* Effect.flip(encode({ Righe: [{ Codice: "A1" }, { Codice: "TROPPO" }] }));

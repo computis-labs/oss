@@ -15,6 +15,7 @@ export interface TextOptions<E, R> {
 
 const ESCAPE = "\u001B[";
 const RESET = `${ESCAPE}0m`;
+
 // oxlint-disable-next-line no-control-regex -- ANSI escape sequences
 const ANSI = /\u001B\[[0-9;]*m/gu;
 const CHART_MIN_WIDTH = 60;
@@ -30,6 +31,7 @@ const pad = (text: string, width: number) =>
 
 const truncate = (text: string, width: number) => {
   const characters = codePoints(text);
+
   return characters.length <= width
     ? text
     : `${characters.slice(0, Math.max(0, width - 1)).join("")}${ELLIPSIS}`;
@@ -61,19 +63,24 @@ const minimumWidth = (block: Block): number =>
 export const render = <E = never, R = never>(view: View, options: TextOptions<E, R>) => {
   const theme = options.theme ?? computis;
   const renderer = options.renderer ?? unsupported;
+
   const paint = (text: string, tone: Tone) =>
     options.color && tone !== tones.neutral
       ? `${ESCAPE}${{ bad: "31", good: "32", info: "34", neutral: "2", warn: "33" }[tone]}m${text}${RESET}`
       : text;
+
   const bold = (text: string) => (options.color ? `${ESCAPE}1m${text}${RESET}` : text);
   const dim = (text: string) => (options.color ? `${ESCAPE}2m${text}${RESET}` : text);
+
   const renderTable = (data: TableData) => {
     const widths = columnWidths(data);
+
     const line = (cells: readonly string[]) =>
       cells
         .map((text, index) => pad(text, widths[index] ?? 0))
         .join(GAP)
         .trimEnd();
+
     return [
       dim(line(data.columns.map((column, index) => truncate(column, widths[index] ?? 0)))),
       ...data.rows.map((row) =>
@@ -83,12 +90,14 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
       ),
     ].join(LINE_BREAK);
   };
+
   const draw = (charts: readonly Chart[], width: number) =>
     drawWith(renderer)(charts, {
       accepts: [drawingKinds.text, drawingKinds.terminal],
       theme,
       width,
     }).pipe(Effect.map(Option.map((drawn) => drawn.content)));
+
   const renderCharts = (charts: readonly Chart[], fallback: readonly TableData[], width: number) =>
     draw(charts, width).pipe(
       Effect.flatMap(
@@ -104,6 +113,7 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
                   .map((one, index) =>
                     Option.getOrElse(one, () => {
                       const table = fallback[index];
+
                       return table === undefined ? "" : renderTable(table);
                     }),
                   )
@@ -114,12 +124,14 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
         }),
       ),
     );
+
   const renderBlock = (block: Block, width: number): Effect.Effect<string, E, R> =>
     $match(block, {
       Badge: ({ label, tone }) => Effect.succeed(paint(`[ ${label.toUpperCase()} ]`, tone)),
       Figure: ({ chart, fallback }) => renderCharts([chart], [fallback], width),
       Row: ({ children }) => {
         const figures = children.filter($is("Figure"));
+
         if (figures.length > 0 && figures.length === children.length) {
           return renderCharts(
             figures.map((entry) => entry.chart),
@@ -127,11 +139,14 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
             width,
           );
         }
+
         const minimums = children.map(minimumWidth);
+
         const fits =
           minimums.reduce((total, minimum) => total + minimum, 0) +
             GAP.length * Math.max(0, children.length - 1) <=
           width;
+
         if (!fits) {
           return pipe(
             children,
@@ -139,6 +154,7 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
             Effect.map((parts) => parts.join(LINE_BREAK)),
           );
         }
+
         return pipe(
           children,
           Effect.forEach((child, index) => renderBlock(child, minimums[index] ?? width)),
@@ -146,6 +162,7 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
             const columns = parts.map((part) => part.split(LINE_BREAK));
             const widths = columns.map((lines) => Math.max(0, ...lines.map(visibleLength)));
             const height = Math.max(0, ...columns.map((lines) => lines.length));
+
             return Array.from({ length: height }, (_, line) =>
               columns
                 .map((lines, index) => pad(lines[line] ?? "", widths[index] ?? 0))
@@ -172,6 +189,7 @@ export const render = <E = never, R = never>(view: View, options: TextOptions<E,
         ),
       Text: ({ text, tone }) => Effect.succeed(paint(text, tone)),
     });
+
   return pipe(
     view,
     Effect.forEach((block) => renderBlock(block, options.width)),

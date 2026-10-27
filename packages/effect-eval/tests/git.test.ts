@@ -41,6 +41,7 @@ const fromEnvironment = (env: Record<string, string>, layer = Git.layerProcess) 
 const runIn = (directory: string, args: readonly string[]) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
     return yield* spawner.string(
       ChildProcess.make("git", args, {
         cwd: directory,
@@ -65,6 +66,7 @@ const repository = Effect.gen(function* () {
   yield* runIn(directory, ["add", "case.json"]);
   yield* runIn(directory, ["commit", "--message", "known commit"]);
   const sha = yield* runIn(directory, ["rev-parse", "HEAD"]);
+
   return { directory, sha: sha.trim() };
 });
 
@@ -101,6 +103,7 @@ describe("Git.layerProcess", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const { directory, sha } = yield* repository;
+
       const read = Effect.service(Git.Git).pipe(
         Effect.flatMap((git) => git.current),
         Effect.provide(fromEnvironment({}, Git.layerProcessAt(directory))),

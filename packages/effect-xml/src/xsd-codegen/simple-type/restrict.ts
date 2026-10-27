@@ -89,6 +89,7 @@ const WHITESPACE_ORDER: readonly WhiteSpace[] = ["preserve", "replace", "collaps
 
 const facetValue = (node: XsdNode) => {
   const value = node.attributes.get("value");
+
   return value === undefined ? fail(node, "The facet has no value.") : Result.succeed(value);
 };
 
@@ -103,11 +104,15 @@ export const restrict = (base: SimpleSpec, restriction: XsdNode) =>
         if (info.family !== "text") {
           return yield* fail(facet, `The ${facet.local} facet is only supported on string types.`);
         }
+
         const text = (yield* facetValue(facet)).trim();
+
         if (!/^[0-9]+$/u.test(text)) {
           return yield* fail(facet, `The facet value ${text} is not a non-negative integer.`);
         }
+
         const value = Number(text);
+
         return {
           ...facets,
           maxLength:
@@ -122,21 +127,26 @@ export const restrict = (base: SimpleSpec, restriction: XsdNode) =>
     const applyRange = (facets: Facets, facet: XsdNode) =>
       Result.gen(function* applyRangeFacet() {
         const value = (yield* facetValue(facet)).trim();
+
         if (compare === undefined) {
           return yield* fail(
             facet,
             `The ${facet.local} facet is only supported on xs:decimal, xs:integer and xs:date.`,
           );
         }
+
         if (compare(value, value) === null) {
           return yield* fail(facet, `The ${facet.local} value ${value} is not supported.`);
         }
+
         const { maxInclusive, minInclusive } = facets;
+
         if (facet.local === "minInclusive") {
           return minInclusive === undefined || (compare(value, minInclusive) ?? 0) > 0
             ? { ...facets, minInclusive: value }
             : facets;
         }
+
         return maxInclusive === undefined || (compare(value, maxInclusive) ?? 0) < 0
           ? { ...facets, maxInclusive: value }
           : facets;
@@ -146,15 +156,18 @@ export const restrict = (base: SimpleSpec, restriction: XsdNode) =>
       Result.gen(function* applyWhiteSpaceFacet() {
         const value = yield* facetValue(facet);
         const next = WHITESPACE_ORDER.find((candidate) => candidate === value);
+
         if (next === undefined) {
           return yield* fail(facet, `The whiteSpace value ${value} is not valid.`);
         }
+
         if (WHITESPACE_ORDER.indexOf(next) < WHITESPACE_ORDER.indexOf(facets.whiteSpace)) {
           return yield* fail(
             facet,
             `The whiteSpace facet cannot relax ${facets.whiteSpace} to ${next}.`,
           );
         }
+
         return { ...facets, whiteSpace: next };
       });
 
@@ -172,41 +185,54 @@ export const restrict = (base: SimpleSpec, restriction: XsdNode) =>
       (previous, facet) =>
         Result.gen(function* applyFacet() {
           const current = yield* previous;
+
           if (facet.local === "pattern") {
             const source = yield* facetValue(facet);
             const parsed = parse(source);
+
             if (Result.isFailure(parsed)) {
               return yield* fail(facet, `${parsed.failure}.`);
             }
+
             return {
               ...current,
               patterns: [...current.patterns, { node: parsed.success, source }],
             };
           }
+
           if (facet.local === "enumeration") {
             return { ...current, enumeration: [...current.enumeration, yield* facetValue(facet)] };
           }
+
           if (["length", "minLength", "maxLength"].includes(facet.local)) {
             return yield* applyLength(current, facet);
           }
+
           if (facet.local === "minInclusive" || facet.local === "maxInclusive") {
             return yield* applyRange(current, facet);
           }
+
           if (facet.local === "whiteSpace") {
             return yield* applyWhiteSpace(current, facet);
           }
+
           if (facet.local !== "simpleType") {
             return yield* fail(facet, `The ${facet.local} facet is not supported.`);
           }
+
           return current;
         }),
     );
+
     const { enumeration, maxInclusive, maxLength, minInclusive, minLength, patterns, whiteSpace } =
       facets;
+
     if (minLength !== undefined && maxLength !== undefined && minLength > maxLength) {
       return yield* fail(restriction, "The length facets admit no value.");
     }
+
     const normalize = (value: string) => enumerationKey(base.whiteSpace, value) ?? value;
+
     const spec: SimpleSpec = {
       builtin: base.builtin,
       enumerations:
@@ -229,5 +255,6 @@ export const restrict = (base: SimpleSpec, restriction: XsdNode) =>
             ],
       whiteSpace,
     };
+
     return spec;
   });

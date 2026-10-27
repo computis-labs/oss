@@ -52,6 +52,7 @@ export const setFieldValues = (
         const byName = Arr.groupBy(widgets, (widget) => widget.name);
         const unknown = Object.keys(values).filter((name) => !Object.hasOwn(byName, name));
         const [firstUnknown] = unknown;
+
         if (firstUnknown !== undefined) {
           return Result.fail(
             new PdfFormError({
@@ -60,9 +61,11 @@ export const setFieldValues = (
             }),
           );
         }
+
         const [problem] = Object.entries(values).flatMap(([name, value]) => {
           const stored = (byName[name] ?? []).map((widget) => valueToStore(widget, value));
           const refused = stored.find(Result.isFailure);
+
           if (refused !== undefined) {
             return [
               new PdfFormError({
@@ -71,6 +74,7 @@ export const setFieldValues = (
               }),
             ];
           }
+
           return stored.some((result) => Result.isSuccess(result) && result.success !== undefined)
             ? []
             : [
@@ -80,16 +84,21 @@ export const setFieldValues = (
                 }),
               ];
         });
+
         return problem === undefined ? Result.succeed(widgets) : Result.fail(problem);
       }),
       Result.flatMap((widgets) => {
         const { lib } = handle;
+
         const writes = widgets.flatMap((widget) => {
           const value = values[widget.name];
+
           const stored =
             value === undefined ? undefined : Result.getOrUndefined(valueToStore(widget, value));
+
           return stored === undefined ? [] : [{ stored, widget }];
         });
+
         return Result.all(
           Object.values(Arr.groupBy(writes, ({ widget }) => widget.page.toString())).map((onPage) =>
             withFormPage(handle, form, onPage[0].widget.page, (pagePointer) =>
@@ -99,7 +108,9 @@ export const setFieldValues = (
                     const option = choiceTypes.has(widget.type)
                       ? widget.options.indexOf(stored)
                       : NOT_AN_OPTION;
+
                     const typed = textualTypes.has(widget.type) && option === NOT_AN_OPTION;
+
                     const accepted =
                       textualTypes.has(widget.type) || option !== NOT_AN_OPTION
                         ? lib.FORM_SetFocusedAnnot(form, annotation) &&
@@ -107,16 +118,20 @@ export const setFieldValues = (
                             ? lib.FORM_SelectAllText(form, pagePointer) &&
                               withUtf16(lib, stored, (text) => {
                                 lib.FORM_ReplaceSelection(form, pagePointer, text);
+
                                 return true;
                               })
                             : lib.FORM_SetIndexSelected(form, pagePointer, option, true))
                         : withUtf16(lib, stored, (text) =>
                             lib.EPDFAnnot_SetFormFieldValue(form, annotation, text),
                           );
+
                     lib.FORM_ForceToKillFocus(form);
+
                     const kept =
                       !textualTypes.has(widget.type) ||
                       readFieldValue(lib, form, annotation) === stored;
+
                     return accepted && kept
                       ? Result.void
                       : Result.fail(
@@ -140,20 +155,26 @@ export const createSignatureField = (handle: PdfHandle, { name, page, rect }: Pd
   withFormEnvironment(handle, (form) =>
     withFormPage(handle, form, page, (pagePointer) => {
       const { lib } = handle;
+
       const annotation = withUtf16(lib, name, (pointer) =>
         lib.EPDFPage_CreateFormField(pagePointer, form, TEXT_FIELD_CODE, pointer),
       );
+
       if (annotation === 0) {
         return Result.fail(
           new PdfFormError({ field: name, message: `PDFium could not add the field "${name}".` }),
         );
       }
+
       try {
         const placed = withAllocation(lib, 16, (pointer) => {
           lib.pdfium.HEAPF32.set([rect.left, rect.top, rect.right, rect.bottom], pointer / 4);
+
           return lib.FPDFAnnot_SetRect(annotation, pointer);
         });
+
         lib.FPDFAnnot_SetFlags(annotation, PRINT_FLAG);
+
         return placed
           ? Result.succeed(lib.EPDFAnnot_GetFormFieldObjectNumber(form, annotation))
           : Result.fail(

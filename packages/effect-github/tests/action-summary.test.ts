@@ -34,6 +34,7 @@ layer(Layer.mergeAll(ActionSummary.layer, NodeServices.layer))("ActionSummary.la
 describe("ActionSummaryTest", () => {
   it.effect("renders the builder calls and empties on request", () => {
     const fake = ActionSummaryTest.make();
+
     return Effect.gen(function* () {
       const summary = yield* ActionSummary;
 

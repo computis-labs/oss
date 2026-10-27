@@ -132,6 +132,7 @@ describe("the gates of the migration recipes", () => {
   it.effect("fail a categorizer whose first batch fails while the others are right", () =>
     Effect.gen(function* () {
       const labels = Array.from({ length: 50 }, (_, index) => `m${String(index)}`);
+
       const exit = yield* Runner.run(
         Eval.makeBatched({
           dataset: Dataset.fromIterable(labels, { id: (id: string) => id }),
@@ -210,6 +211,7 @@ describe("Gate.check", () => {
         trial: 1,
         variant: "default",
       };
+
       const results = Gate.evaluate(
         [Gate.max(Metric.errored, 0)],
         [{ observations: [leaked], variant: "default" }],
@@ -306,20 +308,24 @@ describe("Gate.noRegressions after an aborted run", () => {
     Effect.gen(function* () {
       const onMain = Layer.merge(saving, onBranch("main"));
       const good = yield* Runner.run(againstBaseline({})).pipe(Effect.provide(onMain));
+
       const failed = yield* Effect.exit(
         Runner.run(againstBaseline({}), {
           variants: [Variant.make("default", Layer.effectDiscard(Effect.fail("no API key")))],
         }).pipe(Effect.provide(onMain)),
       );
+
       const aborted = (yield* History.list("categorizer")).find((entry) => entry.id !== good.id);
 
       const head = yield* Runner.run(againstBaseline({ m1: "fuel" })).pipe(
         Effect.provide(onBranch("feature/x")),
       );
+
       const selected = yield* Effect.forEach(
         [History.latest, History.onBranch("main"), History.baseline("main")],
         (selector) => History.load("categorizer", selector).pipe(Effect.map((run) => run.id)),
       );
+
       const byId = yield* History.load("categorizer", History.id(aborted?.id ?? ""));
 
       expect(Exit.isFailure(failed)).toBe(true);
@@ -390,6 +396,7 @@ describe("Gate.noRegressions with the default baseline", () => {
         const unchanged = yield* Runner.run(againstBaseline({}), {
           variants: [model("model-a")],
         }).pipe(Effect.provide(onBranch("feature/x")));
+
         const both = yield* Runner.run(againstBaseline({ m1: "fuel" }), {
           variants: [model("model-a"), model("model-b")],
         }).pipe(Effect.provide(onBranch("feature/x")));

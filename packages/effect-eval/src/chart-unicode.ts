@@ -62,6 +62,7 @@ const COLUMN_DIGITS = 10;
 
 const label = (text: string) => {
   const characters = codePoints(text);
+
   return characters.length > LABEL_WIDTH
     ? `${characters.slice(0, LABEL_WIDTH - 1).join("")}…`
     : text.padEnd(LABEL_WIDTH);
@@ -78,6 +79,7 @@ const signed = (value: number) => `${value > 0 ? "+" : ""}${(value * PERCENT).to
 export const renderer = (options: { readonly color?: boolean } = {}): ChartRenderer => {
   const paint = (text: string, code: string) =>
     options.color === true ? `${ESCAPE}${code}m${text}${RESET}` : text;
+
   const palette = (series: number) =>
     whenDefined(options.color === true ? series : undefined, (count) => ({
       color: Array.from(
@@ -85,34 +87,43 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
         (_, index): Color => seriesColors[index % seriesColors.length] ?? "ansiWhite",
       ),
     }));
+
   const bar = (interval: Interval, width: number) => {
     const at = (share: number) => Math.round(Math.min(1, Math.max(0, share)) * width);
     const filled = at(interval.value);
     const low = Option.match(interval.low, { onNone: () => filled, onSome: at });
     const high = Option.match(interval.high, { onNone: () => filled, onSome: at });
+
     return Array.from({ length: width }, (_, index) => {
       if (index < Math.min(filled, low)) {
         return FULL;
       }
+
       if (index < filled) {
         return FULL;
       }
+
       if (index >= low && index < high) {
         return WHISKER;
       }
+
       return EMPTY;
     }).join("");
   };
+
   const draw = (chart: Chart, width: number) => {
     const barWidth = Math.max(MIN_BAR, width - LABEL_WIDTH - 32);
+
     return Charts.$match(chart, {
       CaseMap: ({ cells, columns, rows, title }) => {
         const verdictAt = (row: string, column: string) =>
           Option.fromNullishOr(
             cells.find((cell) => cell.row === row && cell.column === column)?.verdict,
           );
+
         const grid = rows.map((row) => columns.map((column) => verdictAt(row, column.id)));
         const seen = new Set(grid.flat().flatMap((verdict) => Option.toArray(verdict)));
+
         const legend = [
           ...Object.entries(verdictGlyphs)
             .filter(([verdict]) => seen.has(verdict))
@@ -122,6 +133,7 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
             ),
           ...(grid.flat().some(Option.isNone) ? [`${NO_RUN} no run`] : []),
         ];
+
         return [
           title,
           `${label("")} ${columns.map((_, index) => String((index + 1) % COLUMN_DIGITS)).join("")}`,
@@ -148,6 +160,7 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
         const priced = points.flatMap((point) =>
           Option.toArray(point.cost.pipe(Option.map((cost) => ({ cost, point })))),
         );
+
         return priced.length === 0
           ? title
           : plot(
@@ -167,15 +180,19 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
       Delta: ({ rows, title }) => {
         const half = Math.floor(barWidth / 2);
         const largest = Math.max(1e-9, ...rows.map((row) => Math.abs(row.value)));
+
         return [
           title,
           ...rows.map((row) => {
             const size = Math.round((Math.abs(row.value) / largest) * half);
+
             const left =
               row.value < 0
                 ? `${" ".repeat(half - size)}${paint(FULL.repeat(size), "31")}`
                 : " ".repeat(half);
+
             const right = row.value > 0 ? paint(FULL.repeat(size), "32") : "";
+
             return `${label(row.metric)} ${left}${ZERO}${right}${" ".repeat(Math.max(0, half - (row.value > 0 ? size : 0)))} ${signed(row.value)} pt${Option.match(
               Option.all([row.low, row.high]),
               {
@@ -188,6 +205,7 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
       },
       Transitions: ({ cells, title }) => {
         const classes = Object.values(verdictClasses);
+
         return [
           title,
           `${label("baseline \\ now")} ${classes.map((name) => name.padStart(8)).join("")}`,
@@ -197,7 +215,9 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
                 .map((to) => {
                   const count =
                     cells.find((cell) => cell.from === from && cell.to === to)?.count ?? 0;
+
                   const text = String(count).padStart(8);
+
                   return count === 0 ? paint(text, "2") : text;
                 })
                 .join("")}`,
@@ -208,12 +228,14 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
         const runs = Charts.trendColumns(points);
         const ids = runs.map((column) => column.id);
         const variants = [...new Set(points.map((point) => point.variant))];
+
         if (runs.length < 2) {
           return [
             title,
             ...points.map((point) => `${label(point.variant)} ${intervalText(point)}`),
           ].join(LINE_BREAK);
         }
+
         return plot(
           variants.map((variant) =>
             points
@@ -242,6 +264,7 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
         ].join(LINE_BREAK),
     });
   };
+
   return (charts, render) =>
     Effect.succeed(
       Option.some(

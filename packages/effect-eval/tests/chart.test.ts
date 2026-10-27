@@ -93,6 +93,7 @@ describe("Chart.caseMap", () => {
     );
 
     const maps = Charts.caseMap([run], { onlyUnstable: true });
+
     const fallbacks = maps.map((chart) =>
       View.chartTable(chart).rows.map((row) => row.map((entry) => entry.text)),
     );
@@ -180,6 +181,7 @@ describe("Chart.delta", () => {
 
   it("carries the paired interval of each delta and draws it as a whisker", () => {
     const ids = Array.from({ length: 20 }, (_, index) => `case-${String(index)}`);
+
     const chart = Charts.delta(
       Run.compare(
         runOf(
@@ -193,9 +195,11 @@ describe("Chart.delta", () => {
       ),
       "default",
     );
+
     const accuracy = (Charts.$is("Delta")(chart) ? chart.rows : []).find(
       (row) => row.metric === "accuracy",
     );
+
     const spec = JSON.stringify(Charts.toVegaLite(chart, Theme.computis));
 
     expect([
@@ -221,6 +225,7 @@ describe("Chart.toVegaLite", () => {
       expect(
         specs.map((spec) => {
           const { config } = spec;
+
           return Json.isRecord(config) ? config["background"] : undefined;
         }),
       ).toEqual(charts.map(() => Theme.computis.surface));

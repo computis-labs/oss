@@ -29,6 +29,7 @@ export const SkipSchema = Schema.TaggedStruct("Skip", {
   reason: Schema.String,
   tags: Schema.optionalKey(Schema.Array(Schema.String)),
 });
+
 export type Skip = typeof SkipSchema.Type;
 
 export const isSkip = Schema.is(SkipSchema);
@@ -115,7 +116,9 @@ const resolveFile = Effect.fn("Dataset.resolveFile")(function* resolveFile(path:
   if (Predicate.isString(path)) {
     return path;
   }
+
   const paths = yield* Path.Path;
+
   return yield* paths
     .fromFileUrl(path)
     .pipe(Effect.mapError(datasetError(path.href, "The dataset URL is not a file URL.")));
@@ -123,6 +126,7 @@ const resolveFile = Effect.fn("Dataset.resolveFile")(function* resolveFile(path:
 
 const readText = Effect.fn("Dataset.readText")(function* readText(file: string) {
   const fs = yield* FileSystem.FileSystem;
+
   return yield* fs
     .readFileString(file)
     .pipe(Effect.mapError(datasetError(file, "The dataset file cannot be read.")));
@@ -158,9 +162,11 @@ const readJson = <S extends Schema.Top>(
   Effect.gen(function* readJsonArray() {
     const file = yield* resolveFile(path);
     const text = yield* readText(file);
+
     const raws = yield* Schema.decodeUnknownEffect(JsonArray)(text).pipe(
       Effect.mapError(datasetError(file, "The dataset is not a JSON array.")),
     );
+
     return yield* decodeElements(schema, identify, file, raws);
   });
 
@@ -188,6 +194,7 @@ export const jsonl = <S extends Schema.Top>(
       Effect.gen(function* readJsonLines() {
         const file = yield* resolveFile(path);
         const text = yield* readText(file);
+
         const raws = yield* pipe(
           text.split(LINE_BREAK).filter((line) => line.trim().length > 0),
           Effect.forEach((line, index) =>
@@ -196,6 +203,7 @@ export const jsonl = <S extends Schema.Top>(
             ),
           ),
         );
+
         return yield* decodeElements(schema, identify, file, raws);
       }),
     ),
@@ -213,9 +221,11 @@ export const directory = <A, E, R>(
       Effect.gen(function* readFolder() {
         const fs = yield* FileSystem.FileSystem;
         const paths = yield* Path.Path;
+
         const names = yield* fs
           .readDirectory(path)
           .pipe(Effect.mapError(datasetError(path, "The dataset folder cannot be read.")));
+
         return yield* pipe(
           names.filter((name) => name.endsWith(options.extension)).toSorted(),
           Effect.forEach((name) =>
@@ -292,11 +302,13 @@ export const filter =
     collected(self, (items) => {
       const ids = options.ids === undefined ? undefined : new Set(options.ids);
       const tags = new Set(options.tags);
+
       const kept = items.filter(
         (item) =>
           (ids === undefined || ids.has(idOf(item))) &&
           (tags.size === 0 || tagsOf(item).some((tag) => tags.has(tag))),
       );
+
       return Effect.succeed(kept.slice(0, options.limit));
     });
 
@@ -306,33 +318,43 @@ export const sample =
     collected(self, (items) => {
       const random = seededRandom(options.seed);
       const cases = items.filter((item) => Result.isSuccess(item.entry));
+
       const shuffled = cases
         .map((item) => [random(), item] as const)
         .toSorted(([left], [right]) => left - right)
         .map(([, item]) => item);
+
       const head = `${options.stratifyBy ?? ""}${TAG_SEPARATOR}`;
+
       const strata = Arr.groupBy(shuffled, (item) =>
         options.stratifyBy === undefined
           ? ""
           : (tagsOf(item).find((tag) => tag.startsWith(head)) ?? ""),
       );
+
       const size = Math.min(options.size, cases.length);
+
       const quotas = Object.entries(strata).map(([stratum, members]) => {
         const share = (members.length / cases.length) * size;
+
         return { members, share, stratum, taken: Math.floor(share) };
       });
+
       const missing = size - quotas.reduce((total, quota) => total + quota.taken, 0);
+
       const bonus = new Set(
         quotas
           .toSorted((left, right) => right.share - right.taken - (left.share - left.taken))
           .slice(0, missing)
           .map((quota) => quota.stratum),
       );
+
       const chosen = new Set(
         quotas.flatMap((quota) =>
           quota.members.slice(0, quota.taken + (bonus.has(quota.stratum) ? 1 : 0)).map(idOf),
         ),
       );
+
       return Effect.succeed(
         items.filter((item) => Result.isFailure(item.entry) || chosen.has(idOf(item))),
       );
@@ -344,11 +366,13 @@ export const guard =
     collected(self, (items) =>
       Effect.gen(function* guardPrivacy() {
         const denylist = yield* resolveDenylist(privacy);
+
         const findings = items.flatMap((item) =>
           Option.match(caseOf(item), {
             onNone: () => [],
             onSome: (entry) => {
               const options = { denylist, rules: privacy.rules };
+
               const found: readonly Finding[] = [
                 ...(isJson(entry.input)
                   ? scan(entry.id, entry.input, options)
@@ -358,6 +382,7 @@ export const guard =
                   onSome: (raw) => scan(entry.id, raw, options),
                 }),
               ];
+
               return Arr.dedupeWith(
                 found,
                 (left, right) => left.path === right.path && left.rule === right.rule,
@@ -365,9 +390,11 @@ export const guard =
             },
           }),
         );
+
         if (findings.length > 0) {
           return yield* new EvalPrivacyError({ findings });
         }
+
         return items;
       }),
     );
@@ -376,12 +403,14 @@ export const load = Effect.fn("Dataset.load")(function* load<A, E, R>(self: Data
   const items = yield* Stream.runCollect(self.items);
   const ids = items.map(idOf);
   const duplicate = ids.find((id, index) => ids.indexOf(id) !== index);
+
   if (duplicate !== undefined) {
     return yield* new EvalDatasetError({
       message: `Two cases have the id ${duplicate}.`,
       path: "",
     });
   }
+
   return {
     cases: items.flatMap((item) => Option.toArray(caseOf(item))),
     skipped: items.flatMap((item) => Option.toArray(Result.getFailure(item.entry))),

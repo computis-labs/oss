@@ -10,14 +10,17 @@ export const SPACE = 0x20;
 const normalize = (ranges: readonly Range[]): CharSet => {
   const sorted = ranges.toSorted(([left], [right]) => left - right);
   const merged: [number, number][] = [];
+
   for (const [start, end] of sorted) {
     const last = merged.at(-1);
+
     if (last !== undefined && start <= last[1] + 1) {
       last[1] = Math.max(last[1], end);
     } else {
       merged.push([start, end]);
     }
   }
+
   return merged;
 };
 
@@ -51,6 +54,7 @@ export const intersect = (left: CharSet, right: CharSet): CharSet =>
     right.flatMap(([rightStart, rightEnd]): Range[] => {
       const start = Math.max(leftStart, rightStart);
       const end = Math.min(leftEnd, rightEnd);
+
       return start <= end ? [[start, end]] : [];
     }),
   );
@@ -60,10 +64,13 @@ export const subtract = (set: CharSet, removed: CharSet): CharSet =>
     const overlapping = removed.filter(
       ([removedStart, removedEnd]) => removedEnd >= start && removedStart <= end,
     );
+
     const gapStarts = [start, ...overlapping.map(([, removedEnd]) => removedEnd + 1)];
     const gapEnds = [...overlapping.map(([removedStart]) => removedStart - 1), end];
+
     return gapStarts.flatMap((gapStart, index): Range[] => {
       const gapEnd = gapEnds[index] ?? end;
+
       return gapStart <= gapEnd ? [[gapStart, gapEnd]] : [];
     });
   });

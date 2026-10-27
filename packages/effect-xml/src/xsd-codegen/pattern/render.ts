@@ -23,35 +23,46 @@ const NAMED_CONTROLS: ReadonlyMap<number, string> = new Map([
 
 const escapeCodePoint = (codePoint: number, special: string) => {
   const named = NAMED_CONTROLS.get(codePoint);
+
   if (named !== undefined) {
     return named;
   }
+
   if (codePoint >= 0x20 && codePoint <= 0x7e) {
     const char = String.fromCodePoint(codePoint);
+
     return special.includes(char) ? `\\${char}` : char;
   }
+
   return codePoint <= 0xff_ff ? `\\u${hex(codePoint, 4)}` : `\\u{${hex(codePoint, 1)}}`;
 };
 
 const renderSet = (value: CharSet.CharSet) => {
   const [first] = value;
+
   if (value.length === 1 && first !== undefined && first[0] === first[1]) {
     return escapeCodePoint(first[0], "^$\\.*+?()[]{}|/");
   }
+
   const tokens = value.flatMap(([start, end]) => {
     if (start === end) {
       return [[start]];
     }
+
     return end === start + 1 ? [[start], [end]] : [[start, end]];
   });
+
   const last = tokens.length - 1;
+
   const body = tokens.map(([start = 0, end], index) => {
     const edgeSingle = end === undefined && (index === 0 || index === last);
     const startSpecial = `\\]${index === 0 ? "^" : ""}${edgeSingle ? "" : "-"}`;
+
     return end === undefined
       ? escapeCodePoint(start, startSpecial)
       : `${escapeCodePoint(start, startSpecial)}-${escapeCodePoint(end, "\\]-")}`;
   });
+
   return `[${body.join("")}]`;
 };
 
@@ -74,6 +85,7 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
       source: node.items.map((item) => groupChoice(renderNode(item, rendering))).join(""),
     };
   }
+
   if (node.kind === "choice") {
     return {
       atomic: false,
@@ -81,8 +93,10 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
       source: node.branches.map((branch) => renderNode(branch, rendering).source).join("|"),
     };
   }
+
   if (node.kind === "repeat") {
     const inner = renderNode(node.node, rendering);
+
     const quantifier = Match.value({ max: node.max, min: node.min }).pipe(
       Match.when(
         ({ max, min }) => min === max,
@@ -98,30 +112,39 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
       ),
       Match.orElse(({ max, min }) => `{${String(min)},${max === undefined ? "" : String(max)}}`),
     );
+
     return {
       atomic: false,
       choice: false,
       source: `${inner.atomic ? inner.source : `(?:${inner.source})`}${quantifier}`,
     };
   }
+
   const hasSpace = CharSet.has(node.set, CharSet.SPACE);
   const withoutControls = CharSet.subtract(node.set, WHITESPACE_CONTROLS);
+
   if (rendering === "preserve") {
     return { atomic: true, choice: false, source: renderSet(node.set) };
   }
+
   if (rendering === "replace") {
     const replaced = hasSpace
       ? CharSet.union(withoutControls, WHITESPACE_CONTROLS)
       : withoutControls;
+
     return { atomic: true, choice: false, source: renderSet(replaced) };
   }
+
   if (rendering === "canonical") {
     return { atomic: true, choice: false, source: renderSet(withoutControls) };
   }
+
   const visible = CharSet.subtract(node.set, CharSet.WHITESPACE);
+
   if (!hasSpace) {
     return { atomic: true, choice: false, source: renderSet(visible) };
   }
+
   return CharSet.isEmpty(visible)
     ? { atomic: false, choice: false, source: INNER_WHITESPACE }
     : { atomic: false, choice: true, source: `${renderSet(visible)}|${INNER_WHITESPACE}` };
@@ -129,6 +152,7 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
 
 export const render = (node: RegexNode, rendering: Rendering) => {
   const body = groupChoice(renderNode(node, rendering));
+
   return rendering === "collapse"
     ? `^${WHITESPACE_CLASS}*${body}${WHITESPACE_CLASS}*$`
     : `^${body}$`;

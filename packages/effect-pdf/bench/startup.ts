@@ -42,6 +42,7 @@ const compare = Effect.gen(function* comparePoolSizes() {
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const script = import.meta.filename;
+
   const rows = yield* Effect.all(
     ([1, 2, 4] as const).map((size) =>
       Effect.gen(function* measureSize() {
@@ -51,14 +52,17 @@ const compare = Effect.gen(function* comparePoolSizes() {
               const output = yield* spawner.string(
                 ChildProcess.make(process.execPath, [script, MEASURE_FLAG, size.toString()]),
               );
+
               return yield* decodeMeasurement(output.trim());
             }),
           ),
         );
+
         return `| ${size.toString()} | ${formatNumber(median(runs.map(({ readyMs }) => readyMs)), 0)} | ${formatNumber(median(runs.map(({ rssMb }) => rssMb)), 0)} |`;
       }),
     ),
   );
+
   const report = [
     "# Benchmark effect-pdf: avvio e memoria del pool",
     "",
@@ -71,6 +75,7 @@ const compare = Effect.gen(function* comparePoolSizes() {
     ...rows,
     "",
   ].join("\n");
+
   const results = yield* path.fromFileUrl(new URL("results/", import.meta.url));
   yield* fs.makeDirectory(results, { recursive: true });
   yield* fs.writeFileString(path.join(results, "startup.md"), report);
@@ -82,6 +87,7 @@ NodeRuntime.runMain(
     if (process.argv.includes(MEASURE_FLAG)) {
       return yield* measureOnce;
     }
+
     return yield* compare;
   }).pipe(Effect.provide(NodeServices.layer)),
 );

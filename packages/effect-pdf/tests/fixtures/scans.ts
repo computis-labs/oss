@@ -14,6 +14,7 @@ const readFixture = (name: string) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const bytes = yield* fs.readFile(yield* path.fromFileUrl(new URL(name, import.meta.url)));
+
     return new Uint8Array(bytes);
   });
 

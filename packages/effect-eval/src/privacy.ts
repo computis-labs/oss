@@ -34,14 +34,17 @@ const textsOf = (value: Schema.Json, path: string): readonly (readonly [string, 
   if (isText(value)) {
     return [[path, value]];
   }
+
   if (isList(value)) {
     return value.flatMap((item, index) => textsOf(item, `${path}[${String(index)}]`));
   }
+
   if (isRecord(value)) {
     return Object.entries(value).flatMap(([key, item]) =>
       textsOf(item, path === "" ? key : `${path}.${key}`),
     );
   }
+
   return [];
 };
 

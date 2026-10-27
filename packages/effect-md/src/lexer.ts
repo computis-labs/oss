@@ -25,6 +25,7 @@ const lexemeKinds = Object.values(LexemeKinds);
 
 export const skipWhitespace = (source: string, from: number) => {
   whitespacePattern.lastIndex = from;
+
   return from + (whitespacePattern.exec(source)?.[0].length ?? 0);
 };
 
@@ -42,6 +43,7 @@ export const lex = (
   base: number,
 ): Result.Result<readonly Lexeme[], PromptSyntaxError> => {
   const lexemes: Lexeme[] = [];
+
   for (
     let cursor = skipWhitespace(source, start);
     cursor < end;
@@ -50,9 +52,11 @@ export const lex = (
     lexemePattern.lastIndex = cursor;
     const groups = lexemePattern.exec(source)?.groups;
     const kind = lexemeKinds.find((candidate) => groups?.[candidate] !== undefined);
+
     if (kind === undefined || lexemePattern.lastIndex > end) {
       const char = source[cursor] ?? "";
       const unterminated = char === '"' || char === "'";
+
       return Result.fail(
         syntaxError(
           file,
@@ -62,6 +66,7 @@ export const lex = (
         ),
       );
     }
+
     lexemes.push({
       end: base + lexemePattern.lastIndex,
       kind,
@@ -70,5 +75,6 @@ export const lex = (
     });
     cursor = lexemePattern.lastIndex;
   }
+
   return Result.succeed(lexemes);
 };

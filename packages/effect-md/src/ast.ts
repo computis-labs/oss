@@ -8,6 +8,7 @@ export const Roles = {
   system: "system",
   user: "user",
 } as const;
+
 export type Role = (typeof Roles)[keyof typeof Roles];
 
 export const DataVariables = {
@@ -15,6 +16,7 @@ export const DataVariables = {
   index: "index",
   last: "last",
 } as const;
+
 export type DataVariable = (typeof DataVariables)[keyof typeof DataVariables];
 
 export type LiteralValue = string | number | boolean | null;
@@ -43,6 +45,7 @@ export const ComparisonOperators = {
   equals: "==",
   notEquals: "!=",
 } as const;
+
 export type ComparisonOperator = (typeof ComparisonOperators)[keyof typeof ComparisonOperators];
 
 export type Condition =
@@ -112,6 +115,7 @@ export const PrimitiveTypes = {
   Number: "Number",
   String: "String",
 } as const;
+
 export type PrimitiveType = (typeof PrimitiveTypes)[keyof typeof PrimitiveTypes];
 
 export type LiteralType = string | number | boolean;

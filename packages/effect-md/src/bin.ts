@@ -22,6 +22,7 @@ const runOnBun = Effect.gen(function* runOnBunProgram() {
         import("@effect/platform-bun/BunServices"),
       ]),
   );
+
   yield* Effect.sync(() => {
     runtime.runMain(main.pipe(Effect.provide(services.layer)), { disableErrorReporting: true });
   });
@@ -36,6 +37,7 @@ const runOnNode = Effect.gen(function* runOnNodeProgram() {
         import("@effect/platform-node/NodeServices"),
       ]),
   );
+
   yield* Effect.sync(() => {
     runtime.runMain(main.pipe(Effect.provide(services.layer)), { disableErrorReporting: true });
   });

@@ -29,11 +29,13 @@ export const open = Effect.fn("Bus.open")(function* openBus(
   const events: EvalEvent[] = [];
   const sequence = yield* Ref.make(0);
   const ordering = yield* Semaphore.make(1);
+
   const fibers = yield* pipe(
     reporters,
     Effect.forEach((reporter) => {
       const shown = sensitive && !reporter.acceptsSensitive ? redactEvent : identity<EvalEvent>;
       const exposed = MutableRef.make(false);
+
       return subscribe(pubsub, reporter.delivery).pipe(
         Effect.flatMap((stream) =>
           Effect.scoped(
@@ -48,6 +50,7 @@ export const open = Effect.fn("Bus.open")(function* openBus(
       );
     }),
   );
+
   const emit = (body: EventBody) =>
     Effect.gen(function* emitEvent() {
       const index = yield* Ref.getAndUpdate(sequence, (value) => value + 1);
@@ -56,6 +59,7 @@ export const open = Effect.fn("Bus.open")(function* openBus(
       events.push(event);
       yield* PubSub.publish(pubsub, event);
     }).pipe(Semaphore.withPermits(ordering, 1));
+
   const failed = Effect.yieldNow.pipe(
     Effect.andThen(
       pipe(
@@ -76,6 +80,7 @@ export const open = Effect.fn("Bus.open")(function* openBus(
     ),
     Effect.map((names) => names.flat()),
   );
+
   const close = Effect.gen(function* closeBus() {
     const exits = yield* pipe(
       fibers,
@@ -89,6 +94,7 @@ export const open = Effect.fn("Bus.open")(function* openBus(
         ),
       ),
     );
+
     const broken = exits.filter(({ exit }) => Exit.isFailure(exit));
     yield* Effect.forEach(
       broken,
@@ -99,13 +105,16 @@ export const open = Effect.fn("Bus.open")(function* openBus(
       { discard: true },
     );
     const requiredFailure = broken.find(({ reporter }) => reporter.required);
+
     if (requiredFailure !== undefined) {
       return yield* new EvalReporterFailed({
         cause: requiredFailure.quiet ? UNLOGGED : requiredFailure.exit,
         reporter: requiredFailure.reporter.name,
       });
     }
+
     return broken.map(({ reporter }) => reporter.name);
   });
+
   return { close, emit, events, failed };
 });

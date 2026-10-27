@@ -25,6 +25,7 @@ export class PdfOpenError extends Schema.TaggedError<PdfOpenError>()("PdfOpenErr
 
   static fromPdfiumError(lastError: number) {
     const reason = pdfiumLastErrors.get(lastError) ?? pdfOpenFailures.unknown;
+
     return new PdfOpenError({
       message: (
         {

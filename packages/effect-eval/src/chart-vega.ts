@@ -29,22 +29,29 @@ const optionalEnv = (name: string) =>
 
 export const detectProtocol = Effect.gen(function* detect() {
   const forced = yield* optionalEnv("EVAL_IMAGE_PROTOCOL");
+
   if (Option.isSome(forced)) {
     const wanted = Object.values(protocols).find((protocol) => protocol === forced.value);
+
     return wanted ?? protocols.none;
   }
+
   if (Option.isSome(yield* optionalEnv("CI"))) {
     return protocols.none;
   }
+
   const stdio = yield* Effect.serviceOption(Stdio.Stdio);
   const interactive = Option.isSome(stdio) && (yield* stdio.value.stdoutIsTerminal);
+
   if (!interactive) {
     return protocols.none;
   }
+
   const term = Option.getOrElse(yield* optionalEnv("TERM"), () => "");
   const program = Option.getOrElse(yield* optionalEnv("TERM_PROGRAM"), () => "");
   const lcTerminal = Option.getOrElse(yield* optionalEnv("LC_TERMINAL"), () => "");
   const kittyWindow = yield* optionalEnv("KITTY_WINDOW_ID");
+
   if (
     Option.isSome(kittyWindow) ||
     term === "xterm-kitty" ||
@@ -55,9 +62,11 @@ export const detectProtocol = Effect.gen(function* detect() {
   ) {
     return protocols.kitty;
   }
+
   if (program === "iTerm.app" || lcTerminal === "iTerm2") {
     return protocols.iterm;
   }
+
   return protocols.terminalImage;
 });
 
@@ -68,12 +77,14 @@ export const toSvg = (spec: VegaLiteSpec) =>
     const view = new View(parse(compiled), { renderer: "none" });
     const svg = await view.toSVG();
     view.finalize();
+
     return svg;
   });
 
 export const specOf = (charts: readonly Chart[], theme: Theme): VegaLiteSpec => {
   const specs = charts.map((chart) => Charts.toVegaLite(chart, theme));
   const [first] = specs;
+
   return specs.length === 1 && first !== undefined ? first : Charts.hconcat(specs, theme);
 };
 
@@ -102,10 +113,13 @@ export const terminal =
   (charts, render) =>
     Effect.gen(function* drawInline() {
       const protocol = options.protocol ?? (yield* detectProtocol);
+
       if (protocol === protocols.none) {
         return Option.none<Drawing>();
       }
+
       const columns = Math.min(render.width, MAX_COLUMNS);
+
       const png = yield* pipe(
         toSvg(specOf(charts, render.theme)),
         Effect.flatMap((drawn) =>
@@ -123,27 +137,33 @@ export const terminal =
           ),
         ),
       );
+
       if (protocol === protocols.kitty) {
         const data = base64(png);
+
         const chunks = Array.from({ length: Math.ceil(data.length / KITTY_CHUNK) }, (_, index) =>
           data.slice(index * KITTY_CHUNK, (index + 1) * KITTY_CHUNK),
         );
+
         return Option.some(
           drawing(
             drawingKinds.terminal,
             chunks
               .map((chunk, index) => {
                 const more = index < chunks.length - 1 ? 1 : 0;
+
                 const control =
                   index === 0
                     ? `f=100,a=T,c=${String(columns)},m=${String(more)}`
                     : `m=${String(more)}`;
+
                 return `${ESCAPE}_G${control};${chunk}${ESCAPE}\\`;
               })
               .join(""),
           ),
         );
       }
+
       if (protocol === protocols.iterm) {
         return Option.some(
           drawing(
@@ -152,6 +172,7 @@ export const terminal =
           ),
         );
       }
+
       return Option.some(
         drawing(
           drawingKinds.terminal,

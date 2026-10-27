@@ -17,8 +17,10 @@ type Event =
 const recordingHandler = (events: Event[], stopAfter = Number.POSITIVE_INFINITY) => {
   const push = (event: Event) => {
     events.push(event);
+
     return events.length < stopAfter;
   };
+
   const handler: TokenHandler = {
     attribute: (qname, value, offset) => push(["attribute", qname, value, offset]),
     close: () => push(["close"]),
@@ -26,11 +28,13 @@ const recordingHandler = (events: Event[], stopAfter = Number.POSITIVE_INFINITY)
     openStart: (qname, offset) => push(["openStart", qname, offset]),
     text: (value, offset) => push(["text", value, offset]),
   };
+
   return handler;
 };
 
 const record = (xml: string, options?: Partial<TokenizeOptions>) => {
   const events: Event[] = [];
+
   return Effect.fromResult(tokenize(xml, recordingHandler(events), options)).pipe(
     Effect.map(() => events),
   );
@@ -43,6 +47,7 @@ const texts = (xml: string, options?: Partial<TokenizeOptions>) =>
 
 const keptTexts = (xml: string) => {
   const events: Event[] = [];
+
   return Effect.fromResult(
     tokenize(xml, { ...recordingHandler(events), keepWhitespace: () => true }),
   ).pipe(Effect.map(() => events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))));
@@ -734,6 +739,7 @@ describe("tokenize well-formedness", () => {
       const accepted = yield* Effect.fromResult(
         tokenize(`${"<a>".repeat(256)}${"</a>".repeat(256)}`, recordingHandler([])),
       );
+
       const error = yield* parseError(`${"<a>".repeat(257)}${"</a>".repeat(257)}`);
 
       expect(accepted).toBe(true);
@@ -836,7 +842,9 @@ const libxml2Tokens = (node: XmlTreeNode | null): Token[] => {
   if (node === null) {
     return [];
   }
+
   const rest = libxml2Tokens(node.next);
+
   if (node instanceof XmlElement) {
     const declared = [
       ...Object.entries(node.nsDeclarations).map(
@@ -846,12 +854,16 @@ const libxml2Tokens = (node: XmlTreeNode | null): Token[] => {
         (attribute) => `${qualified(attribute.prefix, attribute.name)}=${attribute.content}`,
       ),
     ].toSorted();
+
     const name = qualified(node.prefix, node.name);
+
     return [["open", name, declared], ...libxml2Tokens(node.firstChild), ["close", name], ...rest];
   }
+
   if ((node instanceof XmlText || node instanceof XmlCData) && node.content.trim() !== "") {
     return [["text", node.content], ...rest];
   }
+
   return rest;
 };
 
@@ -874,10 +886,13 @@ describe("tokenize on FatturaPA fixtures", () => {
             close: () => actual.push(["close", open.pop() ?? ""]) > 0,
             openEnd: () => {
               const last = actual.at(-1);
+
               if (last?.[0] === "open") {
                 actual[actual.length - 1] = ["open", last[1], pending.toSorted()];
               }
+
               pending.length = 0;
+
               return true;
             },
             openStart: (qname) => open.push(qname) > 0 && actual.push(["open", qname, []]) > 0,

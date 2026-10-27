@@ -20,11 +20,14 @@ const pdfiumOnlyFileSystem = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+
     const wasm = yield* path.fromFileUrl(
       new URL(import.meta.resolve("@embedpdf/pdfium/pdfium.wasm")),
     );
+
     const bytes = yield* fs.readFile(wasm);
     const noop = FileSystem.makeNoop({});
+
     return FileSystem.layerNoop({
       readFile: (file) => (file === wasm ? Effect.succeed(bytes) : noop.readFile(file)),
     });
@@ -32,11 +35,13 @@ const pdfiumOnlyFileSystem = Layer.unwrap(
 );
 
 const spawned: Worker[] = [];
+
 const recordedWorkers = PdfEngine.layer({ size: 2 }).pipe(
   Layer.provide(
     nodeWorkers(() => {
       const worker = new Worker(pdfWorkerEntry);
       spawned.push(worker);
+
       return worker;
     }),
   ),
@@ -63,6 +68,7 @@ layer(
           Result.succeed(pdfium.FPDF_GetPageCount(OUT_OF_BOUNDS_POINTER)),
         ),
       );
+
       const stale = yield* Effect.flip(runtime.run(crashed, () => Result.void));
 
       expect(crash).toBeInstanceOf(PdfEngineError);
@@ -202,10 +208,12 @@ describe("default pool size", () => {
   ] as const)("uses the CPUs reported by %s", ([, navigator, expected]) =>
     Effect.gen(function* () {
       vi.stubGlobal("navigator", navigator);
+
       const engine = PdfEngine.layer().pipe(
         Layer.provide(nodeWorkers()),
         Layer.provide(NodeServices.layer),
       );
+
       vi.unstubAllGlobals();
 
       const { size } = yield* Effect.provide(PdfEngine, engine);

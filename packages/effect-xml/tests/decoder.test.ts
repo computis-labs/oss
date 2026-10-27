@@ -27,6 +27,7 @@ const singleLineWithXsi = singleLine.replace(
 
 const fatturaNamed = (name: string) => {
   const fixture = fatturaFixtures.find((candidate) => candidate.name === name);
+
   return fixture?.fattura ?? expect.fail(`fixture ${name} is missing`);
 };
 
@@ -43,6 +44,7 @@ describe("decode union content", () => {
         const { decode } = yield* Effect.fromResult(
           codec(FatturaXml, { jit, decoder: { unknownElements } }),
         );
+
         // Fonte: Schema_VFPR12_v1.2.3.xsd, AnagraficaType (riga 680), xs:choice (righe 685-693): Denominazione è in alternativa a Nome e Cognome
         const xml = singleLine.replace(
           "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
@@ -69,9 +71,11 @@ describe("decode union content", () => {
             Schema.Struct({ Code: Schema.String }),
           ]),
         }).pipe(root("Order"));
+
         const { decode } = yield* codecFor(schema, { jit });
 
         const order = yield* decode("<Order><Item><Code>A1</Code></Item></Order>");
+
         const error = yield* Effect.flip(
           decode("<Order><Item><Note>x</Note><Code>A1</Code></Item></Order>"),
         );
@@ -97,6 +101,7 @@ describe("decode transformed content", () => {
         const schema = Schema.Struct({
           Payload: Schema.fromJsonString(Schema.Struct({ Name: Schema.String })),
         }).pipe(root("Order"));
+
         const { decode } = yield* codecFor(schema, { jit, decoder: { unknownElements } });
 
         const order = yield* decode('<Order><Payload>{"Name":"Ada","Extra":"x"}</Payload></Order>');
@@ -117,11 +122,13 @@ describe("decode transformed content", () => {
             })),
             encode: SchemaGetter.transform(({ Name }) => {
               const [FirstName = "", LastName = ""] = Name.split(" ");
+
               return { FirstName, LastName };
             }),
           }),
           root("Order"),
         );
+
         const { decode } = yield* codecFor(schema, { jit, decoder: { unknownElements } });
 
         const order = yield* decode(
@@ -144,6 +151,7 @@ describe("decode transformed content", () => {
             Schema.Struct({ Code: Schema.String }),
           ]),
         }).pipe(root("Order"));
+
         const { decode } = yield* codecFor(schema, { jit });
 
         const order = yield* decode(
@@ -184,6 +192,7 @@ describe("decode on FatturaPA", () => {
   it.effect("accepts any prefix bound to the FatturaPA namespace", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
+
       const xml = singleLine
         .replaceAll("p:FatturaElettronica", "ns2:FatturaElettronica")
         .replace("xmlns:p=", "xmlns:ns2=");
@@ -353,6 +362,7 @@ describe("decode on FatturaPA", () => {
   it.effect("skips unknown elements such as a signature when asked to", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+
       const xml = singleLine.replace(
         "</p:FatturaElettronica>",
         '<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:X>1</ds:X></ds:SignedInfo></ds:Signature></p:FatturaElettronica>',
@@ -498,6 +508,7 @@ describe("decode on FatturaPA", () => {
   it.effect("skips a child whose prefix is bound to another namespace when asked to", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+
       const foreign =
         '<x:DatiTrasmissione xmlns:x="urn:other"><x:Nota>1</x:Nota></x:DatiTrasmissione>';
 
@@ -629,6 +640,7 @@ describe("decode on FatturaPA documents from other senders", () => {
   it.effect("decodes a root bound to the default namespace", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
+
       const xml = singleLine
         .replaceAll("p:FatturaElettronica", "FatturaElettronica")
         .replace("xmlns:p=", "xmlns=");
@@ -655,6 +667,7 @@ describe("decode on FatturaPA documents from other senders", () => {
   it.effect("decodes a root with signature and schema declarations after a stylesheet", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
+
       const xml = singleLine
         .replace(
           "?><p:FatturaElettronica",
@@ -702,6 +715,7 @@ describe("decode on FatturaPA documents from other senders", () => {
 describe("decode with namespace prefixes", () => {
   const DSIG = "http://www.w3.org/2000/09/xmldsig#";
   const modes = ["error", "skip"] as const;
+
   const beforeRootEnd = (content: string) =>
     singleLine.replace("</p:FatturaElettronica>", `${content}</p:FatturaElettronica>`);
 
@@ -740,6 +754,7 @@ describe("decode with namespace prefixes", () => {
   it.effect("accepts a prefix declared on an ancestor of a skipped element", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+
       const xml = beforeRootEnd(
         '<ds:Signature><ds:SignedInfo ds:Id="s1"><ds:X>1</ds:X></ds:SignedInfo></ds:Signature>',
       ).replace("xmlns:p=", `xmlns:ds="${DSIG}" xmlns:p=`);
@@ -767,6 +782,7 @@ describe("decode with namespace prefixes", () => {
   it.effect.each(modes)("accepts xml:lang without a declaration in %s mode", (mode) =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: mode } });
+
       const xml = singleLine.replace(
         "<Comune>Roma</Comune>",
         '<Comune xml:lang="it">Roma</Comune>',
@@ -781,6 +797,7 @@ describe("decode with namespace prefixes", () => {
   it.effect("checks a prefixed attribute against a declaration later in the same tag", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
+
       const xml = singleLine.replace(
         "<Comune>Roma</Comune>",
         `<Comune ds:Id="c1" xmlns:ds="${DSIG}">Roma</Comune>`,
@@ -902,6 +919,7 @@ describe("decode on small schemas", () => {
         Codice: Schema.String,
         tipo: Schema.optionalKey(Schema.String),
       }).pipe(element({ attributes: ["tipo"] }));
+
       const Ordine = Schema.Struct({
         Testata: Schema.Struct({
           Numero: Schema.String,
@@ -909,6 +927,7 @@ describe("decode on small schemas", () => {
           data: Schema.String,
         }).pipe(element({ attributes: ["data"] })),
       }).pipe(root("Ordine"));
+
       const { decode } = yield* codecFor(Ordine);
 
       const ordine = yield* decode(
@@ -990,6 +1009,7 @@ describe("decode on small schemas", () => {
       const surrogate = yield* Effect.flip(
         decode("<Documento>\n<Titolo>a\uD83D</Titolo><Quantita>1</Quantita></Documento>"),
       );
+
       const control = yield* Effect.flip(
         decode("<Documento>\n<Titolo>a\u0001</Titolo><Quantita>1</Quantita></Documento>"),
       );
@@ -1022,6 +1042,7 @@ describe("decode on small schemas", () => {
 
 describe("decode with a default namespace", () => {
   const EXPECTED = "urn:expected";
+
   const Invoice = Schema.Struct({
     Header: Schema.Struct({ Number: Schema.String }),
     Note: Schema.optionalKey(Schema.String),

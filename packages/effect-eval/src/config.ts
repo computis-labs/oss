@@ -133,22 +133,28 @@ const ConfigModuleSchema = Schema.Struct({
 export const find = Effect.fn("EvalConfig.find")(function* findConfig(cwd: string) {
   const fs = yield* FileSystem.FileSystem;
   const paths = yield* Path.Path;
+
   const folders = (folder: string): readonly string[] => {
     const parent = paths.dirname(folder);
+
     return parent === folder ? [folder] : [folder, ...folders(parent)];
   };
+
   const candidates = folders(paths.resolve(cwd)).flatMap((folder) =>
     FILE_NAMES.map((name) => paths.join(folder, name)),
   );
+
   const found = yield* Effect.findFirst(candidates, (candidate) =>
     fs.exists(candidate).pipe(Effect.orElseSucceed(() => false)),
   );
+
   return found;
 });
 
 const importDefault = (file: string, schema: Schema.ConstraintDecoder<unknown>, message: string) =>
   Effect.gen(function* importFile() {
     const paths = yield* Path.Path;
+
     const url = yield* paths
       .toFileUrl(file)
       .pipe(
@@ -156,6 +162,7 @@ const importDefault = (file: string, schema: Schema.ConstraintDecoder<unknown>, 
           (cause) => new EvalConfigError({ cause, message: "The path is not a file.", path: file }),
         ),
       );
+
     const keeping = Schema.Unknown.check(
       Schema.makeFilter((input) =>
         Result.match(Schema.decodeUnknownResult(schema)(input), {
@@ -164,11 +171,13 @@ const importDefault = (file: string, schema: Schema.ConstraintDecoder<unknown>, 
         }),
       ),
     );
+
     const checked = yield* Effect.tryPromise({
       catch: (cause) =>
         new EvalConfigError({ cause, message: "The module cannot be imported.", path: file }),
       try: async () => Schema.decodeUnknownResult(keeping)(await import(url.href)),
     });
+
     return yield* Result.match(checked, {
       onFailure: (cause) => Effect.fail(new EvalConfigError({ cause, message, path: file })),
       onSuccess: (imported) =>
@@ -178,22 +187,27 @@ const importDefault = (file: string, schema: Schema.ConstraintDecoder<unknown>, 
 
 export const load = Effect.fn("EvalConfig.load")(function* loadConfig(cwd: string) {
   const file = yield* find(cwd);
+
   if (Option.isNone(file)) {
     return Option.none<EvalConfig>();
   }
+
   const exported = yield* importDefault(
     file.value,
     ConfigModuleSchema,
     "The default export is not an EvalConfig: export default EvalConfig.define({ … }).",
   );
+
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: the schema checked every key of the config without rebuilding it, so reporter values keep their hooks; the reporter, view and renderer functions are only known to be functions.
   const config = exported as EvalConfig;
   const paths = yield* Path.Path;
   const directory = paths.dirname(file.value);
+
   const anchored = (entry: ReporterEntry): ReporterEntry =>
     Predicate.isString(entry) && !Object.values(builtinNames).some((name) => name === entry)
       ? paths.resolve(directory, entry)
       : entry;
+
   return Option.some({
     ...config,
     ...whenDefined(config.reporters, (reporters) => ({ reporters: reporters.map(anchored) })),
@@ -220,9 +234,11 @@ export const builtin = (
   const drawing = drawingOf(config);
   const file = whenDefined(options.file, (path) => ({ file: path }));
   const compareFile = whenDefined(options.compareFile, (path) => ({ compareFile: path }));
+
   if (name === builtinNames.terminal) {
     return Option.some(Reporters.terminal(drawing));
   }
+
   if (name === builtinNames.html) {
     return Option.some(
       Reporters.html({
@@ -233,18 +249,23 @@ export const builtin = (
       }),
     );
   }
+
   if (name === builtinNames.markdown) {
     return Option.some(Reporters.markdown({ ...drawing, ...file, ...compareFile }));
   }
+
   if (name === builtinNames.json) {
     return Option.some(Reporters.json(file));
   }
+
   if (name === builtinNames.silent) {
     return Option.some(Reporter.silent);
   }
+
   if (name === builtinNames.history) {
     return Option.some(History.reporter);
   }
+
   return Option.none();
 };
 
@@ -254,23 +275,30 @@ export const resolveReporter = Effect.fn("EvalConfig.resolveReporter")(function*
 ) {
   if (Predicate.isString(entry)) {
     const known = builtin(entry, options.config);
+
     if (Option.isSome(known)) {
       return known.value;
     }
+
     const paths = yield* Path.Path;
     const file = paths.resolve(options.cwd, entry);
+
     const exported = yield* importDefault(
       file,
       ReporterModuleSchema,
       `${entry} is not a built-in reporter (${Object.values(builtinNames).join(", ")}) and its module does not export a Reporter by default.`,
     );
+
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: the schema checked every field of the Reporter without rebuilding it, so its hooks stay; consume and compare are only known to be functions.
     const reporter = exported as ConfiguredReporter;
+
     return reporter;
   }
+
   if (Predicate.hasProperty(entry, "consume")) {
     return entry;
   }
+
   if (isProcessEntry(entry)) {
     return yield* Schema.decodeUnknownEffect(ProcessOptionsSchema)(entry[1]).pipe(
       Effect.mapError(
@@ -284,7 +312,9 @@ export const resolveReporter = Effect.fn("EvalConfig.resolveReporter")(function*
       Effect.map((given) => Reporter.process(given.name ?? PROCESS, given.command, given.args)),
     );
   }
+
   const [name, given] = entry;
+
   return yield* Option.match(
     takingOptions.includes(name) ? builtin(name, options.config, given) : Option.none(),
     {

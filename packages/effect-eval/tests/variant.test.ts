@@ -9,6 +9,7 @@ const models = [
   Variant.make("haiku", Layer.succeed(Model, "haiku")),
   Variant.make("sonnet", Layer.succeed(Model, "sonnet")),
 ];
+
 const prompts = [
   Variant.make("v1", Layer.succeed(Prompt, "v1")),
   Variant.make("v2", Layer.succeed(Prompt, "v2")),
@@ -73,6 +74,7 @@ describe("Variant.matrix with services that have no default", () => {
         model: [Variant.make("m", Layer.succeed(ModelName, { model: "m" }))],
         prompt: [Variant.make("p", Layer.succeed(PromptText, { prompt: "p" }))],
       });
+
       const both = Effect.all([Effect.service(ModelName), Effect.service(PromptText)]).pipe(
         Effect.map(([settings, text]) => [settings.model, text.prompt]),
       );
@@ -103,6 +105,7 @@ describe("Variant.matrix with services that have no default", () => {
           const unsound: Effect.Effect<unknown> = Effect.service(ModelName).pipe(
             Effect.provide(variant.layer),
           );
+
           return Effect.service(Settings).pipe(
             Effect.map((settings) => [unsound === undefined, settings.temperature]),
             Effect.provide(variant.layer),

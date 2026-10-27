@@ -50,6 +50,7 @@ describe("ViewMarkdown.render", () => {
   it.effect("writes a figure as a table without a renderer and as a mermaid chart with one", () =>
     Effect.gen(function* () {
       const fallback = yield* ViewMarkdown.render([View.figure(chart)]);
+
       const drawn = yield* ViewMarkdown.render([View.figure(chart)], {
         renderer: ChartMermaid.renderer(),
       });
@@ -73,14 +74,17 @@ describe("ViewMarkdown.render", () => {
         ChartMermaid.renderer(),
         ChartUnicode.renderer(),
       );
+
       const view = [View.figure(chart)];
 
       const markdown = yield* ViewMarkdown.render(view, { renderer: shared });
       const html = yield* ViewHtml.render(view, { renderer: shared, title: "run" });
       const text = yield* ViewText.render(view, { color: false, renderer: shared, width: 80 });
+
       const unicodeInMarkdown = yield* ViewMarkdown.render(view, {
         renderer: ChartUnicode.renderer(),
       });
+
       const colouredInHtml = yield* ViewHtml.render(view, {
         renderer: ChartUnicode.renderer({ color: true }),
         title: "run",
@@ -111,6 +115,7 @@ describe("ViewMarkdown.render", () => {
         [View.figure(forged), View.Section({ children: [], title: "After" })],
         { renderer: ChartUnicode.renderer() },
       );
+
       const lines = markdown.split("\n");
       const opening = lines.findIndex((line) => line.startsWith("```"));
       const fence = lines[opening] ?? "";
@@ -146,6 +151,7 @@ describe("ViewMarkdown.render", () => {
         [View.figure(forged), View.Section({ children: [], title: "After" })],
         { renderer: ChartMermaid.renderer() },
       );
+
       const lines = markdown.split("\n");
       const opening = lines.findIndex((line) => line.startsWith("```"));
       const fence = (lines[opening] ?? "").replace("mermaid", "");

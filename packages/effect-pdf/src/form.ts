@@ -19,10 +19,12 @@ export const textualTypes: ReadonlySet<PdfFieldType> = new Set([
   pdfFieldTypes.listbox,
   pdfFieldTypes.text,
 ]);
+
 export const choiceTypes: ReadonlySet<PdfFieldType> = new Set([
   pdfFieldTypes.combobox,
   pdfFieldTypes.listbox,
 ]);
+
 const toggleTypes: ReadonlySet<PdfFieldType> = new Set([
   pdfFieldTypes.checkbox,
   pdfFieldTypes.radio,
@@ -53,6 +55,7 @@ export const readWidgets = (
   form: number,
 ): Result.Result<readonly Widget[], PdfFormError | PdfPageError> => {
   const { lib } = handle;
+
   const pages = Arr.makeBy(handle.pageCount, (page) =>
     withFormPage(handle, form, page, (pagePointer) =>
       Result.succeed(
@@ -65,18 +68,23 @@ export const readWidgets = (
               if (lib.FPDFAnnot_GetSubtype(annotation) !== WIDGET_SUBTYPE) {
                 return undefined;
               }
+
               const name = readUtf16(lib, (buffer, size) =>
                 lib.FPDFAnnot_GetFormFieldName(form, annotation, buffer, size),
               );
+
               if (name === null) {
                 return Result.fail(
                   new PdfFormError({ message: "PDFium could not read the name of a field." }),
                 );
               }
+
               const corners = readFloats(lib, 4, (rect) => lib.FPDFAnnot_GetRect(annotation, rect));
+
               if (corners === null) {
                 return unreadable(name, "position");
               }
+
               const type = signatureFields.has(
                 lib.EPDFAnnot_GetFormFieldObjectNumber(form, annotation),
               )
@@ -93,14 +101,17 @@ export const readWidgets = (
                       pdfFieldTypes.signature,
                     ] satisfies readonly PdfFieldType[]
                   )[lib.FPDFAnnot_GetFormFieldType(form, annotation)] ?? pdfFieldTypes.unknown);
+
               const exportValue = toggleTypes.has(type)
                 ? readUtf16(lib, (buffer, size) =>
                     lib.FPDFAnnot_GetFormFieldExportValue(form, annotation, buffer, size),
                   )
                 : "";
+
               if (exportValue === null) {
                 return unreadable(name, "export value");
               }
+
               const options = choiceTypes.has(type)
                 ? Arr.makeBy(lib.FPDFAnnot_GetOptionCount(form, annotation), (option) =>
                     readUtf16(lib, (buffer, size) =>
@@ -108,15 +119,21 @@ export const readWidgets = (
                     ),
                   )
                 : [];
+
               const labels = options.flatMap((label) => (label === null ? [] : [label]));
+
               if (labels.length !== options.length) {
                 return unreadable(name, "options");
               }
+
               const text = textualTypes.has(type) ? readFieldValue(lib, form, annotation) : "";
+
               if (text === null) {
                 return unreadable(name, "value");
               }
+
               const checked = lib.FPDFAnnot_IsChecked(form, annotation);
+
               return Result.succeed({
                 annotationIndex,
                 exportValue,
@@ -146,6 +163,7 @@ export const readWidgets = (
       ),
     ),
   );
+
   return Result.all(pages).pipe(Result.flatMap((onPages) => Result.all(onPages.flat())));
 };
 
@@ -155,6 +173,7 @@ export const readFields = (handle: PdfHandle, signatureFields: ReadonlySet<numbe
       Arr.dedupe(widgets.map(({ name }) => name)).flatMap((name): PdfField[] => {
         const group = widgets.filter((widget) => widget.name === name);
         const [first] = group;
+
         return first === undefined
           ? []
           : [

@@ -23,6 +23,7 @@ export const make = (
   } = {},
 ) => {
   const inputs = new Map(Object.entries(options.inputs ?? {}));
+
   const recording = {
     failures: Array.of<string>(),
     groups: Array.of<string>(),
@@ -33,20 +34,25 @@ export const make = (
     state: new Map(Object.entries(options.state ?? {})),
     variables: new Map<string, string>(),
   };
+
   const readInput = Effect.fn("ActionRunnerTest.readInput")(function* readInput(
     name: string,
     inputOptions: InputOptions = {},
   ) {
     const value = inputs.get(name) ?? "";
+
     if (inputOptions.required === true && value === "") {
       return yield* new ActionInputError({ name, reason: ActionInputErrorReason.Missing });
     }
+
     return inputOptions.trimWhitespace === false ? value : value.trim();
   });
+
   const log = (level: LogEntry["level"]) => (message: string | Error) =>
     Effect.sync(() => {
       recording.logs.push({ level, message: messageText(message) });
     });
+
   const layer = Layer.succeed(ActionRunner, {
     addPath: (path) =>
       Effect.sync(() => {
@@ -72,12 +78,15 @@ export const make = (
             new ActionInputError({ cause, name, reason: ActionInputErrorReason.InvalidType }),
         ),
       );
+
       if (trueInputs.has(value)) {
         return true;
       }
+
       if (falseInputs.has(value)) {
         return false;
       }
+
       return yield* new ActionInputError({
         name,
         reason: ActionInputErrorReason.InvalidType,
@@ -91,6 +100,7 @@ export const make = (
       inputOptions?: InputOptions,
     ) {
       const value = yield* readInput(name, { ...inputOptions, trimWhitespace: false });
+
       return value
         .split("\n")
         .filter((line) => line !== "")
@@ -132,6 +142,7 @@ export const make = (
       }),
     warning: log("warning"),
   });
+
   return { layer, recording };
 };
 

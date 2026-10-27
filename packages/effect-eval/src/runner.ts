@@ -78,11 +78,13 @@ const exhausted = { reason: BUDGET } as const;
 
 export const validVariants = (names: readonly string[]) => {
   const repeated = [...new Set(names.filter((name, index) => names.indexOf(name) !== index))];
+
   if (names.length === 0) {
     return Effect.fail(
       new EvalConfigError({ message: "Choose at least one variant.", path: "variants" }),
     );
   }
+
   return repeated.length === 0
     ? Effect.void
     : Effect.fail(
@@ -92,6 +94,7 @@ export const validVariants = (names: readonly string[]) => {
         }),
       );
 };
+
 const NO_CODEC = "missing: the eval declares no output schema, so no output was stored";
 const LINE_BREAK = "\n";
 
@@ -104,6 +107,7 @@ const failureOf = (cause: Cause.Cause<unknown>) =>
     Option.map(failureMessage(Cause.squash(cause)), (failure) => failure.message),
     () => {
       const pretty = Cause.pretty(cause).split(LINE_BREAK)[0] ?? "";
+
       return pretty.startsWith("Error: ") ? pretty.slice("Error: ".length) : pretty;
     },
   );
@@ -175,6 +179,7 @@ export const plan = Effect.fn("Eval.plan")(function* planRun<A, O, E, DE, R, DR,
   const loaded = yield* select(self, options);
   const batches = batchesOf(self.execution, loaded.cases).length;
   const variants = options.variants ?? 1;
+
   const result: PlanResult = {
     batches,
     cases: loaded.cases.length,
@@ -183,6 +188,7 @@ export const plan = Effect.fn("Eval.plan")(function* planRun<A, O, E, DE, R, DR,
     trials,
     variants,
   };
+
   return result;
 });
 
@@ -234,15 +240,20 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
   const git = yield* (yield* Git).current;
   const millis = yield* liveMillis;
   const random = yield* Random.nextIntBetween(0, RUN_ID_RANDOM);
+
   const runId = `${millis.toString(36).padStart(RUN_ID_TIME_WIDTH, "0")}${random
     .toString(36)
     .padStart(RUN_ID_RANDOM_WIDTH, "0")}`;
+
   const hashes = yield* hashCases(self, loaded);
+
   const datasetHash = yield* sha256(
     [...hashes].map(([id, hash]) => `${id}:${hash}`).join(LINE_BREAK),
   );
+
   const history = yield* Effect.serviceOption(History.History);
   const variantNames = settings.variants.map((variant) => variant.name);
+
   const resolved = yield* pipe(
     Arr.dedupeWith(
       [
@@ -271,19 +282,23 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
       ).pipe(Effect.map((found): ResolvedBaseline => [selector, found])),
     ),
   );
+
   const baselines: Gate.Baselines = (selector) =>
     Option.flatMap(
       Option.fromNullishOr(resolved.find(([candidate]) => Equal.equals(candidate, selector))),
       ([, found]) => found,
     );
+
   return yield* Effect.scoped(
     Effect.gen(function* runScoped() {
       const bus = yield* Bus.open(runId, reporters, self.sensitive);
       const start = yield* liveMillis;
       const ended = yield* Ref.make(false);
+
       const unreported = yield* Ref.make<
         ReadonlyMap<string, { readonly variant: string; readonly usage: Usage }>
       >(new Map());
+
       const pend = (unit: string, variant: string) => (usage: Usage) =>
         Ref.update(unreported, (current) => {
           const next = new Map(current);
@@ -291,16 +306,21 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
             usage: Usages.add(current.get(unit)?.usage ?? Usages.empty, usage),
             variant,
           });
+
           return next;
         });
+
       const settle = (units: readonly string[]) =>
         Ref.update(unreported, (current) => {
           const next = new Map(current);
+
           for (const unit of units) {
             next.delete(unit);
           }
+
           return next;
         });
+
       const finish = (passed: boolean, interrupted: boolean) =>
         Ref.getAndSet(ended, true).pipe(
           Effect.flatMap((already) =>
@@ -319,9 +339,9 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                     unreportedUsage: [...new Set(pending.map((entry) => entry.variant))].map(
                       (variant) => ({
                         usage: Usages.total(
-                          pending
-                            .filter((entry) => entry.variant === variant)
-                            .map((entry) => entry.usage),
+                          pending.flatMap((entry) =>
+                            entry.variant === variant ? [entry.usage] : [],
+                          ),
                         ),
                         variant,
                       }),
@@ -331,11 +351,13 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
           ),
           Effect.uninterruptible,
         );
+
       const scoreCase = (variant: string, trial: number, input: Case<A>, outcome: Outcome<O>) =>
         Effect.gen(function* scoreMetered() {
           const spent = yield* Ref.make(Usages.empty);
           const made = yield* Ref.make<readonly Judgement[]>([]);
           const recordUnreported = pend(scoreUnit(variant, trial, input.id), variant);
+
           const observations = yield* self.score(input, outcome).pipe(
             Effect.provideService(Meter, {
               record: (usage) =>
@@ -352,8 +374,10 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
               ),
             ),
           );
+
           const keys = observations.map((observation) => observation.key);
           const repeated = [...new Set(keys.filter((key, index) => keys.indexOf(key) !== index))];
+
           if (repeated.length > 0) {
             return yield* new EvalConfigError({
               message: `The scorer gave case ${input.id} more than one observation with the key ${repeated
@@ -364,12 +388,14 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
               path: "score",
             });
           }
+
           return {
             judgements: yield* Ref.get(made),
             observations,
             usage: yield* Ref.get(spent),
           };
         });
+
       const scoreBatch = (
         variant: string,
         trial: number,
@@ -383,10 +409,12 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
               bus.emit({ _tag: "CaseStarted", case: input.id, tags: input.tags, trial, variant }),
             { discard: true },
           );
+
           const obtained = yield* obtain(
             batch,
             pend(taskUnit(variant, trial, batch[0].id), variant),
           );
+
           return yield* Effect.forEach(
             batch,
             (input, index) =>
@@ -398,8 +426,10 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                       `The task returned ${String(obtained.outcomes.length)} outputs for ${String(batch.length)} cases.`,
                     ),
                 );
+
                 const scored = yield* scoreCase(variant, trial, input, outcome);
                 const usage = Usages.add(index === 0 ? obtained.usage : Usages.empty, scored.usage);
+
                 const common = {
                   case: input.id,
                   durationMs: obtained.durationMs,
@@ -410,6 +440,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                   usage,
                   variant,
                 };
+
                 const event = yield* Result.match(outcome, {
                   onFailure: (failure) =>
                     Effect.succeed<EventBody>({ ...common, _tag: "CaseErrored", failure }),
@@ -454,6 +485,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                       })),
                     ),
                 });
+
                 yield* Effect.uninterruptible(
                   bus
                     .emit(event)
@@ -466,6 +498,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                       ),
                     ),
                 );
+
                 return {
                   scored: scored.observations.map((observation): Scored => ({
                     case: input.id,
@@ -479,17 +512,20 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
             { discard: false },
           );
         });
+
       const body = Effect.gen(function* runBody() {
         yield* Effect.forEach(
           loaded.skipped,
           (skipped) => bus.emit({ _tag: "CaseSkipped", id: skipped.id, reason: skipped.reason }),
           { discard: true },
         );
+
         const variantRuns = yield* Effect.forEach(
           settings.variants,
           (variant) =>
             Effect.gen(function* runVariant() {
               const variantStart = yield* liveMillis;
+
               const results = yield* Effect.forEach(
                 Arr.range(1, settings.trials),
                 (trial) =>
@@ -520,8 +556,10 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                   ),
                 { discard: false },
               );
+
               const flat = results.flatMap((trialResults) => trialResults.flat());
               const usage = Usages.total(flat.map((result) => result.usage));
+
               const summarized = variantRun(
                 variant.name,
                 flat.flatMap((result) => result.scored),
@@ -529,6 +567,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                 usage,
                 (yield* liveMillis) - variantStart,
               );
+
               yield* bus.emit({
                 _tag: "VariantFinished",
                 durationMs: summarized.durationMs,
@@ -538,6 +577,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                 usage,
                 variant: variant.name,
               });
+
               return summarized;
             }).pipe(
               Effect.withSpan("Eval.variant", {
@@ -547,6 +587,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
             ),
           { concurrency: "unbounded" },
         );
+
         const results = Gate.evaluate(self.gates, variantRuns, baselines, Number.POSITIVE_INFINITY);
         yield* Effect.forEach(results, (result) => bus.emit({ ...result, _tag: "GateEvaluated" }), {
           discard: true,
@@ -556,6 +597,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
           false,
         );
       });
+
       const exit = yield* Effect.uninterruptibleMask((restore) =>
         bus
           .emit({
@@ -587,10 +629,12 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
             ),
           ),
       );
+
       yield* exit.outcome;
       const failedReporters = yield* exit.closed;
       const folded = yield* Effect.orDie(fold(bus.events));
       const run: Run = { ...folded, failedReporters };
+
       return run;
     }),
   ).pipe(
@@ -609,11 +653,14 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
   const variantCount = options.variants.length;
   const invocations = batchesOf(self.execution, loaded.cases).length * variantCount * trials;
   const limit = self.budget.confirmAbove;
+
   if (limit !== undefined && invocations > limit && options.confirmed !== true) {
     return yield* new EvalBudgetExceeded({ limit, planned: invocations });
   }
+
   const calls = yield* Ref.make(0);
   const { maxCalls } = self.budget;
+
   const source: Source<A, O, R> = {
     judgements: () => [],
     open: (_variant, _trial) =>
@@ -637,6 +684,7 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                 Effect.gen(function* obtainLive() {
                   const spent = yield* Ref.make(Usages.empty);
                   const recordedCalls = yield* Ref.make(0);
+
                   const meter = {
                     record: (usage: Usage) =>
                       Effect.uninterruptible(
@@ -646,9 +694,12 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                         ),
                       ),
                   };
+
                   const begin = yield* liveMillis;
+
                   const task = (): Effect.Effect<readonly O[], unknown, R> =>
                     Effect.suspend(() => runner(batch));
+
                   const attempt: Effect.Effect<readonly O[], unknown, R> = Ref.modify(
                     calls,
                     (used): readonly [boolean, number] =>
@@ -674,6 +725,7 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                         : Effect.fail(exhausted),
                     ),
                   );
+
                   const timed: Effect.Effect<readonly O[], unknown, R> = Option.match(
                     self.timeout,
                     {
@@ -681,6 +733,7 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                       onSome: (duration) => Effect.timeout(attempt, duration),
                     },
                   );
+
                   const guarded: Effect.Effect<readonly O[], unknown, R> = Option.match(
                     self.retry,
                     {
@@ -689,13 +742,16 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                         Effect.retry(timed, { schedule, while: (error) => error !== exhausted }),
                     },
                   );
+
                   const exit = yield* withLive(guarded).pipe(
                     Effect.provideService(Meter, meter),
                     Effect.exit,
                   );
+
                   if (Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)) {
                     return yield* Effect.orDie(Effect.failCause(exit.cause));
                   }
+
                   const outcomes = Exit.match(exit, {
                     onFailure: (cause) =>
                       batch.map(() =>
@@ -707,6 +763,7 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                       ),
                     onSuccess: (outputs) => outputs.map((output) => Result.succeed(output)),
                   });
+
                   return {
                     durationMs: (yield* liveMillis) - begin,
                     outcomes,
@@ -718,6 +775,7 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
       ),
     rescoreOf: Option.none(),
   };
+
   const settings = {
     baselines: options.baselines ?? [],
     concurrency: options.concurrency ?? concurrencyOf(self.execution),
@@ -725,6 +783,7 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
     source,
     trials,
   };
+
   return yield* execute(self, loaded, { ...settings, variants: options.variants });
 });
 
@@ -771,12 +830,14 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
 ) {
   const loaded = yield* select(self, selection);
   const hashes = yield* hashCases(self, loaded);
+
   const stored = new Map(
     from.outputs.map((output): readonly [string, StoredOutput] => [
       outputKey(output.variant, output.trial, output.case),
       output,
     ]),
   );
+
   const decode = (output: StoredOutput): Effect.Effect<Outcome<O>> =>
     Option.match(
       Option.orElse(output.failure, () => output.outputError),
@@ -795,8 +856,10 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
         onSome: (failure) => Effect.succeed(Result.fail(failure)),
       },
     );
+
   const isFresh = (output: StoredOutput, id: string) =>
     output.inputHash !== UNHASHED && output.inputHash === hashes.get(id);
+
   const source: Source<A, O, never> = {
     judgements: (variant, trial, id) =>
       Option.match(Option.fromNullishOr(stored.get(outputKey(variant, trial, id))), {
@@ -819,22 +882,27 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
       ),
     rescoreOf: Option.some(from.id),
   };
+
   const storedNames = from.variants.map((variant) => variant.variant);
   const storedSet = new Set(storedNames);
   const chosen = selection.variants ?? storedNames;
   const unknown = chosen.filter((name) => !storedSet.has(name));
+
   if (unknown.length > 0) {
     return yield* new EvalConfigError({
       message: `The stored run ${from.id} has no variant ${unknown.join(", ")}; it has ${storedNames.join(", ")}.`,
       path: "variants",
     });
   }
+
   yield* validVariants(chosen);
+
   const definition: Eval<A, O, E, DE, never, DR, SR> = {
     ...self,
     prepare: Effect.die("rescore does not run the task"),
     sensitive: self.sensitive || from.sensitive,
   };
+
   return yield* execute(definition, loaded, {
     baselines: selection.baselines ?? [],
     concurrency: concurrencyOf(self.execution),
@@ -855,6 +923,7 @@ export const rescore = Effect.fn("Eval.rescore")(function* rescoreEval<A, O, E, 
   },
 ) {
   const from = yield* History.load(self.name, options.from);
+
   return yield* rescoreRun(self, from, options);
 });
 

@@ -53,6 +53,7 @@ export const drawingKinds = {
   terminal: "terminal",
   text: "text",
 } as const;
+
 export type DrawingKind = (typeof drawingKinds)[keyof typeof drawingKinds];
 
 export interface Drawing {
@@ -79,6 +80,7 @@ export const drawWith =
   <E, R>(renderer: ChartRenderer<E, R>) =>
   (charts: readonly Chart[], options: RenderOptions) => {
     const accepted = new Set(options.accepts);
+
     return renderer(charts, options).pipe(
       Effect.map(Option.filter((drawn) => accepted.has(drawn.kind))),
     );
@@ -123,6 +125,7 @@ export const outcomeLabel = (run: { readonly interrupted: boolean; readonly pass
   if (run.interrupted) {
     return "interrupted";
   }
+
   return run.passed ? "passed" : "failed";
 };
 
@@ -224,6 +227,7 @@ export const groupTable = (run: Run) =>
         cell(group),
         ...[Metric.accuracy, Metric.recall, Metric.precision].map((metric) => {
           const estimate = groupSummary.ratios[metric.name];
+
           return cell(estimate === undefined ? NOTHING : formatEstimate(estimate));
         }),
       ]),
@@ -233,6 +237,7 @@ export const groupTable = (run: Run) =>
 export const observationTable = (scored: readonly Scored[]) => {
   const shown = scored.slice(0, MAX_ROWS);
   const noted = shown.some((entry) => entry.observation.detail.note !== undefined);
+
   return Table({
     columns: [
       "variant",
@@ -245,6 +250,7 @@ export const observationTable = (scored: readonly Scored[]) => {
     ],
     rows: shown.map((entry) => {
       const verdict = Verdicts.of(entry.observation);
+
       const label = Option.match(
         verdict === verdicts.excluded ? entry.observation.excluded : Option.none<string>(),
         {
@@ -255,6 +261,7 @@ export const observationTable = (scored: readonly Scored[]) => {
           onSome: (reason) => `${verdict}(${reason})`,
         },
       );
+
       return [
         cell(entry.variant),
         cell(entry.case),
@@ -294,16 +301,20 @@ const identityOf = (scored: Scored) =>
 export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View => {
   const failedGates = run.gates.filter((gate) => !gate.passed && gate.violations.length > 0);
   const violating = new Set(failedGates.flatMap((gate) => gate.violations.map(identityOf)));
+
   const priorityOf = (scored: Scored) => {
     if (Option.contains(scored.observation.excluded, unclassified)) {
       return 0;
     }
+
     return violating.has(identityOf(scored)) ? 1 : 2;
   };
+
   const toReview = run.variants
     .flatMap((variant) => variant.observations)
     .filter((scored) => {
       const verdict = Verdicts.of(scored.observation);
+
       return (
         toLookAt.has(verdict) ||
         Option.contains(scored.observation.excluded, unclassified) ||
@@ -312,7 +323,9 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
       );
     })
     .toSorted((left, right) => priorityOf(left) - priorityOf(right));
+
   const countNames = [...Metric.counts.map((metric) => metric.name), verdicts.excluded];
+
   const exclusions = run.variants.flatMap((variant) =>
     [
       ...new Set(
@@ -326,16 +339,21 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
         String(Metric.read(variant.summary, Metric.excluded(reason))),
       ]),
   );
+
   const notStored = run.outputs.flatMap((output) =>
     Option.toArray(output.outputError).map((reason) => [output, reason] as const),
   );
+
   const trialed = run.variants.flatMap((variant) =>
     Option.toArray(variant.trials).map((stats) => [variant.variant, stats] as const),
   );
+
   const comparison = history.baseline.pipe(Option.map((baseline) => Runs.compare(run, baseline)));
+
   const unpaired = comparison.pipe(
     Option.filter((compared) => compared.added.length > 0 || compared.removed.length > 0),
   );
+
   return [
     header(run),
     Text({
@@ -359,6 +377,7 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
           rows: run.variants.flatMap((variant) =>
             Metric.ratios.map((metric) => {
               const estimate = variant.summary.ratios[metric.name];
+
               const delta = comparison.pipe(
                 Option.flatMap((compared) =>
                   Option.fromNullishOr(
@@ -369,6 +388,7 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
                 ),
                 Option.flatMap((entry) => entry.delta),
               );
+
               return [
                 cell(variant.variant),
                 cell(metric.name),
@@ -409,7 +429,9 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
               const outcomes = run.outputs.filter(
                 (output) => output.variant === variant.variant && output.trial === index + 1,
               );
+
               const failed = outcomes.filter((output) => Option.isSome(output.failure)).length;
+
               return [
                 cell(variant.variant),
                 cell(String(index + 1)),
@@ -446,6 +468,7 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
                 rows: trialed.flatMap(([variant, stats]) =>
                   [...Metric.counts, ...Metric.ratios].map((metric) => {
                     const measured = stats.metrics[metric.name];
+
                     return [
                       cell(variant),
                       cell(metric.name),
@@ -457,6 +480,7 @@ export const summary = (run: Run, history: HistorySnapshot = emptyHistory): View
               }),
               ...trialed.map(([variant, stats]) => {
                 const k = String(stats.k);
+
                 return Text({
                   text: Option.match(Option.all([stats.passAtK, stats.passHatK]), {
                     onNone: () =>
@@ -588,6 +612,7 @@ const listed = (title: string, scored: readonly Scored[]) =>
               columns: ["observation", "verdict"],
               rows: scored.slice(0, Runs.LISTED_LIMIT).map((entry) => {
                 const verdict = Verdicts.of(entry.observation);
+
                 return [cell(Runs.observationLabel(entry)), cell(verdict, verdictTones[verdict])];
               }),
             }),
@@ -607,6 +632,7 @@ const listed = (title: string, scored: readonly Scored[]) =>
 export const compare = (base: Run, head: Run): View => {
   const comparison = Runs.compare(head, base);
   const names = [...new Set(comparison.deltas.map((row) => row.variant))];
+
   return [
     header(head),
     Text({ text: `compared with run ${base.id}`, tone: tones.neutral }),
@@ -626,15 +652,18 @@ export const compare = (base: Run, head: Run): View => {
       const regressions = comparison.regressions
         .filter((transition) => transition.variant === name)
         .map((transition) => transition.after);
+
       const fixes = comparison.fixes
         .filter((transition) => transition.variant === name)
         .map((transition) => transition.after);
+
       const pValue = Option.flatMap(
         Option.fromNullishOr(
           comparison.deltas.find((row) => row.variant === name && Option.isSome(row.pValue)),
         ),
         (row) => row.pValue,
       );
+
       return Section({
         children: [
           Text({
@@ -668,6 +697,7 @@ export const compare = (base: Run, head: Run): View => {
 
 export const dashboard = (run: Run, history: HistorySnapshot = emptyHistory): View => {
   const runs = [...history.recent.toReversed(), run];
+
   return [
     Tabs({
       tabs: [

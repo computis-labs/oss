@@ -23,6 +23,7 @@ const processLayer = (cwd: Option.Option<string>) =>
     Git,
     Effect.gen(function* makeGit() {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
       const git = (args: readonly string[]) =>
         Effect.scoped(
           Effect.gen(function* runGit() {
@@ -36,18 +37,22 @@ const processLayer = (cwd: Option.Option<string>) =>
                 stdin: "ignore",
               }),
             );
+
             const [output, code] = yield* Effect.all(
               [handle.stdout.pipe(Stream.decodeText, Stream.mkString), handle.exitCode],
               { concurrency: 2 },
             );
+
             return code === 0 ? Option.some(output.trim()) : Option.none<string>();
           }),
         ).pipe(Effect.orElseSucceed(() => Option.none<string>()));
+
       return {
         current: Effect.gen(function* currentGit() {
           const sha = yield* fromEnvironment("GITHUB_SHA");
           const branch = yield* fromEnvironment("GITHUB_REF_NAME");
           const status = yield* git(["status", "--porcelain"]);
+
           return {
             branch: Option.isSome(branch)
               ? branch

@@ -20,9 +20,11 @@ import { pdfImageMediaTypes, pdfImageOrigins } from "../src/types.ts";
 const darkShare = (png: Uint8Array) => {
   const { channels, data } = decode(png);
   const pixels = data.length / channels;
+
   const dark = Array.from({ length: pixels }, (_, pixel) => data[pixel * channels] ?? 255).filter(
     (value) => value < 128,
   ).length;
+
   return dark / pixels;
 };
 
@@ -73,9 +75,11 @@ layer(pdfEngineLayer)("pageImages", (it) => {
         width: 64,
       });
       const { channels, data, width } = decode(image?.bytes ?? new Uint8Array());
+
       const pixel = (x: number, y: number) => [
         ...data.subarray((y * width + x) * channels, (y * width + x) * channels + 3),
       ];
+
       expect(pixel(8, 32)).toSatisfy(
         ([red = 0, green = 0, blue = 0]: number[]) => red > 200 && green < 60 && blue < 60,
       );
@@ -161,9 +165,11 @@ const darkInBox = (
   },
 ) => {
   const { channels, data, width } = decode(png);
+
   return Array.from({ length: box.width * box.height }, (_, index) => {
     const x = box.left + (index % box.width);
     const y = box.top + Math.floor(index / box.width);
+
     return data[(y * width + x) * channels] ?? 255;
   }).filter((value) => value < 128).length;
 };

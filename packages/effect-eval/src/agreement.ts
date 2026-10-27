@@ -7,6 +7,7 @@ export const AgreementSchema = Schema.Union([
   }),
   Schema.TaggedStruct("Different", {}),
 ]);
+
 export type Agreement = typeof AgreementSchema.Type;
 
 export const exact: Agreement = { _tag: "Exact" };
@@ -17,9 +18,11 @@ export const partial = (score: number): Agreement => {
   if (score >= 1) {
     return exact;
   }
+
   if (score <= 0) {
     return different;
   }
+
   return { _tag: "Partial", score };
 };
 

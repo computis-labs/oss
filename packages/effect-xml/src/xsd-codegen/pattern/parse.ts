@@ -72,6 +72,7 @@ export const choice = (branches: readonly RegexNode[]): RegexNode =>
 
 export const parse = (source: string): Parsed<RegexNode> => {
   const chars = Array.from(source.matchAll(CODE_POINTS), ([char]) => char);
+
   const failAt = (at: number, message: string) =>
     Result.fail(
       `${message} at character ${String(at + 1)} of the pattern ${JSON.stringify(source)}`,
@@ -80,15 +81,20 @@ export const parse = (source: string): Parsed<RegexNode> => {
   const parseProperty = (escaped: string, at: number): Parsed<Consumed<Escape>> =>
     Result.gen(function* parseCategoryEscape() {
       const open = at + 1;
+
       if (chars[open] !== "{") {
         return yield* failAt(open, `Expected '{' after \\${escaped}`);
       }
+
       const close = chars.indexOf("}", open);
+
       if (close === -1) {
         return yield* failAt(open, `The escape \\${escaped}{ is not closed`);
       }
+
       const name = chars.slice(open + 1, close).join("");
       const block = BLOCKS.get(name);
+
       if (block === undefined) {
         return yield* failAt(
           open,
@@ -97,6 +103,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
             : `The Unicode category \\${escaped}{${name}} depends on the Unicode tables of the validator and has no exact JavaScript translation`,
         );
       }
+
       return {
         next: close + 1,
         value: { kind: "set", set: escaped === "p" ? block : CharSet.complement(block) },
@@ -107,13 +114,17 @@ export const parse = (source: string): Parsed<RegexNode> => {
     Result.gen(function* parseXsdEscape() {
       const escapedAt = at + 1;
       const escaped = chars[escapedAt];
+
       if (escaped === undefined) {
         return yield* failAt(escapedAt, "The pattern ends with a lone backslash");
       }
+
       const single = SINGLE_ESCAPES.get(escaped);
+
       if (single !== undefined) {
         return { next: escapedAt + 1, value: { codePoint: single, kind: "char" } } as const;
       }
+
       if (escaped === "s" || escaped === "S") {
         return {
           next: escapedAt + 1,
@@ -123,31 +134,39 @@ export const parse = (source: string): Parsed<RegexNode> => {
           },
         } as const;
       }
+
       if (UNSUPPORTED_MULTI_ESCAPES.has(escaped)) {
         return yield* failAt(
           escapedAt,
           `The escape \\${escaped} depends on the Unicode tables of the validator and has no exact JavaScript translation`,
         );
       }
+
       if (escaped === "p" || escaped === "P") {
         return yield* parseProperty(escaped, escapedAt);
       }
+
       return yield* failAt(escapedAt, `The escape \\${escaped} is not valid in an XSD pattern`);
     });
 
   const parseRangeEnd = (at: number): Parsed<Consumed<number>> =>
     Result.gen(function* parseXsdRangeEnd() {
       const char = chars[at];
+
       if (char === undefined) {
         return yield* failAt(at, "The character class is not closed");
       }
+
       if (char === "[" || char === "]" || char === "-") {
         return yield* failAt(at, `'${char}' cannot end a range`);
       }
+
       if (char !== "\\") {
         return { next: at + 1, value: char.codePointAt(0) ?? 0 };
       }
+
       const escape = yield* parseEscape(at);
+
       return escape.value.kind === "set"
         ? yield* failAt(escape.next, "A multi-character escape cannot end a range")
         : { next: escape.next, value: escape.value.codePoint };
@@ -156,6 +175,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
   const parseClassItem = (groupStart: number, at: number): Parsed<Consumed<CharSet.CharSet>> =>
     Result.gen(function* parseCharRange() {
       const char = chars[at] ?? "";
+
       if (char === "-") {
         if (at !== groupStart && chars[at + 1] !== "]") {
           return yield* failAt(
@@ -163,17 +183,23 @@ export const parse = (source: string): Parsed<RegexNode> => {
             "A '-' inside a character class is only exact at its start or end",
           );
         }
+
         return { next: at + 1, value: CharSet.single(0x2d) };
       }
+
       if (char === "[") {
         return yield* failAt(at, "An unescaped '[' is not valid inside a character class");
       }
+
       const escape = char === "\\" ? yield* parseEscape(at) : undefined;
+
       if (escape?.value.kind === "set") {
         return { next: escape.next, value: escape.value.set };
       }
+
       const start = escape === undefined ? (char.codePointAt(0) ?? 0) : escape.value.codePoint;
       const afterStart = escape?.next ?? at + 1;
+
       if (
         chars[afterStart] !== "-" ||
         chars[afterStart + 1] === "]" ||
@@ -181,7 +207,9 @@ export const parse = (source: string): Parsed<RegexNode> => {
       ) {
         return { next: afterStart, value: CharSet.single(start) };
       }
+
       const end = yield* parseRangeEnd(afterStart + 1);
+
       return end.value < start
         ? yield* failAt(end.next, "The range ends before it starts")
         : { next: end.next, value: CharSet.make([start, end.value]) };
@@ -192,31 +220,41 @@ export const parse = (source: string): Parsed<RegexNode> => {
       const negated = chars[at + 1] === "^";
       const groupStart = negated ? at + 2 : at + 1;
       const ranges: CharSet.CharSet[] = [];
+
       for (let index = groupStart; ;) {
         const char = chars[index];
+
         if (char === undefined) {
           return yield* failAt(index, "The character class is not closed");
         }
+
         const subtracting = char === "-" && chars[index + 1] === "[" && index !== groupStart;
+
         if (char === "]" || subtracting) {
           const subtracted = subtracting ? yield* parseClass(index + 1) : undefined;
           const close = subtracted?.next ?? index;
+
           if (chars[close] !== "]") {
             return yield* failAt(close, "A character class subtraction must end its class");
           }
+
           if (ranges.length === 0) {
             return yield* failAt(close + 1, "The character class is empty");
           }
+
           const group = CharSet.union(...ranges);
+
           const positive = negated
             ? CharSet.complement(group)
             : CharSet.intersect(group, CharSet.XML_CHAR);
+
           return {
             next: close + 1,
             value:
               subtracted === undefined ? positive : CharSet.subtract(positive, subtracted.value),
           };
         }
+
         const item = yield* parseClassItem(groupStart, index);
         ranges.push(item.value);
         index = item.next;
@@ -227,12 +265,14 @@ export const parse = (source: string): Parsed<RegexNode> => {
     const length = chars.slice(at).findIndex((char) => !/^[0-9]$/u.test(char));
     const next = length === -1 ? chars.length : at + length;
     const digits = chars.slice(at, next).join("");
+
     return { next, value: digits === "" ? undefined : Number(digits) };
   };
 
   const parseQuantifier = (node: RegexNode, at: number): Parsed<Consumed<RegexNode>> =>
     Result.gen(function* parseXsdQuantifier() {
       const char = chars[at];
+
       if (char === "?" || char === "*" || char === "+") {
         return {
           next: at + 1,
@@ -244,20 +284,27 @@ export const parse = (source: string): Parsed<RegexNode> => {
           },
         } as const;
       }
+
       if (char !== "{") {
         return { next: at, value: node };
       }
+
       const min = parseNumber(at + 1);
+
       if (min.value === undefined) {
         return yield* failAt(min.next, "A quantifier must start with a number");
       }
+
       const max = chars[min.next] === "," ? parseNumber(min.next + 1) : min;
+
       if (chars[max.next] !== "}") {
         return yield* failAt(max.next, "The quantifier is not closed");
       }
+
       if (max.value !== undefined && max.value < min.value) {
         return yield* failAt(max.next + 1, "The quantifier maximum is below its minimum");
       }
+
       return {
         next: max.next + 1,
         value: { kind: "repeat", max: max.value, min: min.value, node },
@@ -270,19 +317,26 @@ export const parse = (source: string): Parsed<RegexNode> => {
   ): Parsed<Consumed<RegexNode>> =>
     Result.gen(function* parseXsdAtom() {
       const char = chars[at] ?? "";
+
       if (char === "(") {
         const inner = yield* parseRegExp(at + 1);
+
         if (chars[inner.next] !== ")") {
           return yield* failAt(inner.next, "The group is not closed");
         }
+
         return { next: inner.next + 1, value: inner.value };
       }
+
       if (char === "[") {
         const group = yield* parseClass(at);
+
         return { next: group.next, value: set(group.value) };
       }
+
       if (char === "\\") {
         const escape = yield* parseEscape(at);
+
         return {
           next: escape.next,
           value: set(
@@ -290,29 +344,36 @@ export const parse = (source: string): Parsed<RegexNode> => {
           ),
         };
       }
+
       if (char === ".") {
         return { next: at + 1, value: set(CharSet.complement(CharSet.LINE_BREAKS)) };
       }
+
       if (char === "{") {
         return yield* failAt(at, "A '{' is only exact as a quantifier after an atom");
       }
+
       if ("?*+)]".includes(char)) {
         return yield* failAt(at, `Unexpected '${char}'`);
       }
+
       return { next: at + 1, value: set(CharSet.single(char.codePointAt(0) ?? 0)) };
     });
 
   const parseRegExp = (at: number): Parsed<Consumed<RegexNode>> =>
     Result.gen(function* parseXsdRegExp() {
       const branches: RegexNode[][] = [[]];
+
       for (let index = at; ;) {
         const char = chars[index];
+
         if (char === undefined || char === ")") {
           return {
             next: index,
             value: choice(
               branches.map((items): RegexNode => {
                 const [only] = items;
+
                 return items.length === 1 && only !== undefined
                   ? only
                   : { items, kind: "sequence" };
@@ -320,6 +381,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
             ),
           };
         }
+
         if (char === "|") {
           branches.push([]);
           index += 1;
@@ -334,9 +396,11 @@ export const parse = (source: string): Parsed<RegexNode> => {
 
   return Result.gen(function* parseXsdPattern() {
     const node = yield* parseRegExp(0);
+
     if (node.next < chars.length) {
       return yield* failAt(node.next, `Unexpected '${chars[node.next] ?? ""}'`);
     }
+
     return node.value;
   });
 };
@@ -345,9 +409,11 @@ const collectSets = (node: RegexNode): readonly CharSet.CharSet[] => {
   if (node.kind === "set") {
     return [node.set];
   }
+
   if (node.kind === "repeat") {
     return collectSets(node.node);
   }
+
   return (node.kind === "sequence" ? node.items : node.branches).flatMap(collectSets);
 };
 

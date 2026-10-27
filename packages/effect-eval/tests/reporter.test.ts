@@ -27,6 +27,7 @@ describe("Reporter.make", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const finished: Run[] = [];
+
       const hooks = Reporter.make({
         name: "hooks",
         onCaseFinished: (event) => Effect.sync(() => calls.push(`case ${event.case}`)),
@@ -77,6 +78,7 @@ describe("Reporter.layer", () => {
   it.effect("needs the services of every reporter of a mixed list, with no type argument", () =>
     Effect.gen(function* () {
       const written: string[] = [];
+
       const mixed = Reporter.layer([
         Reporters.history,
         Reporters.markdown({
@@ -90,8 +92,10 @@ describe("Reporter.layer", () => {
       expectTypeOf(mixed).toEqualTypeOf<
         Layer.Layer<never, never, History.History | FileSystem.FileSystem | Path.Path>
       >();
+
       const { run, stored } = yield* Effect.gen(function* () {
         const finished = yield* Runner.run(categorizer(1)).pipe(Effect.provide(mixed));
+
         return { run: finished, stored: yield* History.list("categorizer") };
       }).pipe(
         Effect.provide(Layer.mergeAll(History.layerMemory, FileSystem.layerNoop({}), Path.layer)),
@@ -128,6 +132,7 @@ describe("Reporter lifetime", () => {
   it.effect("releases the resources of a reporter before each run returns", () =>
     Effect.gen(function* () {
       const counts = { acquired: 0, released: 0 };
+
       const counted = Reporter.fromStream("resource", (events) =>
         Effect.acquireRelease(
           Effect.sync(() => {
@@ -144,6 +149,7 @@ describe("Reporter lifetime", () => {
         yield* Runner.run(categorizer(1));
         const first = { ...counts };
         yield* Runner.run(categorizer(1));
+
         return [first, { ...counts }];
       }).pipe(Effect.provide(Reporter.layer([counted])));
 
@@ -177,6 +183,7 @@ describe("Reporter lifetime", () => {
       const run = yield* Runner.run(categorizer(1)).pipe(
         Effect.provide(Reporter.layer([throwing])),
       );
+
       const failure = yield* Effect.flip(
         Runner.run(categorizer(1)).pipe(
           Effect.provide(Reporter.layer([Reporter.required(throwing)])),
@@ -194,6 +201,7 @@ describe("Reporter lifetime", () => {
   it.effect("isolates an optional comparison that throws", () =>
     Effect.gen(function* () {
       const run = yield* Runner.run(categorizer(1));
+
       const comparing = Reporter.make({
         name: "comparing",
         onComparison: () => {
@@ -220,12 +228,14 @@ describe("Reporter.subscribe", () => {
     trial: 1,
     variant: "default",
   });
+
   const skipped = (sequence: number): EvalEvent => ({
     ...envelope(sequence),
     _tag: "CaseSkipped",
     id: `s${String(sequence)}`,
     reason: "no truth",
   });
+
   const finished = (sequence: number): EvalEvent => ({
     ...envelope(sequence),
     _tag: "RunFinished",
@@ -281,6 +291,7 @@ describe("Reporter.subscribe", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const ready = { started: false };
+
       const initialized = Reporter.required(
         Reporter.sliding(
           Reporter.make({
@@ -310,6 +321,7 @@ describe("Reporter.subscribe", () => {
   it.effect("delivers strictly increasing sequence numbers while cases run concurrently", () =>
     Effect.gen(function* () {
       const seen: number[] = [];
+
       const uneven = Eval.make({
         dataset: Dataset.fromIterable(
           Array.from({ length: 1000 }, (_, index) => index),
@@ -325,6 +337,7 @@ describe("Reporter.subscribe", () => {
             for (let step = 0; step < (input.input * 37) % 2048; step += 1) {
               yield* Effect.sync(() => step);
             }
+
             return String(input.input);
           }),
       });
@@ -353,6 +366,7 @@ describe("Reporter.subscribe", () => {
   it.effect("keeps the lifecycle events of a real run when the reporter falls behind", () =>
     Effect.gen(function* () {
       const seen: EvalEvent[] = [];
+
       const slow = Reporter.sliding(
         Reporter.fromStream(
           "slow",

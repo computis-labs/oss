@@ -56,6 +56,7 @@ const hostPlatform = onBun
         import("@effect/platform-bun/BunRuntime"),
         import("@effect/platform-bun/BunWorkerRunner"),
       ]);
+
       return { runMain: runtime.runMain, runner: runner.layer };
     })
   : loadPlatform("@effect/platform-node", async () => {
@@ -63,6 +64,7 @@ const hostPlatform = onBun
         import("@effect/platform-node/NodeRuntime"),
         import("@effect/platform-node/NodeWorkerRunner"),
       ]);
+
       return { runMain: runtime.runMain, runner: runner.layer };
     });
 

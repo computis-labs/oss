@@ -8,18 +8,25 @@ import { actualStates, expectedStates } from "../src/observation.ts";
 const detail = { actual: "", expected: "" };
 
 const right = (key: string) => Observation.compared({ agreement: Agreement.exact, detail, key });
+
 const wrong = (key: string) =>
   Observation.compared({ agreement: Agreement.different, detail, key });
+
 const partial = (key: string, score: number) =>
   Observation.compared({ agreement: Agreement.partial(score), detail, key });
+
 const missed = (key: string) =>
   Observation.make({ actual: actualStates.absent, detail, expected: expectedStates.present, key });
+
 const abstained = (key: string) =>
   Observation.make({ actual: actualStates.absent, detail, expected: expectedStates.absent, key });
+
 const falsePositive = (key: string) =>
   Observation.make({ actual: actualStates.present, detail, expected: expectedStates.absent, key });
+
 const unscored = (key: string) =>
   Observation.make({ actual: actualStates.present, detail, expected: expectedStates.unknown, key });
+
 const errored = (key: string) =>
   Observation.errored(key, "timeout", { expected: expectedStates.present });
 
@@ -219,6 +226,7 @@ describe("Metric.accuracy", () => {
       partial("c", 0.25),
       wrong("d"),
     ]);
+
     const [low, high] = Option.getOrElse(estimate.interval, () => [Number.NaN, Number.NaN]);
 
     expect(low).toBeLessThanOrEqual(0.4375);

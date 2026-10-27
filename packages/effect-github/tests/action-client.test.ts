@@ -167,6 +167,7 @@ describe("ActionClient", () => {
 
   it.effect("stops after the page limit when every page links to another", () => {
     const requestedPages = Array.of<string>();
+
     return Effect.gen(function* () {
       const client = yield* ActionClient;
 
@@ -186,6 +187,7 @@ describe("ActionClient", () => {
           fetch: github((url) => {
             const page = Number(url.searchParams.get("page") ?? "1");
             requestedPages.push(String(page));
+
             return Response.json([{ body: "again", id: page }], {
               headers: {
                 link: `<https://api.github.com/repos/computis-labs/computis/issues/12/comments?page=${page + 1}>; rel="next"`,
@@ -201,6 +203,7 @@ describe("ActionClient", () => {
     "rejects a page limit of %s before any request",
     (maxPages) => {
       const requests = Array.of<string>();
+
       return Effect.gen(function* () {
         const client = yield* ActionClient;
 
@@ -219,6 +222,7 @@ describe("ActionClient", () => {
           ActionClientTest.make({
             fetch: github((url) => {
               requests.push(url.pathname);
+
               return Response.json([]);
             }),
           }),
@@ -242,6 +246,7 @@ describe("ActionClient", () => {
   it.effect("returns an ActionApiError the call already failed with unchanged", () =>
     Effect.gen(function* () {
       const client = yield* ActionClient;
+
       const rateLimited = new ActionApiError({
         description: "secondary rate limit",
         method: "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",

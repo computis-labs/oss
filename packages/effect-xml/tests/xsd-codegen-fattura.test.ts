@@ -26,9 +26,11 @@ const FixturesLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const directory = yield* path.fromFileUrl(new URL("fixtures/", import.meta.url));
+
     const validator = yield* Xsd.make({
       schema: { path: path.join(directory, "xsd/Schema_VFPR12_v1.2.3.xsd") },
     });
+
     return {
       read: (file: string) => fs.readFileString(path.join(directory, file)),
       validate: validator.validate,
@@ -94,6 +96,7 @@ layer(FixturesLive, { timeout: 120_000 })("Schema generated from the FatturaPA X
       Effect.gen(function* test() {
         const { validate } = yield* Fixtures;
         const { decode, encode } = yield* generatedCodec;
+
         const invoices = yield* Arbitrary.sampleEffect(Arbitrary.schema(FatturaElettronica), {
           count: 10,
           maxDiscards: 10_000,
@@ -102,17 +105,20 @@ layer(FixturesLive, { timeout: 120_000 })("Schema generated from the FatturaPA X
         });
 
         const rejected: string[] = [];
+
         for (const invoice of invoices) {
           const exit = yield* Effect.exit(
             Effect.gen(function* roundTrip() {
               const xml = yield* encode(invoice);
               yield* validate(xml);
               const again = yield* encode(yield* decode(xml));
+
               return again === xml
                 ? undefined
                 : `round trip changed the document:\n${xml}\n${again}`;
             }),
           );
+
           if (Exit.isFailure(exit)) {
             rejected.push(String(exit.cause));
           } else if (exit.value !== undefined) {

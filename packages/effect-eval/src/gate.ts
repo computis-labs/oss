@@ -16,6 +16,7 @@ export const bounds = {
   lowerBound: "lowerBound",
   value: "value",
 } as const;
+
 export type Bound = (typeof bounds)[keyof typeof bounds];
 
 export type Gate = Data.TaggedEnum<{
@@ -68,11 +69,7 @@ const violationsOf = (
   items: readonly { readonly judged: Judged; readonly scored: Scored }[],
   violates: (judged: Judged) => boolean,
   limit: number,
-) =>
-  items
-    .filter((item) => violates(item.judged))
-    .map((item) => item.scored)
-    .slice(0, limit);
+) => items.flatMap((item) => (violates(item.judged) ? [item.scored] : [])).slice(0, limit);
 
 const evaluateOne = (
   gate: Gate,
@@ -86,8 +83,10 @@ const evaluateOne = (
     judged: { observation: entry.observation, verdict: Verdicts.of(entry.observation) },
     scored: entry,
   }));
+
   const judged = items.map((item) => item.judged);
   const result = { gate: describe(gate), scope, variant };
+
   return $match(gate, {
     By: ({ gate: inner, tag }) => ({
       ...evaluateOne(
@@ -102,6 +101,7 @@ const evaluateOne = (
     }),
     Max: ({ metric, threshold }) => {
       const measured = Metric.value(metric, judged);
+
       return {
         ...result,
         actual: Metric.isCount(metric)
@@ -121,10 +121,12 @@ const evaluateOne = (
     },
     Min: ({ metric, on, threshold }) => {
       const estimate = Metric.estimate(metric, judged);
+
       const measured =
         on === bounds.lowerBound
           ? estimate.interval.pipe(Option.map(([low]) => low))
           : estimate.value;
+
       return {
         ...result,
         actual: Metric.formatEstimate(estimate),
@@ -141,6 +143,7 @@ const evaluateOne = (
       const previous = Option.flatMap(baselines(baseline), (run) =>
         Option.fromNullishOr(run.variants.find((entry) => entry.variant === variant)),
       );
+
       return Option.match(previous, {
         onNone: () => ({
           ...result,
@@ -153,6 +156,7 @@ const evaluateOne = (
           const regressions = Runs.regressionsOf(
             Runs.transitionsOf(before.observations, scored),
           ).map((transition) => transition.after);
+
           return {
             ...result,
             actual: `${String(regressions.length)} regressions`,
@@ -182,13 +186,18 @@ export const check = (
   results: readonly GateResult[],
   options: { readonly sensitive?: boolean } = {},
 ): Effect.Effect<void, EvalGateFailed> => {
-  const failed = results
-    .filter((result) => !result.passed)
-    .map((result) => ({
-      ...result,
-      violations: result.violations
-        .slice(0, MAX_VIOLATIONS)
-        .map((scored) => (options.sensitive === true ? redactScored(scored) : scored)),
-    }));
+  const failed = results.flatMap((result) =>
+    result.passed
+      ? []
+      : [
+          {
+            ...result,
+            violations: result.violations
+              .slice(0, MAX_VIOLATIONS)
+              .map((scored) => (options.sensitive === true ? redactScored(scored) : scored)),
+          },
+        ],
+  );
+
   return failed.length === 0 ? Effect.void : Effect.fail(new EvalGateFailed({ results: failed }));
 };

@@ -88,6 +88,7 @@ const requestFailed = (method: string) => (cause: unknown) =>
 const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionClientApi => {
   const secret = Redacted.value(token);
   const octokit = secret === "" ? new GitHub(options) : getOctokit(secret, options);
+
   const call = Effect.fn("ActionClient.call")(function* call<A>(
     method: string,
     run: (client: Octokit) => Promise<A>,
@@ -97,6 +98,7 @@ const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionCli
       try: async () => await run(octokit),
     });
   });
+
   const request = Effect.fn("ActionClient.request")(function* request(
     route: string,
     parameters?: RequestParameters,
@@ -104,15 +106,19 @@ const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionCli
     const response = yield* call(route, async (client) => await client.request(route, parameters));
     const data = yield* decodeResponse(Schema.Json, route)(response.data);
     const restResponse: RestResponse = { ...response, data };
+
     return restResponse;
   });
+
   const graphql = Effect.fn("ActionClient.graphql")(function* graphql(
     query: string,
     variables?: RequestParameters,
   ) {
     const data = yield* call("graphql", async (client) => await client.graphql(query, variables));
+
     return yield* decodeResponse(Schema.Json, "graphql")(data);
   });
+
   const paginate = Effect.fn("ActionClient.paginate")(function* paginate(
     route: string,
     parameters?: RequestParameters,
@@ -128,25 +134,30 @@ const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionCli
           }),
       ),
     );
+
     const iterator = yield* Effect.try({
       catch: requestFailed(route),
       try: () => octokit.paginate.iterator(route, parameters),
     });
+
     const pages = yield* Stream.fromAsyncIterable(iterator, requestFailed(route)).pipe(
       Stream.take(maxPages + 1),
       Stream.runCollect,
     );
+
     if (pages.length > maxPages) {
       return yield* new ActionApiError({
         description: `more than ${maxPages} pages`,
         method: route,
       });
     }
+
     return yield* decodeResponse(
       Schema.Array(Schema.Json),
       route,
     )(pages.flatMap((page) => page.data));
   });
+
   return {
     call,
     graphql,
@@ -154,6 +165,7 @@ const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionCli
       S extends Schema.Top,
     >(schema: S, query: string, variables?: RequestParameters) {
       const data = yield* graphql(query, variables);
+
       return yield* decodeResponse(schema, "graphql")(data);
     }),
     octokit,
@@ -162,6 +174,7 @@ const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionCli
       S extends Schema.Top,
     >(schema: S, route: string, parameters?: RequestParameters, paginateOptions?: PaginateOptions) {
       const items = yield* paginate(route, parameters, paginateOptions);
+
       return yield* decodeResponse(Schema.Array(schema), route)(items);
     }),
     request,
@@ -169,6 +182,7 @@ const make = (token: Redacted.Redacted, options: OctokitOptions = {}): ActionCli
       S extends Schema.Top,
     >(schema: S, route: string, parameters?: RequestParameters) {
       const { data } = yield* request(route, parameters);
+
       return yield* decodeResponse(schema, route)(data);
     }),
   };
@@ -187,6 +201,7 @@ export class ActionClient extends Context.Service<ActionClient, ActionClientApi>
         Config.orElse(() => Config.Redacted("GITHUB_TOKEN")),
         Config.withDefault(Redacted.make("")),
       );
+
       return make(token);
     }),
   );

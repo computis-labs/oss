@@ -14,6 +14,7 @@ export const open = Effect.fn("EffectPdf.open")(function* openPdf(
   options: { readonly password?: string } = {},
 ) {
   const engine = yield* PdfEngine;
+
   return yield* engine.open(bytes, options);
 });
 
@@ -22,14 +23,17 @@ export const form = <S extends Schema.Codec<unknown, Readonly<Record<string, Pdf
 ) => {
   const decode = Schema.decodeUnknownEffect(schema);
   const encode = Schema.encodeUnknownEffect(schema);
+
   return {
     read: Effect.fn("EffectPdf.form.read")(function* readForm(document: PdfDocument) {
       const fields = yield* document.fields;
+
       const values = Object.fromEntries(
         fields.flatMap(({ name, type, value }) =>
           value === undefined || valuelessFieldTypes.has(type) ? [] : [[name, value]],
         ),
       );
+
       return yield* decode(values).pipe(
         Effect.mapError(
           (cause) =>
@@ -53,6 +57,7 @@ export const form = <S extends Schema.Codec<unknown, Readonly<Record<string, Pdf
             }),
         ),
       );
+
       return yield* document.setFields(values);
     }),
   };

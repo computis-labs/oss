@@ -16,12 +16,14 @@ const failingWorkers = (
   entry = new URL("fixtures/crash-on-open.ts", import.meta.url),
 ) => {
   const counters = new Int32Array(new SharedArrayBuffer(2 * Int32Array.BYTES_PER_ELEMENT));
+
   return {
     failedOpens: () => Atomics.load(counters, 0),
     layer: PdfEngine.layer({ size }).pipe(
       Layer.provide(
         nodeWorkers(() => {
           const index = Atomics.add(counters, 1, 1);
+
           return new Worker(failures.has(index) ? entry : pdfWorkerEntry, {
             workerData: counters.buffer,
           });
@@ -35,6 +37,7 @@ const failingWorkers = (
 
 it.effect("retries an open with intact PDF bytes after the receiving worker exits", () => {
   const workers = failingWorkers(new Set([0]));
+
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["The retry keeps this text"]]);
     const original = new Uint8Array(bytes);
@@ -51,20 +54,25 @@ it.effect("retries an open with intact PDF bytes after the receiving worker exit
 
 it.effect("retries opening a replica without losing the retained PDF bytes", () => {
   const workers = failingWorkers(new Set([1]), 2);
+
   return Effect.gen(function* () {
     const bytes = yield* textPdf(
       Array.from({ length: 12 }, (_, page) => [`Retry page ${page.toString()}`]),
     );
+
     const original = new Uint8Array(bytes);
     const engine = yield* PdfEngine;
     const used: number[] = [];
+
     const pool: PdfPool = {
       ...engine,
       call: (lease, request) => {
         used.push(lease.worker);
+
         return engine.call(lease, request);
       },
     };
+
     const document = yield* openDocument(pool)(bytes);
 
     const pages = yield* document.text();
@@ -86,6 +94,7 @@ it.effect("retries opening a replica without losing the retained PDF bytes", () 
 
 it.effect("stops after one retry and keeps the pool usable for another document", () => {
   const workers = failingWorkers(new Set([0, 1]));
+
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["A later document still opens"]]);
     const original = new Uint8Array(bytes);
@@ -108,6 +117,7 @@ it.effect("replaces a connection interrupted by the worker before retrying the o
     1,
     new URL("fixtures/interrupt-on-open.ts", import.meta.url),
   );
+
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["The interrupted open recovers"]]);
     const original = new Uint8Array(bytes);
@@ -128,6 +138,7 @@ it.effect("stops after two interrupted opens and keeps the pool usable", () => {
     1,
     new URL("fixtures/interrupt-on-open.ts", import.meta.url),
   );
+
   return Effect.gen(function* () {
     const bytes = yield* textPdf([["The next open still works"]]);
     const original = new Uint8Array(bytes);
@@ -146,9 +157,11 @@ it.effect("stops after two interrupted opens and keeps the pool usable", () => {
 
 it.effect("allows a pending lease to be interrupted without replacing its healthy worker", () => {
   const workers = failingWorkers(new Set());
+
   return Effect.gen(function* () {
     const engine = yield* PdfEngine;
     const started = yield* Deferred.make<boolean>();
+
     const pending = yield* engine
       .lease(new Set(), () => Deferred.succeed(started, true).pipe(Effect.andThen(Effect.never)))
       .pipe(Effect.forkChild);

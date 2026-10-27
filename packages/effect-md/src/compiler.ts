@@ -98,10 +98,13 @@ const fail = (
 
 const flush = (emitter: Emitter) => {
   const { pieces } = emitter;
+
   if (pieces.length === 0) {
     return;
   }
+
   const [only] = pieces;
+
   const dynamicCode =
     only !== undefined && pieces.length === 1
       ? only.value
@@ -117,9 +120,11 @@ const flush = (emitter: Emitter) => {
               : `\${${piece.value}}`,
           )
           .join("")}\``;
+
   const code = pieces.every((piece) => piece.isStatic)
     ? JSON.stringify(pieces.map((piece) => piece.value).join(""))
     : dynamicCode;
+
   pieces.length = 0;
   emitter.lines.push(`${"  ".repeat(emitter.depth)}$t += ${code};`);
 };
@@ -149,6 +154,7 @@ const close = (emitter: Emitter, code: string) => {
 
 const fresh = (counter: { value: number }) => {
   counter.value += 1;
+
   return counter.value;
 };
 
@@ -177,6 +183,7 @@ const isMissing = (binding: Binding) => binding.type.optional || binding.type.nu
 
 const withAlias = (ctx: Context, binding: Binding): Binding => {
   const alias = ctx.aliases.get(binding.expression);
+
   return alias === undefined
     ? binding
     : { expression: alias, type: { ...binding.type, ...present } };
@@ -190,6 +197,7 @@ const primitive = (name: Ast.PrimitiveType, span: Ast.Span): ValueType => ({
 const presenceChecks = (binding: Binding) => {
   const { expression, type } = binding;
   const dynamic = type.node === undefined;
+
   return [
     ...(dynamic || type.optional ? [`${expression} !== undefined`] : []),
     ...(dynamic || type.nullable ? [`${expression} !== null`] : []),
@@ -199,6 +207,7 @@ const presenceChecks = (binding: Binding) => {
 const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Binding> => {
   if (Predicate.isTagged(value, "Data")) {
     const { loop } = ctx;
+
     if (loop === null) {
       return fail(
         ctx,
@@ -207,6 +216,7 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
         `'@${value.name}' is only available inside '{{#each}}'.`,
       );
     }
+
     switch (value.name) {
       case DataVariables.index: {
         return Result.succeed({
@@ -214,24 +224,29 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
           type: primitive(PrimitiveTypes.Number, value.span),
         });
       }
+
       case DataVariables.first: {
         return Result.succeed({
           expression: `${loop.index} === 0`,
           type: primitive(PrimitiveTypes.Boolean, value.span),
         });
       }
+
       case DataVariables.last: {
         return Result.succeed({
           expression: `${loop.index} === ${loop.items}.length - 1`,
           type: primitive(PrimitiveTypes.Boolean, value.span),
         });
       }
+
       default: {
         return absurd(value.name);
       }
     }
   }
+
   const root = ctx.scope.get(value.root);
+
   if (root === undefined && !ctx.dynamicInput) {
     return fail(
       ctx,
@@ -240,19 +255,23 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
       `Unknown variable '${value.root}'. Declare it under 'input' in the frontmatter.${didYouMean(value.root, ctx.scope.keys())}`,
     );
   }
+
   const resolvedRoot: Compiled<Binding> = Result.succeed(
     withAlias(ctx, root ?? { expression: `$input.${value.root}`, type: present }),
   );
+
   return Arr.reduce(value.segments, resolvedRoot, (resolved, segment, index) =>
     resolved.pipe(
       Result.flatMap((binding) => {
         const { node } = binding.type;
         const name = [value.root, ...value.segments.slice(0, index)].join(".");
+
         if (node === undefined) {
           return Result.succeed(
             withAlias(ctx, { expression: `${binding.expression}.${segment}`, type: present }),
           );
         }
+
         if (isMissing(binding)) {
           return fail(
             ctx,
@@ -261,6 +280,7 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
             `'${name}' may be missing. Check it first with '{{#if ${name}}}'.`,
           );
         }
+
         if (!Predicate.isTagged(node, "Struct")) {
           return fail(
             ctx,
@@ -269,7 +289,9 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
             `'${name}' is ${describeType(node)}, so it has no field '${segment}'.`,
           );
         }
+
         const field = node.fields.find((candidate) => candidate.name === segment);
+
         if (field === undefined) {
           return fail(
             ctx,
@@ -281,6 +303,7 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
             )}`,
           );
         }
+
         return Result.succeed(
           withAlias(ctx, {
             expression: `${binding.expression}.${segment}`,
@@ -318,6 +341,7 @@ const requireValue = (
   kind: (typeof ValueKinds)[keyof typeof ValueKinds],
 ): Compiled<Binding> => {
   const name = displayName(value);
+
   if (isMissing(binding)) {
     return fail(
       ctx,
@@ -326,10 +350,13 @@ const requireValue = (
       `'${name}' may be missing. Check it first with '{{#if ${name}}}'.`,
     );
   }
+
   const { node } = binding.type;
+
   if (node === undefined || kindChecks[kind](node)) {
     return Result.succeed(binding);
   }
+
   const hint = Match.valueTags(node, {
     Array: () => " Use '{{#each}}' or '{{json value}}'.",
     Literal: () => "",
@@ -344,6 +371,7 @@ const requireValue = (
       ) ?? "",
     Struct: () => " Use '{{json value}}' to print it as JSON.",
   });
+
   return fail(
     ctx,
     value.span.start,
@@ -378,6 +406,7 @@ const emitCondition = (
         const literal = compare.right.value;
         const equals = compare.operator === ComparisonOperators.equals;
         const narrows = isMissing(binding) ? [binding.expression] : [];
+
         if (binding.constant !== undefined) {
           return {
             code: "",
@@ -388,6 +417,7 @@ const emitCondition = (
             whenTrue: [],
           };
         }
+
         if (literal !== null) {
           const accepted =
             node === undefined ||
@@ -408,6 +438,7 @@ const emitCondition = (
                 )?.(literal) ?? false,
               Struct: () => false,
             });
+
           if (node !== undefined && !accepted) {
             return yield* fail(
               ctx,
@@ -416,7 +447,9 @@ const emitCondition = (
               `'${displayName(compare.left)}' is ${describeType(node)}, so it is never ${JSON.stringify(literal)}.`,
             );
           }
+
           const value = JSON.stringify(literal);
+
           return {
             code: `${binding.expression} ${compare.operator}= ${value}`,
             constant: null,
@@ -426,7 +459,9 @@ const emitCondition = (
             whenTrue: equals ? narrows : [],
           };
         }
+
         const checks = presenceChecks(binding);
+
         if (checks.length === 0) {
           return yield* fail(
             ctx,
@@ -435,8 +470,10 @@ const emitCondition = (
             `'${displayName(compare.left)}' is never null, so this condition is always ${equals ? "false" : "true"}.`,
           );
         }
+
         const absent = checks.map((check) => check.replace(" !== ", " === "));
         const [single] = absent;
+
         return {
           code: equals ? absent.join(" || ") : checks.join(" && "),
           constant: null,
@@ -460,8 +497,10 @@ const emitCondition = (
         const binding = yield* resolveValue(ctx, truthy.value);
         const { expression, type } = binding;
         const { node } = type;
+
         if (binding.constant !== undefined) {
           const value = binding.constant;
+
           return {
             code: "",
             constant: !(value === null || value === false || value === 0 || value === ""),
@@ -471,6 +510,7 @@ const emitCondition = (
             whenTrue: [],
           };
         }
+
         const fills: readonly string[] =
           node === undefined
             ? [`Runtime.isFilled(${expression})`]
@@ -493,11 +533,14 @@ const emitCondition = (
                     },
                     primitiveType.name,
                   );
+
                   return fill === undefined ? [] : [fill(expression)];
                 },
                 Struct: () => [],
               });
+
         const checks = [...presenceChecks(binding), ...fills];
+
         if (checks.length === 0) {
           return yield* fail(
             ctx,
@@ -506,7 +549,9 @@ const emitCondition = (
             `'${displayName(truthy.value)}' is always present, so this condition is always true.`,
           );
         }
+
         const [single] = checks;
+
         return {
           code: checks.join(" && "),
           constant: null,
@@ -529,6 +574,7 @@ const hashLiteral = (
   expected: string,
 ): Compiled<string> => {
   const unknown = helper.hash.find((argument) => argument.name !== allowed);
+
   if (unknown !== undefined) {
     return fail(
       ctx,
@@ -537,10 +583,13 @@ const hashLiteral = (
       `'{{${helper.name}}}' does not accept '${unknown.name}'.${allowed === null ? "" : ` It accepts only '${allowed}'.`}`,
     );
   }
+
   const [option] = helper.hash;
+
   if (option === undefined) {
     return Result.succeed("");
   }
+
   return Predicate.isTagged(option.value, "Literal") && accepts(option.value.value)
     ? Result.succeed(`, ${JSON.stringify(option.value.value)}`)
     : fail(
@@ -554,12 +603,14 @@ const hashLiteral = (
 const declareAliases = (ctx: Context, emitter: Emitter, expressions: readonly string[]) => {
   const aliases = new Map(ctx.aliases);
   const declared: { readonly name: string; readonly line: number }[] = [];
+
   for (const expression of expressions) {
     const name = `$n${fresh(emitter.counter)}`;
     declared.push({ line: emitter.lines.length, name });
     statement(emitter, `const ${name} = ${expression};`);
     aliases.set(expression, name);
   }
+
   return { ctx: declared.length === 0 ? ctx : { ...ctx, aliases }, declared };
 };
 
@@ -568,8 +619,10 @@ const pruneAliases = (
   declared: readonly { readonly name: string; readonly line: number }[],
 ) => {
   flush(emitter);
+
   for (const alias of declared.toReversed()) {
     const rest = emitter.lines.slice(alias.line + 1).join("\n");
+
     if (!usesIdentifier(rest, alias.name)) {
       emitter.lines.splice(alias.line, 1);
     }
@@ -580,6 +633,7 @@ const splitWhenComplex = (emitter: Emitter, emit: () => Compiled<null>): Compile
   if (emitter.frame.complexity < complexityBudget) {
     return emit();
   }
+
   const name = `$block${fresh(emitter.counter)}`;
   const outer = emitter.frame;
   open(emitter, `const ${name} = () => {`);
@@ -588,6 +642,7 @@ const splitWhenComplex = (emitter: Emitter, emit: () => Compiled<null>): Compile
   close(emitter, "};");
   emitter.frame = outer;
   statement(emitter, `${name}();`);
+
   return result;
 };
 
@@ -605,47 +660,58 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
               const index = `$i${id}`;
               const item = `$v${id}`;
               statement(emitter, `const ${items} = ${iterable.expression};`);
+
               if (each.alternate.length > 0) {
                 emitter.frame.complexity += 1;
                 open(emitter, `if (${items}.length === 0) {`);
                 yield* emitNodes(ctx, emitter, each.alternate);
                 reopen(emitter, "} else {");
               }
+
               emitter.frame.complexity += 1;
               const header = emitter.lines.length;
               const headerIndent = "  ".repeat(emitter.depth);
               open(emitter, "");
               const iterableNode = iterable.type.node;
+
               const element =
                 iterableNode !== undefined && Predicate.isTagged(iterableNode, "Array")
                   ? normalizeType(iterableNode.element, false)
                   : present;
+
               const scope = new Map(ctx.scope);
               scope.set(each.item, { expression: item, type: element });
+
               if (each.index !== undefined) {
                 scope.set(each.index, {
                   expression: index,
                   type: primitive(PrimitiveTypes.Number, each.span),
                 });
               }
+
               yield* emitNodes({ ...ctx, loop: { index, items }, scope }, emitter, each.body);
               close(emitter, "}");
               const body = emitter.lines.slice(header + 1).join("\n");
               const usesItem = usesIdentifier(body, item);
               const counting = `let ${index} = 0; ${index} < ${items}.length; ${index} += 1`;
+
               const iterating = usesIdentifier(body, index)
                 ? `const [${index}, ${item}] of ${items}.entries()`
                 : `const ${item} of ${items}`;
+
               emitter.lines[header] = `${headerIndent}for (${usesItem ? iterating : counting}) {`;
+
               if (each.alternate.length > 0) {
                 close(emitter, "}");
               }
+
               return null;
             }),
           ),
         Helper: (helper) =>
           Result.gen(function* helperProgram() {
             const [argument, ...extra] = helper.args;
+
             if (!helperNames.has(helper.name)) {
               return yield* fail(
                 ctx,
@@ -654,6 +720,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 `Unknown helper '${helper.name}'. Use 'untrusted', 'json' or 'file'.${didYouMean(helper.name, helperNames)}`,
               );
             }
+
             if (
               argument === undefined ||
               extra.length > 0 ||
@@ -666,7 +733,9 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 `'{{${helper.name}}}' takes one variable, for example '{{${helper.name} value}}'.`,
               );
             }
+
             const binding = yield* resolveValue(ctx, argument);
+
             switch (helper.name) {
               case Helpers.json: {
                 const indent = yield* hashLiteral(
@@ -676,14 +745,18 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                   Predicate.isNumber,
                   "a number",
                 );
+
                 emitter.pieces.push({
                   isStatic: false,
                   value: `Runtime.json(${binding.expression}${indent})`,
                 });
+
                 return null;
               }
+
               case Helpers.untrusted: {
                 const text = yield* requireValue(ctx, binding, argument, ValueKinds.string);
+
                 const lang = yield* hashLiteral(
                   ctx,
                   helper,
@@ -691,15 +764,19 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                   Predicate.isString,
                   "a string",
                 );
+
                 emitter.pieces.push({
                   isStatic: false,
                   value: `Runtime.untrusted(${text.expression}${lang})`,
                 });
+
                 return null;
               }
+
               default: {
                 yield* hashLiteral(ctx, helper, null, Predicate.isString, "nothing");
                 const attachment = yield* requireValue(ctx, binding, argument, ValueKinds.file);
+
                 if (ctx.parts === null) {
                   return yield* fail(
                     ctx,
@@ -708,11 +785,13 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                     ctx.fileBlocked,
                   );
                 }
+
                 statement(
                   emitter,
                   `${ctx.parts}.push($t, Runtime.file(${attachment.expression}));`,
                 );
                 statement(emitter, `$t = "";`);
+
                 return null;
               }
             }
@@ -724,68 +803,86 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 readonly body: readonly Ast.Node[];
                 readonly condition: Result.Result.Success<ReturnType<typeof emitCondition>>;
               }[] = [];
+
               for (const branch of block.branches) {
                 const condition = yield* emitCondition(ctx, branch.condition);
                 evaluated.push({ body: branch.body, condition });
+
                 if (condition.constant === true) {
                   break;
                 }
               }
+
               const branches = evaluated.filter(({ condition }) => condition.constant === null);
+
               const alternate =
                 evaluated.find(({ condition }) => condition.constant === true)?.body ??
                 block.alternate;
+
               if (branches.length === 0) {
                 return yield* emitNodes(ctx, emitter, alternate);
               }
+
               flush(emitter);
               const start = emitter.lines.length;
               const falsy: string[] = [];
               const last = branches.length - 1;
+
               const swapped = Option.filter(
                 Option.fromNullishOr(branches.at(-1)),
                 (branch) => alternate.length > 0 && branch.condition.negated !== null,
               );
+
               for (const [index, { body, condition }] of branches.entries()) {
                 const swap = index === last && Option.isSome(swapped);
                 const code = (swap ? condition.negated : null) ?? condition.code;
                 emitter.frame.complexity += 1 + condition.cost;
+
                 if (index === 0) {
                   open(emitter, `if (${code}) {`);
                 } else {
                   reopen(emitter, `} else if (${code}) {`);
                 }
+
                 const narrowed = declareAliases(ctx, emitter, [
                   ...falsy,
                   ...(swap ? condition.whenFalse : condition.whenTrue),
                 ]);
+
                 yield* emitNodes(narrowed.ctx, emitter, swap ? alternate : body);
                 pruneAliases(emitter, narrowed.declared);
+
                 if (!swap) {
                   falsy.push(...condition.whenFalse);
                 }
               }
+
               const otherwise = Option.match(swapped, {
                 onNone: () => ({ body: alternate, narrows: [] }),
                 onSome: (branch) => ({ body: branch.body, narrows: branch.condition.whenTrue }),
               });
+
               if (otherwise.body.length > 0) {
                 reopen(emitter, "} else {");
                 const narrowed = declareAliases(ctx, emitter, [...falsy, ...otherwise.narrows]);
                 yield* emitNodes(narrowed.ctx, emitter, otherwise.body);
                 pruneAliases(emitter, narrowed.declared);
               }
+
               close(emitter, "}");
               const collapsible = emitter.lines.slice(start);
               const joined = collapsible.join("\n");
+
               const ternary = joined.replace(
                 ternaryPattern,
                 "$<indent>$$t += $<condition> ? $<whenTrue> : $<whenFalse>;",
               );
+
               if (ternary !== joined && !collapsible.some((line) => emitter.ternaries.has(line))) {
                 emitter.lines.splice(start, collapsible.length, ternary);
                 emitter.ternaries.add(ternary);
               }
+
               return null;
             }),
           ),
@@ -794,24 +891,29 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
             const found = yield* resolveValue(ctx, output.value);
             const binding = yield* requireValue(ctx, found, output.value, ValueKinds.printable);
             const outputNode = binding.type.node;
+
             const isString =
               outputNode !== undefined &&
               Predicate.isTagged(outputNode, "Primitive") &&
               outputNode.name === PrimitiveTypes.String;
+
             emitter.pieces.push({
               isStatic: false,
               value: isString ? binding.expression : `Runtime.show(${binding.expression})`,
             });
+
             return null;
           }),
         Partial: (partial) =>
           Result.gen(function* partialProgram() {
             const target = posix.join(posix.dirname(ctx.path), partial.source);
             const included = ctx.documents.get(target);
+
             if (included === undefined) {
               const partials = [...ctx.documents.keys()].filter(
                 (path) => !path.endsWith(promptSuffix),
               );
+
               return yield* fail(
                 ctx,
                 partial.span.start,
@@ -819,6 +921,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 `The partial '${partial.source}' does not exist (looked for '${target}').${didYouMean(target, partials)}`,
               );
             }
+
             if (ctx.includes.has(target)) {
               return yield* fail(
                 ctx,
@@ -827,7 +930,9 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 `The partials include each other: ${[...ctx.includes, target].join(" → ")}.`,
               );
             }
+
             const { body, frontmatter } = included.document;
+
             if (!Predicate.isTagged(body, "Fragment")) {
               return yield* fail(
                 ctx,
@@ -836,9 +941,12 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 `The partial '${partial.source}' uses role tags. Only prompt files can use '<system>', '<user>' and '<assistant>'.`,
               );
             }
+
             const scope = new Map(ctx.scope);
+
             for (const argument of partial.hash) {
               const { value } = argument;
+
               if (Predicate.isTagged(value, "Literal")) {
                 const literal = value.value;
                 scope.set(argument.name, {
@@ -856,11 +964,14 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 scope.set(argument.name, yield* resolveValue(ctx, value));
               }
             }
+
             const input = frontmatter?.input;
+
             const needed =
               input !== undefined && Predicate.isTagged(input, "Inline") && !ctx.dynamicInput
                 ? input.type.fields.find((field) => !field.optional && !scope.has(field.name))
                 : undefined;
+
             if (needed !== undefined) {
               return yield* fail(
                 ctx,
@@ -869,6 +980,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 `The partial '${partial.source}' needs '${needed.name}'. Pass it with '{{> ${partial.source} ${needed.name}=...}}'.`,
               );
             }
+
             const inner: Context = {
               ...ctx,
               file: included.file,
@@ -876,9 +988,11 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
               path: target,
               scope,
             };
+
             if (partial.indent.length === 0) {
               return yield* emitNodes(inner, emitter, body.nodes);
             }
+
             const saved = `$s${fresh(emitter.counter)}`;
             statement(emitter, `const ${saved} = $t;`);
             statement(emitter, `$t = "";`);
@@ -895,14 +1009,17 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
               emitter,
               `$t = \`\${${saved}}\${Runtime.indent($t, ${JSON.stringify(partial.indent)})}\`;`,
             );
+
             return null;
           }),
         Text: (text) => {
           emitter.pieces.push({ isStatic: true, value: text.value });
+
           return ok;
         },
       });
     }
+
     return null;
   });
 
@@ -921,6 +1038,7 @@ const schemaCode = (node: Ast.TypeNode): string =>
         .toSorted((left, right) => (left.name < right.name ? -1 : 1))
         .map((field) => {
           const code = schemaCode(field.type);
+
           return `${field.name}: ${field.optional ? `Schema.optionalKey(${code})` : code}`;
         })
         .join(", ")} })`,
@@ -935,15 +1053,18 @@ export const compile = (
       sources.map((source) => {
         const path = posix.normalize(source.path);
         const file: SourceFile = { path: options.displayPath?.(path) ?? path, text: source.text };
+
         return Effect.map(
           parse(source.text, { path: file.path ?? path }),
           (document) => [path, { document, file }] as const,
         );
       }),
     );
+
     const documents: ReadonlyMap<string, SourceDocument> = new Map(
       parsed.toSorted(([left], [right]) => (left < right ? -1 : 1)),
     );
+
     const runtime = options.runtime ?? defaultRuntime;
 
     return yield* Effect.fromResult(
@@ -958,6 +1079,7 @@ export const compile = (
           Result.gen(function* promptProgram() {
             const { document, file } = source;
             const input = document.frontmatter?.input;
+
             const base: Context = {
               aliases: new Map(),
               documents,
@@ -970,6 +1092,7 @@ export const compile = (
               path,
               scope: new Map(),
             };
+
             const { ctx, inputCode } = Match.value(input).pipe(
               Match.withReturnType<{ readonly ctx: Context; readonly inputCode: string }>(),
               Match.when(Match.undefined, () => ({ ctx: base, inputCode: "Schema.Void" })),
@@ -990,16 +1113,20 @@ export const compile = (
               })),
               Match.tag("Reference", (reference) => {
                 const schemaName = `$schema${fresh(counter)}`;
+
                 const module = reference.module.startsWith(".")
                   ? `./${posix.join(posix.dirname(path), reference.module)}`
                   : reference.module;
+
                 imports.push(
                   `import { ${reference.exportName} as ${schemaName} } from ${JSON.stringify(module)};`,
                 );
+
                 return { ctx: { ...base, dynamicInput: true }, inputCode: schemaName };
               }),
               Match.exhaustive,
             );
+
             const messages: readonly Ast.Message[] = Predicate.isTagged(document.body, "Fragment")
               ? [
                   {
@@ -1009,9 +1136,11 @@ export const compile = (
                   },
                 ]
               : document.body.messages;
+
             const renderLines: string[] = [];
             const staticMessages: string[] = [];
             const frame = { complexity: 1 };
+
             const emitMessage = (message: Ast.Message, index: number): Compiled<null> =>
               Result.gen(function* messageProgram() {
                 const emitter: Emitter = {
@@ -1022,13 +1151,16 @@ export const compile = (
                   pieces: [],
                   ternaries: new Set(),
                 };
+
                 const parts = message.role === Roles.system ? null : `$p${fresh(counter)}`;
                 yield* emitNodes({ ...ctx, parts }, emitter, message.body);
+
                 const builder = {
                   assistant: "Runtime.assistant",
                   system: "Runtime.system",
                   user: "Runtime.user",
                 }[message.role];
+
                 if (emitter.lines.length === 0 && emitter.pieces.every((piece) => piece.isStatic)) {
                   const text = JSON.stringify(emitter.pieces.map((piece) => piece.value).join(""));
                   const name = `$m${fresh(counter)}`;
@@ -1037,47 +1169,62 @@ export const compile = (
                   );
                   staticMessages.push(name);
                   renderLines.push(`    $messages.push(${name});`);
+
                   return null;
                 }
+
                 flush(emitter);
+
                 if (staticMessages.length < index) {
                   renderLines.push(`    $t = "";`);
                 }
+
                 if (parts === null) {
                   renderLines.push(...emitter.lines, `    $messages.push(${builder}($t));`);
+
                   return null;
                 }
+
                 renderLines.push(
                   `    const ${parts}: Runtime.Part[] = [];`,
                   ...emitter.lines,
                   `    ${parts}.push($t);`,
                   `    $messages.push(${builder}(${parts}));`,
                 );
+
                 return null;
               });
+
             for (const [index, message] of messages.entries()) {
               yield* emitMessage(message, index);
             }
+
             const staticPrompt =
               staticMessages.length < messages.length ? undefined : `$prompt${fresh(counter)}`;
+
             if (staticPrompt !== undefined) {
               hoisted.push(
                 `const ${staticPrompt} = Prompt.fromMessages([${staticMessages.join(", ")}]);`,
               );
             }
+
             const body = renderLines.join("\n");
             const parameter = usesIdentifier(body, "$input") ? "$input" : "";
+
             const render =
               staticPrompt === undefined
                 ? `(${parameter}) => {\n    let $t = "";\n    const $messages: Prompt.Message[] = [];\n${body}\n    return Prompt.fromMessages($messages);\n  }`
                 : `() => ${staticPrompt}`;
+
             const description = document.frontmatter?.description;
+
             const fields = [
               ...(description === undefined ? [] : [`description: ${JSON.stringify(description)}`]),
               `input: ${inputCode}`,
               `name: ${JSON.stringify(path.slice(0, -promptSuffix.length))}`,
               `render: ${render}`,
             ];
+
             return `Runtime.definePrompt({\n  ${fields.join(",\n  ")},\n})`;
           });
 
@@ -1085,6 +1232,7 @@ export const compile = (
           if (!path.endsWith(promptSuffix)) {
             continue;
           }
+
           const keys = path
             .slice(0, -promptSuffix.length)
             .split("/")
@@ -1093,7 +1241,9 @@ export const compile = (
                 char.toUpperCase(),
               ),
             );
+
           const invalid = keys.find((key) => !identifierPattern.test(key));
+
           if (invalid !== undefined) {
             return yield* Result.fail(
               compileError(
@@ -1104,10 +1254,13 @@ export const compile = (
               ),
             );
           }
+
           const key = keys.join(".");
+
           const clashes = [...names].some(
             (other) => other === key || other.startsWith(`${key}.`) || key.startsWith(`${other}.`),
           );
+
           if (clashes) {
             return yield* Result.fail(
               compileError(
@@ -1118,6 +1271,7 @@ export const compile = (
               ),
             );
           }
+
           names.add(key);
           leaves.push({ code: yield* compilePrompt(path, source), keys });
         }
@@ -1125,9 +1279,11 @@ export const compile = (
         const renderTree = (prefix: readonly string[], depth: number): string => {
           const indent = "  ".repeat(depth);
           const entries = new Map<string, string>();
+
           for (const leaf of leaves) {
             const next = leaf.keys[prefix.length];
             const matches = prefix.every((key, index) => leaf.keys[index] === key);
+
             if (matches && next !== undefined && leaf.keys.length === prefix.length + 1) {
               entries.set(next, `${indent}${next}: ${leaf.code.replaceAll("\n", `\n${indent}`)},`);
             } else if (matches && next !== undefined && !entries.has(next)) {
@@ -1137,6 +1293,7 @@ export const compile = (
               );
             }
           }
+
           return [...entries]
             .toSorted(([left], [right]) => (left < right ? -1 : 1))
             .map(([, code]) => code)
@@ -1146,6 +1303,7 @@ export const compile = (
         const body = [...hoisted, "", `export const prompts = {\n${renderTree([], 1)}\n};`].join(
           "\n",
         );
+
         const header = [
           "// This file is generated by @computis/effect-md. Do not edit it.",
           ...(body.includes("Schema.") ? [`import { Schema } from "effect";`] : []),
@@ -1153,6 +1311,7 @@ export const compile = (
           `import * as Runtime from ${JSON.stringify(runtime)};`,
           ...imports,
         ];
+
         return `${header.join("\n")}\n\n${body}\n`;
       }),
     );

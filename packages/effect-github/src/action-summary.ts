@@ -54,46 +54,57 @@ export class ActionSummary extends Context.Service<ActionSummary, ActionSummaryA
     const self: ActionSummaryApi = {
       addBreak: () => {
         summary.addBreak();
+
         return self;
       },
       addCodeBlock: (code, lang) => {
         summary.addCodeBlock(code, lang);
+
         return self;
       },
       addDetails: (label, content) => {
         summary.addDetails(label, content);
+
         return self;
       },
       addEOL: () => {
         summary.addEOL();
+
         return self;
       },
       addHeading: (text, level) => {
         summary.addHeading(text, level);
+
         return self;
       },
       addImage: (src, alt, options) => {
         summary.addImage(src, alt, options);
+
         return self;
       },
       addLink: (text, href) => {
         summary.addLink(text, href);
+
         return self;
       },
       addList: (items, ordered) => {
         summary.addList([...items], ordered);
+
         return self;
       },
       addQuote: (text, cite) => {
         summary.addQuote(text, cite);
+
         return self;
       },
       addRaw: (text, addEOL) => {
         summary.addRaw(text, addEOL);
+
         return self;
       },
       addSeparator: () => {
         summary.addSeparator();
+
         return self;
       },
       addTable: (rows) => {
@@ -107,14 +118,17 @@ export class ActionSummary extends Context.Service<ActionSummary, ActionSummaryA
             })),
           ),
         );
+
         return self;
       },
       clear: Effect.fn("ActionSummary.clear")(function* clear() {
         yield* Effect.tryPromise({ catch: writeFailed, try: async () => await summary.clear() });
+
         return self;
       }),
       emptyBuffer: () => {
         summary.emptyBuffer();
+
         return self;
       },
       isEmptyBuffer: () => summary.isEmptyBuffer(),
@@ -126,9 +140,11 @@ export class ActionSummary extends Context.Service<ActionSummary, ActionSummaryA
           catch: writeFailed,
           try: async () => await summary.write(options),
         });
+
         return self;
       }),
     };
+
     return self;
   });
 }

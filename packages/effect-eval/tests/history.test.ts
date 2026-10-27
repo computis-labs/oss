@@ -129,6 +129,7 @@ const inTempRoot = <A, E, R>(use: (root: string) => Effect.Effect<A, E, R | Hist
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const root = yield* fs.makeTempDirectoryScoped();
+
     return yield* use(root).pipe(Effect.provide(History.layerFileSystem(root)));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
@@ -252,6 +253,7 @@ describe("History.load by id", () => {
 
 describe("History.layerFileSystem index", () => {
   const files = new Map<string, string>();
+
   const racy = FileSystem.layerNoop({
     exists: (path) => Effect.sync(() => files.has(path)),
     makeDirectory: () => Effect.void,
@@ -270,6 +272,7 @@ describe("History.layerFileSystem index", () => {
         ["rent", "fuel", "rent", "fuel"].map((answer) => saved(answer, "main")),
         { concurrency: "unbounded" },
       );
+
       const entries = yield* History.list("categorizer");
 
       expect(entries.map((entry) => entry.id).toSorted()).toEqual(

@@ -21,6 +21,7 @@ export const intervalMethods = {
   bootstrap: "bootstrap",
   wilsonUnlessPartial: "wilsonUnlessPartial",
 } as const;
+
 export type IntervalMethod = (typeof intervalMethods)[keyof typeof intervalMethods];
 
 export type Metric = Data.TaggedEnum<{
@@ -32,7 +33,9 @@ export type Metric = Data.TaggedEnum<{
     readonly interval: IntervalMethod;
   };
 }>;
+
 export type CountMetric = Data.TaggedEnum.Value<Metric, "Count">;
+
 export type RatioMetric = Data.TaggedEnum.Value<Metric, "Ratio">;
 
 const { $is, $match, Count, Ratio } = Data.taggedEnum<Metric>();
@@ -45,6 +48,7 @@ export const EstimateSchema = Schema.Struct({
   n: Schema.Finite,
   value: Schema.OptionFromNullOr(Schema.Finite),
 });
+
 export type Estimate = typeof EstimateSchema.Type;
 
 const verdictCount = (verdict: Verdict) =>
@@ -134,9 +138,10 @@ export const count = (metric: CountMetric, judged: readonly Judged[]) =>
   judged.filter((item) => metric.counts(item)).length;
 
 export const estimate = (metric: RatioMetric, judged: readonly Judged[]): Estimate => {
-  const weights = judged.filter((item) => metric.admits(item)).map((item) => metric.weight(item));
+  const weights = judged.flatMap((item) => (metric.admits(item) ? [metric.weight(item)] : []));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   const binary = weights.every((weight) => weight === 0 || weight === 1);
+
   return {
     hits: total,
     interval:
@@ -169,19 +174,23 @@ export const SummarySchema = Schema.Struct({
   observations: Schema.Finite,
   ratios: Schema.Record(Schema.String, EstimateSchema),
 });
+
 export type Summary = typeof SummarySchema.Type;
 
 export const summary = (observations: readonly Observation[]): Summary => {
   const judged = judge(observations);
+
   const reasons = [
     ...new Set(observations.flatMap((observation) => Option.toArray(observation.excluded))),
   ].toSorted();
+
   return {
     counts: Object.fromEntries([
       ...counts.map((metric) => [metric.name, count(metric, judged)] as const),
       [verdicts.excluded, count(excluded(), judged)] as const,
       ...reasons.map((reason) => {
         const byReason = excluded(reason);
+
         return [byReason.name, count(byReason, judged)] as const;
       }),
     ]),
@@ -205,6 +214,7 @@ export const by =
   (prefix: string) =>
   (observations: readonly Observation[]): Readonly<Record<string, Summary>> => {
     const head = `${prefix}${TAG_SEPARATOR}`;
+
     const groups = Arr.groupBy(
       observations.flatMap((observation) =>
         [
@@ -217,6 +227,7 @@ export const by =
       ),
       ([group]) => group,
     );
+
     return Object.fromEntries(
       Object.entries(groups).map(([group, entries]) => [
         group,

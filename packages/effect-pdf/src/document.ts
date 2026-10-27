@@ -19,14 +19,18 @@ export const openDocument = (engine: PdfPool) =>
     { password = "" }: { readonly password?: string } = {},
   ) {
     const documentScope = yield* Effect.scope;
+
     const openOn = (source: Uint8Array) => (client: PdfRpcClient, document: number) =>
       client.Open({ bytes: new Uint8Array(source), document, password });
+
     const { lease: primary, value: pages } = yield* engine.lease(new Set(), openOn(bytes));
     const pageCount = pages.length;
+
     const retained =
       engine.size > 1 && pageCount >= 2 * FAN_OUT_PAGES_PER_WORKER
         ? new Uint8Array(bytes)
         : undefined;
+
     const replicaState = yield* SynchronizedRef.make<ReplicaState>({ edited: false, replicas: [] });
 
     const onPrimary = <A, E>(
@@ -43,9 +47,11 @@ export const openDocument = (engine: PdfPool) =>
       selected: readonly number[],
     ) {
       const wanted = Math.min(engine.size, Math.floor(selected.length / FAN_OUT_PAGES_PER_WORKER));
+
       if (retained === undefined || wanted <= 1) {
         return [primary];
       }
+
       const replicas = yield* SynchronizedRef.modifyEffect(replicaState, (state) =>
         state.edited
           ? Effect.succeed<[readonly PdfWorkerLease[], ReplicaState]>([[], state])
@@ -75,6 +81,7 @@ export const openDocument = (engine: PdfPool) =>
               ]),
             ),
       );
+
       return [primary, ...replicas.slice(0, wanted - 1)];
     });
 
@@ -89,6 +96,7 @@ export const openDocument = (engine: PdfPool) =>
       const selected = yield* pagesOf(selection);
       const workers = yield* workersFor(selected);
       const chunk = Math.ceil(selected.length / workers.length);
+
       const parts = yield* Effect.all(
         workers.map((lease, index) =>
           engine.call(lease, (client, document) =>
@@ -97,6 +105,7 @@ export const openDocument = (engine: PdfPool) =>
         ),
         { concurrency: "unbounded" },
       );
+
       return parts.flat();
     });
 
@@ -110,6 +119,7 @@ export const openDocument = (engine: PdfPool) =>
         function* addSignatureField(field) {
           yield* pagesOf([field.page]);
           yield* markEdited;
+
           return yield* onPrimary((client, id) =>
             client.AddSignatureField({ document: id, field }),
           );
@@ -137,6 +147,7 @@ export const openDocument = (engine: PdfPool) =>
       pageCount,
       pageImages: Effect.fn("PdfDocument.pageImages")(function* documentPageImages(selection) {
         const dpi = selection?.dpi ?? DEFAULT_PAGE_IMAGE_DPI;
+
         return yield* fanOut(selection?.pages, (client, id, selected) =>
           client.PageImages({ document: id, dpi, pages: selected }),
         );
@@ -145,6 +156,7 @@ export const openDocument = (engine: PdfPool) =>
       render: Effect.fn("PdfDocument.render")(function* renderDocumentPage(page, size) {
         yield* pagesOf([page]);
         const workers = yield* workersFor(pages.map(({ index }) => index));
+
         return yield* engine.call(workers[page % workers.length] ?? primary, (client, id) =>
           client.Render({ document: id, page, size: size ?? {} }),
         );
@@ -156,6 +168,7 @@ export const openDocument = (engine: PdfPool) =>
       }),
       setFields: Effect.fn("PdfDocument.setFields")(function* setDocumentFields(values) {
         yield* markEdited;
+
         return yield* onPrimary((client, id) => client.SetFields({ document: id, values }));
       }),
       text: Effect.fn("PdfDocument.text")(function* documentText(options) {
@@ -164,5 +177,6 @@ export const openDocument = (engine: PdfPool) =>
         );
       }),
     };
+
     return document;
   });

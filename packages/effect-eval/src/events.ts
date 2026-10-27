@@ -18,6 +18,7 @@ export const ScoredSchema = Schema.Struct({
   trial: Schema.Finite,
   variant: Schema.String,
 });
+
 export type Scored = typeof ScoredSchema.Type;
 
 export const GitInfoSchema = Schema.Struct({
@@ -25,6 +26,7 @@ export const GitInfoSchema = Schema.Struct({
   dirty: Schema.Boolean,
   sha: Schema.OptionFromNullOr(Schema.String),
 });
+
 export type GitInfo = typeof GitInfoSchema.Type;
 
 const gateFields = {
@@ -38,6 +40,7 @@ const gateFields = {
 };
 
 export const GateResultSchema = Schema.Struct(gateFields);
+
 export type GateResult = typeof GateResultSchema.Type;
 
 export const TrialStatsSchema = Schema.Struct({
@@ -60,6 +63,7 @@ export const TrialStatsSchema = Schema.Struct({
   passHatK: Schema.OptionFromNullOr(Schema.Finite),
   shortOfK: Schema.Finite,
 });
+
 export type TrialStats = typeof TrialStatsSchema.Type;
 
 export const PlanSchema = Schema.Struct({
@@ -67,6 +71,7 @@ export const PlanSchema = Schema.Struct({
   invocations: Schema.Finite,
   skipped: Schema.Finite,
 });
+
 export type Plan = typeof PlanSchema.Type;
 
 export const RunStarted = Schema.TaggedStruct("RunStarted", {
@@ -100,6 +105,7 @@ export const JudgementSchema = Schema.Struct({
   key: Schema.String,
   result: Schema.Json,
 });
+
 export type Judgement = typeof JudgementSchema.Type;
 
 const finishedFields = {
@@ -161,6 +167,7 @@ export const EvalEventSchema = Schema.Union([
   GateEvaluated,
   RunFinished,
 ]);
+
 export type EvalEvent = typeof EvalEventSchema.Type;
 
 export const isRunStarted = Schema.is(RunStarted);

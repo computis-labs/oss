@@ -39,6 +39,7 @@ export const IndexEntrySchema = Schema.Struct({
   trials: Schema.Finite,
   variants: Schema.Array(Schema.String),
 });
+
 export type IndexEntry = typeof IndexEntrySchema.Type;
 
 export class History extends Context.Service<
@@ -66,13 +67,16 @@ export const baseBranch = Effect.gen(function* resolveBaseBranch() {
   const fromEnvironment = yield* Config.option(Config.String("EVAL_BASE_BRANCH")).pipe(
     Effect.orElseSucceed(() => Option.none<string>()),
   );
+
   const configured = yield* ConfiguredBaseBranch;
+
   return pipe(
     fromEnvironment,
     Option.orElse(() => configured),
     Option.getOrElse(() => DEFAULT_BASE_BRANCH),
   );
 });
+
 const INDEX_FILE = "index.jsonl";
 const DEFAULT_RECENT = 10;
 const RUN_EXTENSION = ".jsonl";
@@ -80,7 +84,7 @@ const LINE_BREAK = "\n";
 
 export type Selector = Data.TaggedEnum<{
   Id: { readonly id: string };
-  Latest: Record<never, never>;
+  Latest: object;
   Baseline: { readonly branch: Option.Option<string> };
   Branch: { readonly branch: string };
   File: { readonly path: string };
@@ -90,8 +94,10 @@ const { $is, $match, Baseline, Branch, File, Id, Latest } = Data.taggedEnum<Sele
 
 export const id = (value: string): Selector => Id({ id: value });
 export const latest: Selector = Latest();
+
 export const baseline = (branch?: string): Selector =>
   Baseline({ branch: Option.fromNullishOr(branch) });
+
 export const onBranch = (branch: string): Selector => Branch({ branch });
 export const fromFile = (path: string): Selector => File({ path });
 
@@ -102,12 +108,15 @@ export const parseSelector = (text: string, branch?: string): Selector => {
   if (text === LATEST) {
     return latest;
   }
+
   if (text === BASELINE) {
     return baseline(branch);
   }
+
   if (text.endsWith(RUN_EXTENSION)) {
     return fromFile(text);
   }
+
   return id(text);
 };
 
@@ -127,6 +136,7 @@ export const describeSelector = (selector: Selector) =>
 const entryOf = (events: readonly EvalEvent[]): Option.Option<IndexEntry> =>
   Option.map(Option.fromNullishOr(events.find(Events.isRunStarted)), (started) => {
     const finished = Option.fromNullishOr(events.find(Events.isRunFinished));
+
     return {
       branch: started.git.branch,
       dirty: started.git.dirty,
@@ -159,16 +169,20 @@ export const load = Effect.fn("History.load")(function* loadRun(
   options: { readonly variant?: string; readonly excluding?: string } = {},
 ) {
   const history = yield* History;
+
   if ($is("File")(selector)) {
     return yield* history.file(selector.path).pipe(Effect.flatMap(fold), Effect.tap(exposing));
   }
+
   const entries = newestFirst(yield* history.index(evalName)).filter(
     (entry) =>
       entry.id !== options.excluding &&
       (options.variant === undefined || entry.variants.includes(options.variant)),
   );
+
   const base = yield* baseBranch;
   const exact = $is("Id")(selector) ? entries.filter((entry) => entry.id === selector.id) : [];
+
   const candidates =
     exact.length > 0
       ? exact
@@ -187,6 +201,7 @@ export const load = Effect.fn("History.load")(function* loadRun(
             Latest: () => !entry.interrupted,
           }),
         );
+
   if ($is("Id")(selector) && candidates.length > 1) {
     return yield* new EvalHistoryError({
       message: `The id ${selector.id} matches ${String(candidates.length)} runs of ${evalName}: ${candidates
@@ -195,12 +210,15 @@ export const load = Effect.fn("History.load")(function* loadRun(
         .join(", ")}.`,
     });
   }
+
   const [chosen] = candidates;
+
   if (chosen === undefined) {
     return yield* new EvalHistoryError({
       message: `No run of ${evalName} matches ${describeSelector(selector)}.`,
     });
   }
+
   return yield* history
     .events(evalName, chosen.id)
     .pipe(Effect.flatMap(fold), Effect.tap(exposing));
@@ -227,6 +245,7 @@ export const resolve = Effect.fn("History.resolve")(function* resolveBaseline(
   if ($is("File")(selector) || $is("Id")(selector)) {
     return yield* load(evalName, selector, options);
   }
+
   const found = yield* pipe(
     variants,
     Effect.forEach((variant) =>
@@ -236,14 +255,18 @@ export const resolve = Effect.fn("History.resolve")(function* resolveBaseline(
       ),
     ),
   );
+
   const pairs = found.flatMap((entry) => Option.toArray(entry));
   const [first] = pairs;
+
   if (first === undefined) {
     return yield* new EvalHistoryError({
       message: `No run of ${evalName} with ${variants.join(", ")} matches ${describeSelector(selector)}.`,
     });
   }
+
   const sources = [...new Map(pairs.map(([, run]) => [run.id, run])).values()];
+
   const combined: Run = {
     ...first[1],
     gates: pairs.flatMap(([variant, run]) => run.gates.filter((gate) => gate.variant === variant)),
@@ -258,11 +281,13 @@ export const resolve = Effect.fn("History.resolve")(function* resolveBaseline(
       run.variants.filter((entry) => entry.variant === variant),
     ),
   };
+
   return combined;
 });
 
 export const list = Effect.fn("History.list")(function* listRuns(evalName: string) {
   const history = yield* History;
+
   return newestFirst(yield* history.index(evalName));
 });
 
@@ -271,27 +296,35 @@ export const snapshot = Effect.fn("History.snapshot")(function* snapshotOf(
   options: { readonly recent?: number; readonly baseBranch?: string } = {},
 ) {
   const service = yield* Effect.serviceOption(History);
+
   if (Option.isNone(service)) {
     return emptyHistory;
   }
+
   const history = service.value;
   const redacts = yield* RedactsSensitive;
+
   const shown = (loaded: Run) =>
     redacts && loaded.sensitive
       ? Effect.succeed(redactRun(loaded))
       : exposing(loaded).pipe(Effect.as(loaded));
+
   const loadEntry = (entry: IndexEntry) =>
     history
       .events(run.eval, entry.id)
       .pipe(Effect.flatMap(fold), Effect.flatMap(shown), Effect.option);
+
   const entries = yield* history.index(run.eval).pipe(
     Effect.map((all) => newestFirst(all.filter((entry) => entry.id !== run.id))),
     Effect.orElseSucceed((): readonly IndexEntry[] => []),
   );
+
   const wanted = Option.getOrElse(yield* ReportBaseline, () =>
     options.baseBranch === undefined ? baseline() : baseline(options.baseBranch),
   );
+
   const given = (yield* ResolvedBaselines).find(([selector]) => Equal.equals(selector, wanted));
+
   const chosen =
     given === undefined
       ? yield* resolve(
@@ -301,18 +334,22 @@ export const snapshot = Effect.fn("History.snapshot")(function* snapshotOf(
           { excluding: run.id },
         ).pipe(Effect.provideService(History, history), Effect.option)
       : given[1];
+
   const baselineRun = yield* Option.match(chosen, {
     onNone: () => Effect.succeedNone,
     onSome: (loaded) => shown(loaded).pipe(Effect.map(Option.some)),
   });
+
   const recentRuns = yield* pipe(
     entries.slice(0, options.recent ?? DEFAULT_RECENT),
     Effect.forEach(loadEntry),
   );
+
   const result: HistorySnapshot = {
     baseline: baselineRun,
     recent: recentRuns.flatMap((found) => Option.toArray(found)),
   };
+
   return result;
 });
 
@@ -333,6 +370,7 @@ export const layerMemory = Layer.effect(
   History,
   Effect.gen(function* makeMemoryHistory() {
     const runs = yield* Ref.make<ReadonlyMap<string, readonly EvalEvent[]>>(new Map());
+
     return {
       events: (evalName, runId) =>
         Ref.get(runs).pipe(
@@ -377,11 +415,13 @@ export const layerFileSystem = (root: string = DEFAULT_ROOT) =>
       const paths = yield* Path.Path;
       const indexLock = yield* Semaphore.make(1);
       const folderOf = (evalName: string) => paths.join(root, evalName);
+
       const readLines = (file: string) =>
         fs.readFileString(file).pipe(
           Effect.map((text) => text.split(LINE_BREAK).filter((line) => line.trim().length > 0)),
           Effect.mapError(historyError(`The history file ${file} cannot be read.`)),
         );
+
       const decodeRun = (file: string) =>
         readLines(file).pipe(
           Effect.flatMap(
@@ -396,12 +436,14 @@ export const layerFileSystem = (root: string = DEFAULT_ROOT) =>
             ),
           ),
         );
+
       return {
         events: (evalName, runId) =>
           decodeRun(paths.join(folderOf(evalName), `${runId}${RUN_EXTENSION}`)),
         file: decodeRun,
         index: (evalName) => {
           const file = paths.join(folderOf(evalName), INDEX_FILE);
+
           return fs.exists(file).pipe(
             Effect.mapError(historyError(`The history index ${file} cannot be read.`)),
             Effect.flatMap((exists) =>
@@ -428,10 +470,12 @@ export const layerFileSystem = (root: string = DEFAULT_ROOT) =>
               Effect.gen(function* saveRun() {
                 const folder = folderOf(entry.eval);
                 yield* fs.makeDirectory(folder, { recursive: true });
+
                 const lines = yield* pipe(
                   events,
                   Effect.forEach((event) => Events.encodeLine(event)),
                 );
+
                 yield* fs.writeFileString(
                   paths.join(folder, `${entry.id}${RUN_EXTENSION}`),
                   `${lines.join(LINE_BREAK)}${LINE_BREAK}`,

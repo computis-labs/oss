@@ -19,10 +19,13 @@ const boot = Effect.fn("PdfiumRuntime.boot")(function* bootPdfium(module: WasmMo
         instantiateWasm: (imports, receive) => {
           const instance = new WebAssembly.Instance(module, imports);
           receive(instance);
+
           return instance.exports;
         },
       });
+
       lib.PDFiumExt_Init();
+
       return lib;
     },
   });
@@ -46,11 +49,13 @@ export class PdfiumRuntime extends Context.Service<PdfiumRuntime>()(
               message: "PDFium restarted after a failure: open the document again.",
             });
           }
+
           const outcome = yield* Effect.try({
             catch: (cause) =>
               new PdfEngineError({ cause, message: "PDFium failed on this document." }),
             try: () => task(lib),
           }).pipe(Effect.tapError(() => SynchronizedRef.updateEffect(current, () => boot(module))));
+
           return yield* Effect.fromResult(outcome);
         }),
       } as const;

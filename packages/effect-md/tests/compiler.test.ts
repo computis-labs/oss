@@ -49,6 +49,7 @@ describe("compiled prompts", () => {
     const filled = prompts.lines.make({
       lines: [{ amount: 12.5, description: "Hosting" }, { description: "Support" }],
     });
+
     const empty = prompts.lines.make({ lines: [] });
 
     expect(filled.content).toMatchObject([

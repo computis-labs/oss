@@ -122,6 +122,7 @@ describe("Runner.run", () => {
           taggedWithoutMessage: Effect.fail(new Cause.NoSuchElementError()),
         }),
       );
+
       const failing = Eval.make({
         dataset: Dataset.fromIterable(failures.keys(), { id: (kind: string) => kind }),
         name: "failing",
@@ -164,6 +165,7 @@ describe("Runner.run", () => {
   it.effect("retries a failing task with the schedule of the eval", () =>
     Effect.gen(function* () {
       const attempts: string[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements.slice(0, 1), byId),
         name: "categorizer",
@@ -172,6 +174,7 @@ describe("Runner.run", () => {
         task: (input) =>
           Effect.suspend(() => {
             attempts.push(input.id);
+
             return attempts.length < 3 ? Effect.fail("rate limited") : Effect.succeed("rent");
           }),
       });
@@ -206,6 +209,7 @@ describe("Runner.run", () => {
   it.effect("publishes events in order to every reporter", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable([...movements, Dataset.skip("m4", "no ground truth")], byId),
         name: "categorizer",
@@ -234,6 +238,7 @@ describe("Runner.run", () => {
   it.effect("hides observation details from reporters that do not accept sensitive data", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements, byId),
         name: "categorizer",
@@ -300,6 +305,7 @@ describe("Runner.run", () => {
     Effect.gen(function* () {
       const setups: string[] = [];
       const tasks: string[] = [];
+
       const run = yield* Runner.run(
         Eval.make({
           budget: { maxCalls: 1 },
@@ -308,6 +314,7 @@ describe("Runner.run", () => {
           score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
           setup: Effect.suspend(() => {
             setups.push("setup");
+
             return setups.length === 1 ? Effect.fail("no setup") : Effect.succeed("ready");
           }),
           task: () => Effect.sync(() => tasks.push("task")).pipe(Effect.as("a")),
@@ -348,6 +355,7 @@ describe("Runner.run", () => {
   it.effect("calls a batched task once per batch with the setup value", () =>
     Effect.gen(function* () {
       const calls: number[] = [];
+
       const categorize = Eval.makeBatched({
         dataset: Dataset.fromIterable(movements, byId),
         execution: Execution.batched(2),
@@ -357,6 +365,7 @@ describe("Runner.run", () => {
         task: (inputs, prompt) =>
           Effect.sync(() => {
             calls.push(inputs.length);
+
             return inputs.map((input) => (prompt === "prompt-v2" ? input.input.category : null));
           }),
       });
@@ -390,6 +399,7 @@ describe("Runner.run", () => {
   it.effect("runs the setup once per trial", () =>
     Effect.gen(function* () {
       const setups: string[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements, byId),
         name: "categorizer",
@@ -408,6 +418,7 @@ describe("Runner.run", () => {
   it.effect("runs each variant with its own layer", () =>
     Effect.gen(function* () {
       const Answer = Context.Reference<string>("Answer", { defaultValue: () => "rent" });
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements.slice(0, 1), byId),
         name: "categorizer",
@@ -481,6 +492,7 @@ describe("Runner.rescore", () => {
     name: "categorizer",
     output: Schema.NullOr(Schema.String),
   };
+
   const lenient = Eval.make({
     ...definition,
     score: Scorer.label<Movement, string | null>({
@@ -518,6 +530,7 @@ describe("Runner.rescore", () => {
           task: (input) => Effect.succeed(input.input.category),
         }),
       );
+
       const printed: string[] = [];
 
       const rescored = yield* Runner.rescoreRun(lenient, stored).pipe(
@@ -566,6 +579,7 @@ describe("Runner.rescore", () => {
           task: (input) => Effect.succeed(input.input.category),
         }),
       );
+
       const edited = Eval.make({
         ...definition,
         dataset: Dataset.fromIterable(
@@ -612,6 +626,7 @@ describe("Runner.run with a sensitive dataset", () => {
   it.effect("treats a run over Dataset.optional as sensitive and redacts it", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const real = Eval.make({
         dataset: Dataset.optional(Config.succeed("/private.json"), Schema.String, {
           id: (text) => text,
@@ -640,7 +655,9 @@ describe("Runner.run with a sensitive dataset", () => {
       expect(run.sensitive).toBe(true);
       expect(events.find(Events.isRunStarted)?.sensitive).toBe(true);
       expect(
-        JSON.stringify(events.filter(Events.isCaseFinished).map((event) => event.output)),
+        JSON.stringify(
+          events.flatMap((event) => (Events.isCaseFinished(event) ? [event.output] : [])),
+        ),
       ).not.toContain("CUSTOMER_SECRET");
       const errored = events.find(Events.isCaseErrored);
       expect(errored?.failure).toBe("[redacted]");
@@ -721,6 +738,7 @@ describe("Runner.rescoreRun input hashes", () => {
     actual: Option.some,
     expected: () => Scorer.present("old"),
   });
+
   const textEval = (text: string) =>
     Eval.make({
       dataset: Dataset.fromIterable([{ id: "a", text }], { id: (entry) => entry.id }),
@@ -748,10 +766,13 @@ describe("Runner.rescoreRun input hashes", () => {
     Effect.gen(function* () {
       const decoder = yield* Effect.gen(function* () {
         const stored = yield* Runner.run(fromFile(doubled(1), String));
+
         return yield* Runner.rescoreRun(fromFile(doubled(2), String), stored);
       }).pipe(casesFile('["1"]'));
+
       const fallback = yield* Effect.gen(function* () {
         const stored = yield* Runner.run(fromFile(defaulted(1), (input) => String(input.amount)));
+
         return yield* Runner.rescoreRun(
           fromFile(defaulted(2), (input) => String(input.amount)),
           stored,
@@ -784,6 +805,7 @@ describe("Runner.rescoreRun input hashes", () => {
     Effect.gen(function* () {
       const hashed = (days: number) =>
         datedBy(shifted(days), { hash: (date) => date.toISOString() });
+
       const file = casesFile('["2025-01-01T00:00:00.000Z"]');
       const stored = yield* Runner.run(hashed(0)).pipe(file);
 
@@ -809,6 +831,7 @@ describe("Runner.rescoreRun input hashes", () => {
         }),
         task: () => Effect.succeed("a"),
       });
+
       const stored = yield* Runner.run(mapEval);
 
       const rescored = yield* Runner.rescoreRun(mapEval, stored);
@@ -824,6 +847,7 @@ describe("Runner.rescoreRun persisted outputs", () => {
   it.effect("keeps a null output through the JSON lines of the history", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const abstaining = Eval.make({
         dataset: Dataset.fromIterable(movements.slice(2), byId),
         name: "categorizer",
@@ -831,11 +855,14 @@ describe("Runner.rescoreRun persisted outputs", () => {
         score: categoryScorer,
         task: () => Effect.succeed(null),
       });
+
       yield* Runner.run(abstaining).pipe(Effect.provide(Reporter.layer([recording(events)])));
+
       const decoded = yield* pipe(
         events,
         Effect.forEach((event) => Events.encodeLine(event).pipe(Effect.flatMap(Events.decodeLine))),
       );
+
       const stored = yield* Run.fold(decoded);
 
       const rescored = yield* Runner.rescoreRun(abstaining, stored);
@@ -861,6 +888,7 @@ const judgeAnswering = (
         generateText: () =>
           Effect.sync(() => {
             judgeCalls.push("call");
+
             return [
               { text: json, type: "text" as const },
               {
@@ -1102,10 +1130,12 @@ const archived = <E, R>(running: Effect.Effect<Run.Run, E, R>) =>
   Effect.gen(function* () {
     const events: EvalEvent[] = [];
     yield* running.pipe(Effect.provide(Reporter.layer([recording(events)])));
+
     const lines = yield* pipe(
       events,
       Effect.forEach((event) => Events.encodeLine(event).pipe(Effect.flatMap(Events.decodeLine))),
     );
+
     return yield* Run.fold(lines);
   });
 
@@ -1151,6 +1181,7 @@ describe("Runner.rescoreRun judge results the observation codec cannot keep", ()
   it.effect("asks the judge again for a result that does not round-trip", () =>
     Effect.gen(function* () {
       const judged = openAiJudged('{"score":1}', nullableScore, () => true);
+
       const unkept = Eval.make({
         dataset: Dataset.fromIterable(["Canone di marzo"], { id: (text) => text }),
         name: "unkept",
@@ -1164,6 +1195,7 @@ describe("Runner.rescoreRun judge results the observation codec cannot keep", ()
         }),
         task: (input) => Effect.succeed(input.input),
       });
+
       const keptRun = yield* persisted(judged);
       const unkeptRun = yield* persisted(unkept);
       const before = judgeCalls.length;
@@ -1201,6 +1233,7 @@ describe("Runner.rescoreRun judge results under a provider codec", () => {
         nullableScore,
         (verdict) => verdict.score === undefined,
       );
+
       const stored = yield* persisted(judged);
       const before = judgeCalls.length;
 
@@ -1219,6 +1252,7 @@ describe("Runner.rescoreRun judge results under a provider codec", () => {
         Schema.Struct({ note: Schema.optionalKey(Schema.String), score: Schema.Number }),
         (verdict) => verdict.score === 2 && verdict.note === undefined,
       );
+
       const stored = yield* persisted(judged);
       const before = judgeCalls.length;
 
@@ -1250,6 +1284,7 @@ describe("Runner.rescoreRun judge results under a provider codec", () => {
             (verdict) => verdict.score === undefined,
             version,
           );
+
         const stored = yield* persisted(dropping());
         const versioned = yield* persisted(dropping("1"));
         const before = judgeCalls.length;
@@ -1281,6 +1316,7 @@ describe("Runner.rescoreRun judge results under a provider codec", () => {
           ),
           (verdict) => verdict.score === null,
         );
+
         const stored = yield* persisted(judged);
         const before = judgeCalls.length;
 
@@ -1307,6 +1343,7 @@ const okJudge = <O>(asked: string[], show: (output: O) => string) =>
             Effect.sync(() => {
               const answer = asked.length === 0 ? '{"ok":true}' : '{"ok":false}';
               asked.push(answer);
+
               return [
                 { text: answer, type: "text" as const },
                 {
@@ -1331,6 +1368,7 @@ const rescoredTwice = <A, O>(self: Eval.Eval<A, O>) =>
     const first = yield* persisted(self);
     const second = yield* archived(Runner.rescoreRun(self, first));
     const third = yield* archived(Runner.rescoreRun(self, second));
+
     return [first, second, third] as const;
   });
 
@@ -1341,6 +1379,7 @@ describe("Runner.rescoreRun of a rescore", () => {
   it.effect("keeps the reused judge result in the rescore, so the next one reuses it too", () =>
     Effect.gen(function* () {
       const asked: string[] = [];
+
       const self = Eval.make({
         dataset: Dataset.fromIterable(["case"], { id: (id: string) => id }),
         gates: [Gate.max(Metric.wrong, 0)],
@@ -1363,6 +1402,7 @@ describe("Runner.rescoreRun of a rescore", () => {
   it.effect("keeps the reused results of a judge under Scorer.each", () =>
     Effect.gen(function* () {
       const asked: string[] = [];
+
       const self = Eval.make({
         dataset: Dataset.fromIterable(["page"], { id: (id: string) => id }),
         gates: [Gate.max(Metric.wrong, 0)],
@@ -1405,6 +1445,7 @@ describe("Runner.rescoreRun judge verdicts of sub-cases", () => {
     Effect.gen(function* () {
       const answers = ['{"score":1}', '{"score":0}'];
       const asked: string[] = [];
+
       const quality = Variant.make(
         "quality-judge",
         Layer.effect(
@@ -1414,6 +1455,7 @@ describe("Runner.rescoreRun judge verdicts of sub-cases", () => {
               Effect.sync(() => {
                 const answer = answers[asked.length] ?? '{"score":1}';
                 asked.push(answer);
+
                 return [
                   { text: answer, type: "text" as const },
                   {
@@ -1427,6 +1469,7 @@ describe("Runner.rescoreRun judge verdicts of sub-cases", () => {
           }),
         ),
       );
+
       const nested = Eval.make({
         dataset: Dataset.fromIterable(["page"], { id: (id: string) => id }),
         name: "nested-judge",
@@ -1497,6 +1540,7 @@ describe("Runner.rescoreRun judge verdicts of another rubric or model", () => {
         transform: { decode: (score) => score + 1, encode: (score) => score },
         version: "1",
       });
+
       const stored = yield* persisted(offByOne);
       const before = judgeCalls.length;
 
@@ -1534,7 +1578,9 @@ describe("Runner.rescoreRun judge verdicts of another rubric or model", () => {
         defaulting(1, { transform: lossy, version: "1" }),
         stored,
       );
+
       const afterSame = judgeCalls.length;
+
       const bumped = yield* Runner.rescoreRun(
         defaulting(1, { transform: lossy, version: "2" }),
         stored,
@@ -1581,6 +1627,7 @@ describe("Runner.run trials", () => {
   it.effect("refuses a trial count that is not a positive integer before calling the task", () =>
     Effect.gen(function* () {
       const calls: string[] = [];
+
       const categorize = (trials: number) =>
         Eval.make({
           dataset: Dataset.fromIterable(movements, byId),
@@ -1608,6 +1655,7 @@ describe("Runner.run terminal events", () => {
   it.effect("ends the run with RunFinished when a variant layer fails and keeps the failure", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements, byId),
         name: "categorizer",
@@ -1629,6 +1677,7 @@ describe("Runner.run terminal events", () => {
   it.effect("ends the run with RunFinished when a variant layer dies", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements, byId),
         name: "categorizer",
@@ -1650,6 +1699,7 @@ describe("Runner.run terminal events", () => {
   it.effect("writes the failed reporters in RunFinished, so the history keeps them", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const categorize = Eval.make({
         dataset: Dataset.fromIterable(movements, byId),
         name: "categorizer",
@@ -1665,6 +1715,7 @@ describe("Runner.run terminal events", () => {
           ]),
         ),
       );
+
       const folded = yield* Run.fold(events);
 
       expect(run.failedReporters).toEqual(["broken"]);
@@ -1686,6 +1737,7 @@ describe("Runner types with services that have no default", () => {
     task: (input) =>
       Effect.service(Categorizer).pipe(Effect.map((categorizer) => categorizer(input.input.text))),
   });
+
   const keywords = Variant.make(
     "keywords",
     Layer.succeed(
@@ -1734,6 +1786,7 @@ describe("Runner.run variant selection", () => {
   it.effect("refuses two variants with the same name before calling the task", () =>
     Effect.gen(function* () {
       const calls: string[] = [];
+
       const failure = yield* Effect.flip(
         Runner.run(
           plain(() => Effect.sync(() => calls.push("call")).pipe(Effect.as("x"))),
@@ -1749,6 +1802,7 @@ describe("Runner.run variant selection", () => {
   it.effect("refuses an empty list of variants", () =>
     Effect.gen(function* () {
       const noVariants: readonly Variant.Variant<never>[] = [];
+
       const failure = yield* Effect.flip(
         Runner.run(
           plain(() => Effect.succeed("x")),
@@ -1771,6 +1825,7 @@ describe("Runner.run variant selection", () => {
           { variants: ["TYPO"] },
         ),
       );
+
       const none = yield* Effect.flip(
         Runner.rescoreRun(
           plain(() => Effect.succeed("x")),
@@ -1789,6 +1844,7 @@ describe("Runner.rescoreRun sensitivity", () => {
   it.effect("keeps a sensitive stored run sensitive, whatever the eval says now", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const secret = (sensitive: boolean) =>
         Eval.make({
           dataset: Dataset.fromIterable(["a"], { id: (id) => id }),
@@ -1798,6 +1854,7 @@ describe("Runner.rescoreRun sensitivity", () => {
           sensitive,
           task: () => Effect.succeed("CUSTOMER_SECRET"),
         });
+
       const stored = yield* Runner.run(secret(true));
 
       const rescored = yield* Runner.rescoreRun(secret(false), stored).pipe(
@@ -1832,6 +1889,7 @@ describe("Runner.run containment", () => {
   it.effect("ends the run as interrupted when the setup is interrupted", () =>
     Effect.gen(function* () {
       const events: EvalEvent[] = [];
+
       const interrupted = Eval.make({
         dataset: Dataset.fromIterable(["a", "b"], { id: (id) => id }),
         name: "interrupted",
@@ -1845,7 +1903,9 @@ describe("Runner.run containment", () => {
       );
 
       expect(Exit.hasInterrupts(exit)).toBe(true);
-      expect(events.filter(Events.isRunFinished).map((event) => event.interrupted)).toEqual([true]);
+      expect(
+        events.flatMap((event) => (Events.isRunFinished(event) ? [event.interrupted] : [])),
+      ).toEqual([true]);
     }),
   );
 
@@ -1856,12 +1916,14 @@ describe("Runner.run containment", () => {
         const interruptedDying = Effect.interrupt.pipe(
           Effect.ensuring(Effect.die("cleanup failed")),
         );
+
         const withTask = Eval.make({
           dataset: Dataset.fromIterable(["a"], { id: (id) => id }),
           name: "task",
           score: textScorer,
           task: () => interruptedDying,
         });
+
         const withSetup = Eval.make({
           dataset: Dataset.fromIterable(["a"], { id: (id) => id }),
           name: "setup",
@@ -1875,12 +1937,14 @@ describe("Runner.run containment", () => {
           Effect.forEach((self) =>
             Effect.gen(function* () {
               const events: EvalEvent[] = [];
+
               const exit = yield* Effect.exit(
                 Runner.run(self).pipe(Effect.provide(Reporter.layer([recording(events)]))),
               );
+
               return [
                 Exit.hasInterrupts(exit),
-                events.filter(Events.isRunFinished).map((event) => event.interrupted),
+                events.flatMap((event) => (Events.isRunFinished(event) ? [event.interrupted] : [])),
               ];
             }),
           ),
@@ -1917,14 +1981,16 @@ describe("Runner.run containment", () => {
           Effect.forEach((generated) =>
             Effect.gen(function* () {
               const events: EvalEvent[] = [];
+
               const exit = yield* Effect.exit(
                 Runner.run(judgedBy(generated)).pipe(
                   Effect.provide(Reporter.layer([recording(events)])),
                 ),
               );
+
               return [
                 Exit.hasInterrupts(exit),
-                events.filter(Events.isRunFinished).map((event) => event.interrupted),
+                events.flatMap((event) => (Events.isRunFinished(event) ? [event.interrupted] : [])),
                 events.filter(Events.isCaseFinished).length,
               ];
             }),
@@ -1952,6 +2018,7 @@ describe("Runner.run outputs it cannot encode", () => {
     Effect.gen(function* () {
       const logged: string[] = [];
       const reported: EvalEvent[] = [];
+
       const secret = Eval.make({
         dataset: Dataset.fromIterable(["a"], { id: (id) => id }),
         name: "secret",
@@ -2008,6 +2075,7 @@ const withoutTelemetry = <
 ): F => {
   const wrapped = (options: never) =>
     generate(options).pipe(Effect.provideService(Telemetry.CurrentSpanTransformer, () => {}));
+
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: wrapped takes the options of generate and returns its response unchanged; it only keeps the telemetry transformer from being called, as a provider that builds its own responses may.
   return wrapped as F;
 };
@@ -2076,6 +2144,7 @@ describe("Runner.run usage of a response its model built", () => {
   it.effect("counts the tokens of a judge's response once, tracked or not", () =>
     Effect.gen(function* () {
       const untracked = yield* Runner.run(readyJudged(readyMade('{"score":1}')));
+
       const tracked = yield* Runner.run(
         readyJudged(Usage.trackLanguageModel.pipe(Layer.provide(readyMade('{"score":1}')))),
       );
@@ -2119,12 +2188,14 @@ const quoting = (required: boolean) =>
 const loggedBy = <A, E, R>(self: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const lines: string[] = [];
+
     const exit = yield* self.pipe(
       Effect.exit,
       Effect.provide(
         Logger.layer([Logger.formatLogFmt.pipe(Logger.map((line) => lines.push(line)))]),
       ),
     );
+
     return { exit, logged: lines.join("\n") };
   });
 
@@ -2134,7 +2205,9 @@ describe("Runner.run reporter failures of a sensitive run", () => {
       const consumed = yield* loggedBy(
         Runner.run(answeringSecret(true)).pipe(Effect.provide(Reporter.layer([quoting(false)]))),
       );
+
       const run = yield* Runner.run(answeringSecret(true));
+
       const compared = yield* loggedBy(
         Reporter.compare(run, run).pipe(Effect.provide(Reporter.layer([quoting(false)]))),
       );
@@ -2150,10 +2223,13 @@ describe("Runner.run reporter failures of a sensitive run", () => {
       const consumed = yield* loggedBy(
         Runner.run(answeringSecret(true)).pipe(Effect.provide(Reporter.layer([quoting(true)]))),
       );
+
       const run = yield* Runner.run(answeringSecret(true));
+
       const compared = yield* loggedBy(
         Reporter.compare(run, run).pipe(Effect.provide(Reporter.layer([quoting(true)]))),
       );
+
       const pretty = [
         Exit.isFailure(consumed.exit) ? Cause.pretty(consumed.exit.cause) : "",
         Exit.isFailure(compared.exit) ? Cause.pretty(compared.exit.cause) : "",
@@ -2172,7 +2248,9 @@ describe("Runner.run reporter failures of a sensitive run", () => {
       const consumed = yield* loggedBy(
         Runner.run(answeringSecret(false)).pipe(Effect.provide(Reporter.layer([quoting(false)]))),
       );
+
       const run = yield* Runner.run(answeringSecret(false));
+
       const compared = yield* loggedBy(
         Reporter.compare(run, run).pipe(Effect.provide(Reporter.layer([quoting(false)]))),
       );
@@ -2224,18 +2302,23 @@ const afterHistory = (sensitive: boolean, reporter: Reporter.Reporter<Error, His
     yield* Runner.run(historyOf(sensitive, HISTORY_SECRET)).pipe(
       Effect.provide(Reporter.layer([History.reporter])),
     );
+
     const consumed = yield* loggedBy(
       Runner.run(historyOf(false, "public")).pipe(Effect.provide(Reporter.layer([reporter]))),
     );
+
     const run = yield* Runner.run(historyOf(false, "public"));
+
     const compared = yield* loggedBy(
       Reporter.compare(run, run).pipe(Effect.provide(Reporter.layer([comparingHistory]))),
     );
+
     const requiredCompare = yield* loggedBy(
       Reporter.compare(run, run).pipe(
         Effect.provide(Reporter.layer([Reporter.required(comparingHistory)])),
       ),
     );
+
     return [
       consumed.logged,
       compared.logged,
@@ -2272,6 +2355,7 @@ describe("Runner.run budget and retries", () => {
   it.effect("stops retrying once the task calls reach maxCalls", () =>
     Effect.gen(function* () {
       const attempts: string[] = [];
+
       const costly = Eval.make({
         budget: { maxCalls: 1 },
         dataset: Dataset.fromIterable(["a", "b"], { id: (id) => id }),
@@ -2283,6 +2367,7 @@ describe("Runner.run budget and retries", () => {
             Effect.andThen(
               Effect.suspend(() => {
                 attempts.push(input.id);
+
                 return attempts.length < 3 ? Effect.fail("rate limited") : Effect.succeed("x");
               }),
             ),
@@ -2327,6 +2412,7 @@ describe("Runner.run budget and retries", () => {
                 ),
               ),
           });
+
         const started = yield* Deferred.make<boolean>();
         const events: EvalEvent[] = [];
 
@@ -2339,6 +2425,7 @@ describe("Runner.run budget and retries", () => {
             } as const),
           ),
         );
+
         const fiber = yield* Runner.run(
           streaming(
             Stream.fromEffect(Deferred.succeed(started, true)).pipe(
@@ -2347,6 +2434,7 @@ describe("Runner.run budget and retries", () => {
             ),
           ),
         ).pipe(Effect.provide(Reporter.layer([recording(events)])), Effect.forkChild);
+
         yield* Deferred.await(started);
         yield* Fiber.interrupt(fiber);
         const cut = yield* Run.fold(events);
@@ -2363,6 +2451,7 @@ describe("Runner.run budget and retries", () => {
   it.effect("counts an attempt that times out against maxCalls and in the usage", () =>
     Effect.gen(function* () {
       const requests: string[] = [];
+
       const hanging = Layer.effect(
         LanguageModel.LanguageModel,
         LanguageModel.make({
@@ -2371,6 +2460,7 @@ describe("Runner.run budget and retries", () => {
           streamText: () => Stream.empty,
         }),
       );
+
       const slow = Eval.make({
         budget: { maxCalls: 1 },
         dataset: Dataset.fromIterable(["a"], { id: (id) => id }),
@@ -2398,6 +2488,7 @@ describe("Runner.run budget and retries", () => {
   it.effect("counts every attempt it starts, even one that records no usage", () =>
     Effect.gen(function* () {
       const attempts: string[] = [];
+
       const flaky = Eval.make({
         budget: { maxCalls: 2 },
         dataset: Dataset.fromIterable(["a"], { id: (id) => id }),
@@ -2407,6 +2498,7 @@ describe("Runner.run budget and retries", () => {
         task: (input) =>
           Effect.suspend(() => {
             attempts.push(input.id);
+
             return Effect.fail("rate limited");
           }),
       });
@@ -2428,6 +2520,7 @@ const interruptedRun = <E>(
   Effect.gen(function* () {
     const events: EvalEvent[] = [];
     const target = yield* Deferred.make<Fiber.Fiber<Run.Run, unknown>>();
+
     const interrupting = Reporter.fromStream("interrupting", (stream) =>
       Stream.runForEach(stream, (event) =>
         Effect.sync(() => {
@@ -2447,12 +2540,15 @@ const interruptedRun = <E>(
         ),
       ),
     );
+
     const fiber = yield* Runner.run(self).pipe(
       Effect.provide(Reporter.layer([interrupting])),
       Effect.forkDetach,
     );
+
     yield* Deferred.succeed(target, fiber);
     const exit = yield* withLive(Fiber.await(fiber).pipe(Effect.timeout(Duration.seconds(2))));
+
     return { events, exit };
   });
 
@@ -2507,12 +2603,15 @@ describe("Runner.run cancellation", () => {
           Effect.gen(function* () {
             const events: EvalEvent[] = [];
             const reads = { calls: 0 };
+
             const trap: Usage.Usage = {
               get calls() {
                 reads.calls += 1;
+
                 if (reads.calls === 1) {
                   Fiber.getCurrent()?.interruptUnsafe();
                 }
+
                 return 1;
               },
               costUsd: Option.some(3),
@@ -2521,6 +2620,7 @@ describe("Runner.run cancellation", () => {
               outputTokens: 10,
               reasoningTokens: 0,
             };
+
             yield* Runner.run(
               Eval.make({
                 dataset: Dataset.fromIterable(["a"], { id: (id: string) => id }),
@@ -2536,6 +2636,7 @@ describe("Runner.run cancellation", () => {
               }),
             ).pipe(Effect.provide(Reporter.layer([recording(events)])), Effect.exit);
             const run = yield* Run.fold(events);
+
             return run.variants.map((variant) => [
               variant.usage.calls,
               variant.usage.inputTokens,
@@ -2553,6 +2654,7 @@ describe("Runner.run cancellation", () => {
       const entered = yield* Deferred.make<boolean>();
       const never = yield* Deferred.make<string>();
       const events: EvalEvent[] = [];
+
       const hanging = Schema.String.pipe(
         Schema.decodeTo(
           Schema.String,
@@ -2563,6 +2665,7 @@ describe("Runner.run cancellation", () => {
           }),
         ),
       );
+
       const fiber = yield* Runner.run(
         Eval.make({
           dataset: Dataset.fromIterable(["a"], { id: (id: string) => id }),
@@ -2583,7 +2686,9 @@ describe("Runner.run cancellation", () => {
       );
       const run = yield* Run.fold(events);
 
-      expect(events.filter(Events.isRunFinished).map((event) => event.interrupted)).toEqual([true]);
+      expect(
+        events.flatMap((event) => (Events.isRunFinished(event) ? [event.interrupted] : [])),
+      ).toEqual([true]);
       expect(run.variants.map((variant) => [variant.usage.calls, variant.usage.costUsd])).toEqual([
         [1, Option.some(3)],
       ]);
@@ -2596,19 +2701,23 @@ describe("Runner.run cancellation", () => {
         Effect.gen(function* () {
           const signal = yield* Deferred.make<string>();
           const events: EvalEvent[] = [];
+
           const fiber = yield* Runner.run(build(signal)).pipe(
             Effect.provide(Reporter.layer([recording(events)])),
             Effect.forkChild,
           );
+
           yield* Deferred.await(signal);
           yield* Fiber.interrupt(fiber);
           const run = yield* Run.fold(events);
+
           return run.variants.map((variant) => [
             variant.usage.calls,
             variant.usage.inputTokens,
             variant.usage.costUsd,
           ]);
         });
+
       const dataset = Dataset.fromIterable(["first", "second"], { id: (id: string) => id });
 
       const byTask = yield* folded((signal) =>
@@ -2622,6 +2731,7 @@ describe("Runner.run cancellation", () => {
               : spendThenHang(signal, 7, 123),
         }),
       );
+
       const byScorer = yield* folded((signal) =>
         Eval.make({
           dataset,

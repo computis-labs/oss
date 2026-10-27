@@ -45,6 +45,7 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
     const width = options.width ?? DEFAULT_WIDTH;
     const groups = Ref.makeUnsafe(0);
     const widest = Ref.makeUnsafe(0);
+
     const renderBlock = (block: Block, depth: number): Effect.Effect<string, E, R> =>
       $match(block, {
         Badge: ({ label, tone }) =>
@@ -77,6 +78,7 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
             Effect.forEach((child) => renderBlock(child, depth + 1)),
             Effect.map((parts) => {
               const level = String(Math.min(MAX_HEADING, depth));
+
               return `<section><h${level}>${escapeHtml(title)}</h${level}>${parts.join(LINE_BREAK)}</section>`;
             }),
           ),
@@ -96,6 +98,7 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
                 Effect.andThen(Ref.getAndUpdate(groups, (count) => count + 1)),
                 Effect.map((group) => {
                   const name = `tabs-${String(group)}`;
+
                   return `<div class="tabs">${tabs
                     .map(
                       (tab, index) =>
@@ -110,6 +113,7 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
           ),
         Text: ({ text, tone }) => Effect.succeed(`<p${toneClass(tone)}>${escapeHtml(text)}</p>`),
       });
+
     const sheet = (tabCount: number) => `
 :root { color-scheme: light; }
 body { margin: 0; padding: 32px; background: ${theme.surface}; color: ${theme.text}; font: 14px/20px ${theme.font}; }
@@ -133,6 +137,7 @@ ${
     : `${Array.from({ length: tabCount }, (_, index) => `.tabs > input:nth-of-type(${String(index + 1)}):checked ~ .panel:nth-of-type(${String(index + 1)})`).join(`,${LINE_BREAK}`)} { display: block; }`
 }
 `;
+
     return pipe(
       view,
       Effect.forEach((block) => renderBlock(block, 2)),

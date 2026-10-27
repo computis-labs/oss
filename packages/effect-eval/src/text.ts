@@ -10,5 +10,6 @@ export const fenced = (text: string, info = "") => {
   const fence = BACKTICK.repeat(
     Math.max(MIN_FENCE, ...Array.from(text.matchAll(BACKTICK_RUN), ([run]) => run.length + 1)),
   );
+
   return [`${fence}${info}`, text, fence].join(LINE_BREAK);
 };

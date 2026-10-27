@@ -3,6 +3,7 @@ import { Base64 } from "effect/encoding";
 import { FatturaElettronica } from "./fattura-xsd.gen.ts";
 
 export const FatturaXml = FatturaElettronica;
+
 export type FatturaEncoded = typeof FatturaXml.Encoded;
 
 const amount = (cents: number) => (cents / 100).toFixed(2);
@@ -68,6 +69,7 @@ export const fatturaFixtures = specs.map((spec) => {
       },
     ],
   };
+
   const document: FatturaEncoded = {
     FatturaElettronicaBody: [
       spec.attachmentBytes === 0
@@ -125,5 +127,6 @@ export const fatturaFixtures = specs.map((spec) => {
     },
     versione: "FPR12",
   };
+
   return { fattura: decodeFattura(document), name: spec.name };
 });

@@ -3,13 +3,15 @@ import { Array as Arr, Data } from "effect";
 export type Execution = Data.TaggedEnum<{
   PerCase: { readonly concurrency: number };
   Batched: { readonly size: number; readonly concurrency: number };
-  Whole: Record<never, never>;
+  Whole: object;
 }>;
 
 const { $is, $match, Batched, PerCase, Whole } = Data.taggedEnum<Execution>();
 
 export type PerCaseExecution = Data.TaggedEnum.Value<Execution, "PerCase">;
+
 export type BatchedExecution = Data.TaggedEnum.Value<Execution, "Batched">;
+
 export type WholeExecution = Data.TaggedEnum.Value<Execution, "Whole">;
 
 export const perCase = (options: { readonly concurrency?: number } = {}): PerCaseExecution =>

@@ -14,9 +14,11 @@ const childArities = (plan: ElementPlan) => plan.sequence.map((child) => [child.
 
 const childElement = (plan: ElementPlan, name: string): ElementPlan => {
   const child: ChildPlan | undefined = plan.children.get(name);
+
   if (child?.node.kind !== "element") {
     return expect.fail(`${name} is not an element`);
   }
+
   return child.node;
 };
 
@@ -113,6 +115,7 @@ describe("compile", () => {
           Titolo: Schema.optionalKey(Schema.String),
         }),
       ]);
+
       const Invoice = Schema.Struct({ Anagrafica }).pipe(root("Invoice"));
 
       const plan = yield* compilePlan(Invoice);
@@ -132,6 +135,7 @@ describe("compile", () => {
         Schema.Struct({ IdFiscaleIVA: Schema.String, Denominazione: Schema.String }),
         Schema.Struct({ IdFiscaleIVA: Schema.String, Nome: Schema.String }),
       ]);
+
       const Invoice = Schema.Struct({ Rappresentante }).pipe(root("Invoice"));
 
       const plan = yield* compilePlan(Invoice);
@@ -150,6 +154,7 @@ describe("compile", () => {
         Schema.Struct({ Primo: Schema.String, Secondo: Schema.String }),
         Schema.Struct({ Secondo: Schema.String, Primo: Schema.String }),
       ]);
+
       const Invoice = Schema.Struct({ Scelta }).pipe(root("Invoice"));
 
       const error = yield* compileError(Invoice);
@@ -182,6 +187,7 @@ describe("compile", () => {
         Valore: Schema.String,
         valuta: Schema.String,
       }).pipe(element({ attributes: ["valuta"] }));
+
       const Invoice = Schema.Struct({ Importo }).pipe(root("Invoice"));
 
       const plan = yield* compilePlan(Invoice);
@@ -211,6 +217,7 @@ describe("compile", () => {
       const Importo = Schema.Struct({ Valore: Schema.String }).pipe(
         Schema.annotate({ "@computis/effect-xml/element": { attributes: ["valuta"] } }),
       );
+
       const Invoice = Schema.Struct({ Importo }).pipe(root("Invoice"));
 
       const error = yield* compileError(Invoice);
@@ -367,10 +374,12 @@ describe("compile", () => {
         readonly Nome: string;
         readonly Figli: readonly CategoriaTree[];
       }
+
       const Categoria: Schema.Codec<CategoriaTree> = Schema.Struct({
         Nome: Schema.String,
         Figli: Schema.Array(Schema.suspend(() => Categoria)),
       });
+
       const Catalogo = Schema.Struct({ Categoria }).pipe(root("Catalogo"));
 
       const error = yield* compileError(Catalogo);
@@ -391,6 +400,7 @@ describe("compile", () => {
         ["FatturaElettronicaBody", "many"],
       ]);
       expect([...plan.node.attributes.keys()]).toEqual(["versione", "SistemaEmittente"]);
+
       const anagrafica = childElement(
         childElement(
           childElement(childElement(plan.node, "FatturaElettronicaHeader"), "CedentePrestatore"),
@@ -398,6 +408,7 @@ describe("compile", () => {
         ),
         "Anagrafica",
       );
+
       expect(anagrafica.sequence.map((child) => child.name)).toEqual([
         "Denominazione",
         "Nome",

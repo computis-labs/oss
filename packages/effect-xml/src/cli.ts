@@ -45,9 +45,11 @@ const flags = {
 const generateCommand = Command.make("generate", flags, (config) =>
   Effect.gen(function* generateFile() {
     const fs = yield* FileSystem.FileSystem;
+
     if (Option.isNone(config.format) && config.formatArg.length > 0) {
       return yield* new CliError.MissingOption({ option: "format" });
     }
+
     const code = yield* generate({
       ...Option.match(config.domain, {
         onNone: () => ({}),
@@ -62,11 +64,15 @@ const generateCommand = Command.make("generate", flags, (config) =>
       root: config.root,
       xsd: { path: config.xsd },
     });
+
     const current = (yield* fs.exists(config.out)) ? yield* fs.readFileString(config.out) : null;
+
     if (current === code) {
       return yield* Console.log(`${config.out} is up to date`);
     }
+
     yield* fs.writeFileString(config.out, code);
+
     return yield* Console.log(`Wrote ${config.out}`);
   }).pipe(
     Effect.tapError((failure) =>

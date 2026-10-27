@@ -9,10 +9,12 @@ const makeProject = (files: Readonly<Record<string, string>>) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const root = yield* fs.makeTempDirectoryScoped();
+
     for (const [file, text] of Object.entries(files)) {
       yield* fs.makeDirectory(path.dirname(path.join(root, file)), { recursive: true });
       yield* fs.writeFileString(path.join(root, file), text);
     }
+
     return { fs, output: path.join(root, outputName), root };
   });
 

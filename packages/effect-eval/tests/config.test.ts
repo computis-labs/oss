@@ -27,6 +27,7 @@ const inTempFolder = <A, E, R>(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const folder = yield* fs.makeTempDirectoryScoped(options);
+
     return yield* use(folder);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
@@ -41,10 +42,12 @@ const writeFile = (path: string, text: string) =>
 const reporterNamesFrom = (cwd: string) =>
   Effect.gen(function* () {
     const config = Option.getOrElse(yield* EvalConfig.load(cwd), (): EvalConfig.EvalConfig => ({}));
+
     const reporters = yield* pipe(
       config.reporters ?? [],
       Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { config, cwd })),
     );
+
     return reporters.map((reporter) => reporter.name);
   });
 
@@ -85,10 +88,13 @@ describe("EvalConfig keeps every field of a custom reporter", () => {
             `import { Effect } from "effect";\nexport default { reporters: [${comparingReporter}] };\n`,
           );
           const run = yield* Runner.run(categorizer);
+
           const fromModule = yield* EvalConfig.resolveReporter("reporters/custom.mjs", {
             cwd: folder,
           });
+
           const config = yield* EvalConfig.load(folder);
+
           const fromConfig = yield* pipe(
             Option.getOrElse(config, (): EvalConfig.EvalConfig => ({})).reporters ?? [],
             Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { cwd: folder })),
@@ -136,6 +142,7 @@ describe("EvalConfig.resolveReporter", () => {
           const config = EvalConfig.define({
             view: () => [View.Text({ text: "the view of the config", tone: "neutral" })],
           });
+
           const reporters = yield* pipe(
             [
               ["markdown", { file: `${folder}/report.md` }],
@@ -167,6 +174,7 @@ describe("EvalConfig.resolveReporter", () => {
             ["html", { compareFile: `${folder}/diff.html`, file: `${folder}/report.html` }],
             { cwd: folder },
           );
+
           const layer = Reporter.layer([reporter]);
 
           const base = yield* Runner.run(categorizer).pipe(Effect.provide(layer));
@@ -188,6 +196,7 @@ describe("EvalConfig.resolveReporter", () => {
             ["process", { args: sink(`${folder}/tuple.jsonl`), command: "node", name: "tuple" }],
           ],
         });
+
         const reporters = yield* pipe(
           config.reporters ?? [],
           Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { config, cwd: folder })),

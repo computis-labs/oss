@@ -38,6 +38,7 @@ const XMLNS = "xmlns";
 const XMLNS_PREFIXED = "xmlns:";
 const XML_PREFIX = "xml";
 const XML_PREFIXED = "xml:";
+
 const ROOT_SCHEMA_LOCATIONS: ReadonlySet<string> = new Set([
   "xsi:noNamespaceSchemaLocation",
   "xsi:schemaLocation",
@@ -99,6 +100,7 @@ export const makeDecoder = <S extends Encodable>(
 
         const fail = (message: string, offset: number) => {
           const segments = state.leaf === undefined ? [] : [segment(state.leaf, state.top)];
+
           for (
             let current: Frame | undefined = state.top;
             current?.child !== undefined;
@@ -106,16 +108,19 @@ export const makeDecoder = <S extends Encodable>(
           ) {
             segments.push(segment(current.child, current.parent));
           }
+
           state.failure = XmlDecodeError.make({
             path: [plan.name, ...segments.toReversed()].join("."),
             position: positionAt(xml, offset),
             reason: message,
           });
+
           return false;
         };
 
         const declare = (prefix: string, namespace: string) => {
           state.bindings ??= new Map();
+
           if (state.depth > 1) {
             state.scopes ??= [];
             state.scopes.push({
@@ -124,14 +129,17 @@ export const makeDecoder = <S extends Encodable>(
               prefix,
             });
           }
+
           state.bindings.set(prefix, namespace);
         };
 
         const declareDefault = (namespace: string, offset: number) => {
           declare("", namespace);
           state.defaultNamespace = namespace === "" ? undefined : namespace;
+
           if (state.depth > 1) {
             state.defaultChanged = true;
+
             if (state.skipDepth === 0 && state.pendingQname === undefined) {
               state.pendingQname = (state.leaf ?? state.top.child)?.name;
               state.pendingPrefixed = false;
@@ -147,11 +155,13 @@ export const makeDecoder = <S extends Encodable>(
             scope = scoped.at(-1)
           ) {
             scoped.pop();
+
             if (scope.namespace === undefined) {
               state.bindings?.delete(scope.prefix);
             } else {
               state.bindings?.set(scope.prefix, scope.namespace);
             }
+
             if (scope.prefix === "") {
               state.defaultNamespace = scope.namespace === "" ? undefined : scope.namespace;
             }
@@ -160,11 +170,14 @@ export const makeDecoder = <S extends Encodable>(
 
         const checkNamespace = (qname: string) => {
           const colon = qname.indexOf(":");
+
           const namespace =
             colon === -1 ? state.defaultNamespace : state.bindings?.get(qname.slice(0, colon));
+
           if (state.top === root && state.leaf === undefined) {
             state.rootNamespace = namespace;
             state.rootDefault = state.defaultNamespace;
+
             return plan.namespace === undefined || namespace === plan.namespace
               ? true
               : fail(
@@ -172,33 +185,41 @@ export const makeDecoder = <S extends Encodable>(
                   state.pendingOffset,
                 );
           }
+
           if (namespace !== undefined && namespace === state.rootNamespace) {
             return true;
           }
+
           if (!skipUnknown) {
             return fail(
               `Element ${qname} is not in the document namespace ${state.rootNamespace ?? "(none)"}.`,
               state.pendingOffset,
             );
           }
+
           if (state.leaf === undefined) {
             state.top = state.top.parent ?? root;
           } else {
             state.leaf = undefined;
           }
+
           state.top.lastIndex = state.pendingLastIndex;
           state.skipDepth = 1;
+
           return true;
         };
 
         const checkPrefixes = (names: Located[]) => {
           for (const { offset, text } of names) {
             const prefix = text.slice(0, text.indexOf(":"));
+
             if (prefix !== XML_PREFIX && state.bindings?.has(prefix) !== true) {
               return fail(`Unbound namespace prefix "${prefix}".`, offset);
             }
           }
+
           names.length = 0;
+
           return true;
         };
 
@@ -206,13 +227,16 @@ export const makeDecoder = <S extends Encodable>(
           if (!qname.includes(":")) {
             return false;
           }
+
           state.prefixedNames ??= [];
           state.prefixedNames.push({ offset, text: qname });
+
           return true;
         };
 
         const failLater = (message: string, offset: number) => {
           state.deferredFailure ??= { offset, text: message };
+
           return true;
         };
 
@@ -222,23 +246,33 @@ export const makeDecoder = <S extends Encodable>(
             attribute: (qname, value, offset) => {
               if (qname === XMLNS) {
                 declareDefault(value, offset);
+
                 return true;
               }
+
               if (qname.startsWith(XMLNS_PREFIXED)) {
                 declare(qname.slice(XMLNS_PREFIXED.length), value);
+
                 return true;
               }
+
               if (state.skipDepth > 0) {
                 checkLater(qname, offset);
+
                 return true;
               }
+
               const attribute =
                 state.leaf === undefined ? state.top.element.attributes.get(qname) : undefined;
+
               if (attribute !== undefined) {
                 state.top.value[attribute.name] = value;
+
                 return true;
               }
+
               const hasPrefix = checkLater(qname, offset);
+
               if (
                 skipUnknown ||
                 qname.startsWith(XML_PREFIXED) ||
@@ -246,41 +280,55 @@ export const makeDecoder = <S extends Encodable>(
               ) {
                 return true;
               }
+
               const message = `Unexpected attribute: ${qname}.`;
+
               return hasPrefix ? failLater(message, offset) : fail(message, offset);
             },
             close: () => {
               if (state.scopes !== undefined) {
                 unwind(state.scopes);
               }
+
               state.depth -= 1;
+
               if (state.skipDepth > 0) {
                 state.skipDepth -= 1;
+
                 return true;
               }
+
               const frame = state.top;
+
               if (state.leaf !== undefined) {
                 store(frame, state.leaf, trimText ? state.leafText.trim() : state.leafText);
                 state.leaf = undefined;
+
                 return true;
               }
+
               state.top = frame.parent ?? root;
               const { child, element, lists, parent, value } = frame;
+
               if (lists !== undefined) {
                 for (let slot = 0; slot < lists.length; slot += 1) {
                   const list = lists[slot];
                   const step = element.lists[slot];
+
                   if (list !== undefined && step !== undefined) {
                     value[step.name] = list;
                   }
                 }
               }
+
               for (const key of element.required) {
                 value[key] ??= [];
               }
+
               if (child !== undefined && parent !== undefined) {
                 store(parent, child, value);
               }
+
               return true;
             },
             keepWhitespace: () => !trimText && state.leaf !== undefined && state.skipDepth === 0,
@@ -292,14 +340,18 @@ export const makeDecoder = <S extends Encodable>(
               ) {
                 return false;
               }
+
               if (state.deferredFailure !== undefined) {
                 return fail(state.deferredFailure.text, state.deferredFailure.offset);
               }
+
               if (state.pendingQname === undefined) {
                 return true;
               }
+
               const qname = state.pendingQname;
               state.pendingQname = undefined;
+
               return (
                 (!state.pendingPrefixed && state.defaultNamespace === state.rootDefault) ||
                 checkNamespace(qname)
@@ -307,81 +359,107 @@ export const makeDecoder = <S extends Encodable>(
             },
             openStart: (qname, offset) => {
               state.depth += 1;
+
               if (state.skipDepth > 0) {
                 state.skipDepth += 1;
                 checkLater(qname, offset);
+
                 return true;
               }
+
               if (!state.started) {
                 if (localName(qname) !== plan.name) {
                   return fail(`Unexpected root element: ${qname}.`, offset);
                 }
+
                 checkLater(qname, offset);
                 state.started = true;
                 state.pendingQname = qname;
                 state.pendingPrefixed = true;
                 state.pendingOffset = offset;
+
                 return true;
               }
+
               const { top } = state;
               const { children, sequence } = top.element;
               const from = Math.max(top.lastIndex, 0);
+
               const exact =
                 state.leaf === undefined
                   ? (sequence.find((step, index) => index >= from && step.name === qname) ??
                     children.get(qname))
                   : undefined;
+
               const prefixedChild =
                 state.leaf === undefined && exact === undefined
                   ? children.get(localName(qname))
                   : undefined;
+
               const child = exact ?? prefixedChild;
               const prefixed = prefixedChild !== undefined;
+
               if (child === undefined) {
                 const hasPrefix = checkLater(qname, offset);
+
                 if (skipUnknown) {
                   state.skipDepth = 1;
+
                   return true;
                 }
+
                 const message = `Unexpected element: ${qname}.`;
+
                 if (!hasPrefix) {
                   return fail(message, offset);
                 }
+
                 state.skipDepth = 1;
+
                 return failLater(message, offset);
               }
+
               if (child.index < top.lastIndex) {
                 return fail(`Element out of sequence: ${qname}.`, offset);
               }
+
               if (child.index === top.lastIndex && !child.many) {
                 return fail(`Repeated element: ${qname}.`, offset);
               }
+
               if (prefixed) {
                 checkLater(qname, offset);
               }
+
               if (prefixed || state.defaultChanged) {
                 state.pendingQname = qname;
                 state.pendingPrefixed = prefixed;
                 state.pendingOffset = offset;
               }
+
               state.pendingLastIndex = top.lastIndex;
               top.lastIndex = child.index;
+
               if (child.element === undefined) {
                 state.leaf = child;
                 state.leafText = "";
               } else {
                 state.top = openFrame(child.element, child, top);
               }
+
               return true;
             },
             text: (value, offset) => {
               if (state.skipDepth > 0) {
                 return true;
               }
+
               if (state.leaf === undefined) {
                 return fail("Unexpected text inside a structured element.", offset);
               }
+
               state.leafText = state.leafText === "" ? value : state.leafText + value;
+
               return true;
             },
           },
@@ -391,13 +469,17 @@ export const makeDecoder = <S extends Encodable>(
         if (Result.isFailure(result)) {
           return Effect.fail(result.failure);
         }
+
         if (state.failure !== undefined) {
           return Effect.fail(state.failure);
         }
+
         const input = root.value;
+
         return decodeValue(input).pipe(
           Effect.mapError((schemaError) => {
             const { keys, message, path } = firstIssue(plan.name, schemaError, input);
+
             return XmlDecodeError.make({
               cause: schemaError,
               path,

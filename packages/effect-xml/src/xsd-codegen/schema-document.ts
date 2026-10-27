@@ -25,6 +25,7 @@ const toNode = (element: XmlElement, parentPath: string): XsdNode => {
   const reference = ref === undefined ? "" : `[@ref="${ref}"]`;
   const path = `${parentPath}/xs:${element.name}${name === undefined ? reference : `[@name="${name}"]`}`;
   const children: XsdNode[] = [];
+
   for (let child = element.firstChild; child !== null; child = child.next) {
     if (
       child instanceof XmlElement &&
@@ -34,6 +35,7 @@ const toNode = (element: XmlElement, parentPath: string): XsdNode => {
       children.push(toNode(child, path));
     }
   }
+
   return {
     attributes: new Map(
       element.attrs
