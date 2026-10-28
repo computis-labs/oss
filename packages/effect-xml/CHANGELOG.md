@@ -1,5 +1,11 @@
 # @computis/effect-xml
 
+## 0.3.0
+
+### Minor Changes
+
+- [`e3e2dd9`](https://github.com/computis-labs/oss/commit/e3e2dd96aeee6e6b7918cf3d4b53ff0b8af65a0c) Thanks [@zRelux](https://github.com/zRelux)! - The errors are now `Schema.TaggedError` classes, so they carry a schema and can be encoded and decoded. Breaking: the `make({ reason, ... })` factory of `XmlParseError`, `XmlDecodeError`, `XmlEncodeError` and `XsdValidationError` is now `fromReason({ reason, ... })`, because `make` is the schema constructor.
+
 ## 0.2.0
 
 ### Minor Changes

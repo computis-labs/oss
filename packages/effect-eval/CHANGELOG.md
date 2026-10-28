@@ -1,5 +1,11 @@
 # @computis/effect-eval
 
+## 0.1.1
+
+### Patch Changes
+
+- [`e3e2dd9`](https://github.com/computis-labs/oss/commit/e3e2dd96aeee6e6b7918cf3d4b53ff0b8af65a0c) Thanks [@zRelux](https://github.com/zRelux)! - The errors are now `Schema.TaggedError` classes, so they carry a schema and can be encoded and decoded. Their fields and codes are unchanged.
+
 ## 0.1.0
 
 ### Minor Changes

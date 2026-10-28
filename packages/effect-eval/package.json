@@ -1,6 +1,6 @@
 {
   "name": "@computis/effect-eval",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Evals for LLM features with Effect: datasets, scorers, metrics with intervals, gates, variants, trials, history and reporters.",
   "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-eval#readme",
   "bugs": "https://github.com/computis-labs/oss/issues",

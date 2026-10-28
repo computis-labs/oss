@@ -1,5 +1,11 @@
 # @computis/effect-github
 
+## 0.1.1
+
+### Patch Changes
+
+- [`e3e2dd9`](https://github.com/computis-labs/oss/commit/e3e2dd96aeee6e6b7918cf3d4b53ff0b8af65a0c) Thanks [@zRelux](https://github.com/zRelux)! - Every action error now carries a fixed `code` field derived from its tag, for example `ACTION_INPUT` on `ActionInputError` and `ACTION_API` on `ActionApiError`.
+
 ## 0.1.0
 
 ### Minor Changes

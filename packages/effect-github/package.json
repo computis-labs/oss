@@ -1,6 +1,6 @@
 {
   "name": "@computis/effect-github",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Write the logic of GitHub Actions with Effect: inputs, outputs, event context, Octokit, job summary and runMain.",
   "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-github#readme",
   "bugs": "https://github.com/computis-labs/oss/issues",
