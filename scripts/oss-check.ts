@@ -32,7 +32,8 @@ const optionalPeers = (
     .filter(([name]) => manifest.peerDependenciesMeta?.[name]?.optional === true)
     .filter(([name]) => !name.startsWith("@effect/platform-"))
     .map(
-      ([name, range]) => `${name}@${name.startsWith("@effect/") ? (pinned[name] ?? range) : range}`,
+      ([name, range]) =>
+        `${name}@${name.startsWith("@effect/") ? (pinned[name] ?? pinned.effect ?? range) : range}`,
     );
 
 const RootManifest = Schema.Struct({ devDependencies: StringRecord });
