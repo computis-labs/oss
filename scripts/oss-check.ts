@@ -24,11 +24,14 @@ const PublishedManifest = Schema.Struct({
   ),
 });
 
-const optionalPeers = (manifest: typeof PublishedManifest.Type) =>
+const optionalPeers = (
+  manifest: typeof PublishedManifest.Type,
+  pinned: Readonly<Record<string, string>>,
+) =>
   Object.entries(manifest.peerDependencies ?? {})
     .filter(([name]) => manifest.peerDependenciesMeta?.[name]?.optional === true)
     .filter(([name]) => !name.startsWith("@effect/platform-"))
-    .map(([name, range]) => `${name}@${range}`);
+    .map(([name, range]) => `${name}@${pinned[name] ?? range}`);
 
 const RootManifest = Schema.Struct({ devDependencies: StringRecord });
 
@@ -195,7 +198,7 @@ const program = Effect.gen(function* ossCheckProgram() {
     const manifest = yield* readJson(PublishedManifest, path.join(installed, "package.json"));
     imports.push(...(yield* exportSpecifiers(installed, manifest)));
     bins.push(...Object.values(manifest.bin ?? {}).map((bin) => path.join(installed, bin)));
-    peers.push(...optionalPeers(manifest));
+    peers.push(...optionalPeers(manifest, devDependencies));
   }
 
   if (peers.length > 0) {
