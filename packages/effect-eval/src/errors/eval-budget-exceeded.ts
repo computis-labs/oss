@@ -1,9 +1,12 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 
-export class EvalBudgetExceeded extends Data.TaggedError("EvalBudgetExceeded")<{
-  readonly planned: number;
-  readonly limit: number;
-}> {
+export class EvalBudgetExceeded extends Schema.TaggedError<
+  EvalBudgetExceeded,
+  { readonly brand: unique symbol }
+>()("EvalBudgetExceeded", {
+  limit: Schema.Number,
+  planned: Schema.Number,
+}) {
   readonly code = "EVAL_BUDGET_EXCEEDED";
 
   override get message() {

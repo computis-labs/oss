@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Option, Schema } from "effect";
+import { Array, Data, Option, Schema } from "effect";
 import { credit } from "./agreement.ts";
 import { actualStates, expectedStates } from "./observation.ts";
 import type { Observation } from "./observation.ts";
@@ -215,7 +215,7 @@ export const by =
   (observations: readonly Observation[]): Readonly<Record<string, Summary>> => {
     const head = `${prefix}${TAG_SEPARATOR}`;
 
-    const groups = Arr.groupBy(
+    const groups = Array.groupBy(
       observations.flatMap((observation) =>
         [
           ...new Set(

@@ -147,8 +147,12 @@ describe("ChartVega warnings of a sensitive run", () => {
         ),
       );
 
-      expect(JSON.stringify(run.outputs)).toContain(secret);
-      expect(JSON.stringify(charts)).not.toContain(secret);
+      expect(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(run.outputs),
+      ).toContain(secret);
+      expect(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(charts),
+      ).not.toContain(secret);
       expect(logged.join("\n")).not.toContain(secret);
     }),
   );

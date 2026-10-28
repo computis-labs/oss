@@ -1,5 +1,5 @@
 import { lookup } from "./object.ts";
-import { Array as Arr, Effect, Match, Option, Path, Predicate, Result } from "effect";
+import { Array, Effect, Match, Option, Path, Predicate, Result } from "effect";
 import { absurd } from "effect/Function";
 import {
   ComparisonOperators,
@@ -260,7 +260,7 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
     withAlias(ctx, root ?? { expression: `$input.${value.root}`, type: present }),
   );
 
-  return Arr.reduce(value.segments, resolvedRoot, (resolved, segment, index) =>
+  return Array.reduce(value.segments, resolvedRoot, (resolved, segment, index) =>
     resolved.pipe(
       Result.flatMap((binding) => {
         const { node } = binding.type;

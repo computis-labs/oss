@@ -1,4 +1,4 @@
-import { Effect, Match, Schema, SchemaGetter } from "effect";
+import { Effect, Match, Result, Schema, SchemaGetter } from "effect";
 
 export { element, root } from "../annotations.ts";
 
@@ -411,7 +411,7 @@ type XsdSimple = Schema.Top & {
 };
 
 export const xsdDefault = <S extends XsdSimple>(self: S, value: S["Encoded"]) => {
-  const decoded = Schema.decodeSync(self)(value);
+  const decoded = Result.getOrThrow(Schema.decodeResult(self)(value));
 
   return Schema.Union([self, Schema.Literal("")]).pipe(
     Schema.decodeTo(Schema.toType(self), {

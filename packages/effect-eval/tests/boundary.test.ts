@@ -60,10 +60,18 @@ const importsWithPeersDenied = (files: readonly string[]) =>
       Effect.forEach((file) => paths.toFileUrl(file).pipe(Effect.map((url) => url.href))),
     );
 
+    const hookSpecifier = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
+      hookUrl.href,
+    );
+
+    const urlList = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))(
+      urls,
+    );
+
     const script = `import { register } from "node:module";
-register(${JSON.stringify(hookUrl.href)});
+register(${hookSpecifier});
 const refused = [];
-for (const url of ${JSON.stringify(urls)}) {
+for (const url of ${urlList}) {
   try { await import(url); } catch (error) { refused.push([url, String(error.message).split("\\n")[0]]); }
 }
 process.stdout.write(JSON.stringify(refused));

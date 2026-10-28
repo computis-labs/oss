@@ -1,9 +1,12 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 
-export class EvalReporterFailed extends Data.TaggedError("EvalReporterFailed")<{
-  readonly reporter: string;
-  readonly cause: unknown;
-}> {
+export class EvalReporterFailed extends Schema.TaggedError<
+  EvalReporterFailed,
+  { readonly brand: unique symbol }
+>()("EvalReporterFailed", {
+  cause: Schema.Defect(),
+  reporter: Schema.String,
+}) {
   readonly code = "EVAL_REPORTER_FAILED";
 
   override get message() {

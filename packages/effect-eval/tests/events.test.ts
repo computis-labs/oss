@@ -70,7 +70,13 @@ describe("Events.encodeLine and decodeLine", () => {
       const line = first === undefined ? "" : yield* Events.encodeLine(first);
 
       expect(line).not.toContain("\n");
-      expect(JSON.parse(line)).toMatchObject({ eval: "categorizer", sequence: 0, version: 1 });
+      expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(line)).toMatchObject(
+        {
+          eval: "categorizer",
+          sequence: 0,
+          version: 1,
+        },
+      );
     }),
   );
 

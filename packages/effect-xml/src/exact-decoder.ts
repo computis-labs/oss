@@ -1,4 +1,4 @@
-import { Array as Arr, Match, Schema, SchemaAST, SchemaIssue } from "effect";
+import { Array, Match, Schema, SchemaAST, SchemaIssue } from "effect";
 import type { XmlObject } from "./encoder.ts";
 
 const exactNodes = new WeakMap<SchemaAST.AST, SchemaAST.AST>();
@@ -15,7 +15,7 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
       (node: SchemaAST.AST): node is SchemaAST.AST & { readonly encoding: SchemaAST.Encoding } =>
         node.encoding !== undefined,
       (node) => {
-        const last = Arr.lastNonEmpty(node.encoding);
+        const last = Array.lastNonEmpty(node.encoding);
         const to = exact(last.to);
 
         if (to === last.to) {
@@ -25,8 +25,8 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
         const copy = {
           // oxlint-disable-next-line typescript/no-misused-spread -- the copy gets the prototype back below, as SchemaAST.replaceEncoding copies a node
           ...node,
-          encoding: Arr.append(
-            Arr.initNonEmpty(node.encoding),
+          encoding: Array.append(
+            Array.initNonEmpty(node.encoding),
             new SchemaAST.Link(to, last.transformation),
           ),
         };

@@ -1,5 +1,5 @@
 import {
-  Array as Arr,
+  Array,
   Cause,
   Clock,
   Effect,
@@ -199,7 +199,7 @@ interface BatchResult<O> {
 }
 
 type Obtain<A, O, R> = (
-  batch: Arr.NonEmptyReadonlyArray<Case<A>>,
+  batch: Array.NonEmptyReadonlyArray<Case<A>>,
   record: (usage: Usage) => Effect.Effect<void>,
 ) => Effect.Effect<BatchResult<O>, never, R>;
 
@@ -255,7 +255,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
   const variantNames = settings.variants.map((variant) => variant.name);
 
   const resolved = yield* pipe(
-    Arr.dedupeWith(
+    Array.dedupeWith(
       [
         ...Gate.baselinesOf(self.gates),
         Option.getOrElse(settings.reportBaseline, () => History.baseline()),
@@ -400,7 +400,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
         variant: string,
         trial: number,
         obtain: Obtain<A, O, R>,
-        batch: Arr.NonEmptyReadonlyArray<Case<A>>,
+        batch: Array.NonEmptyReadonlyArray<Case<A>>,
       ) =>
         Effect.gen(function* scoreBatchRun() {
           yield* Effect.forEach(
@@ -420,7 +420,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
             (input, index) =>
               Effect.gen(function* scoreOne() {
                 const outcome: Outcome<O> = Option.getOrElse(
-                  Arr.get(obtained.outcomes, index),
+                  Array.get(obtained.outcomes, index),
                   () =>
                     Result.fail(
                       `The task returned ${String(obtained.outcomes.length)} outputs for ${String(batch.length)} cases.`,
@@ -527,7 +527,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
               const variantStart = yield* liveMillis;
 
               const results = yield* Effect.forEach(
-                Arr.range(1, settings.trials),
+                Array.range(1, settings.trials),
                 (trial) =>
                   Effect.scoped(
                     settings.source.open(variant.name, trial).pipe(

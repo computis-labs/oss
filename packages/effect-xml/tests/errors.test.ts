@@ -6,7 +6,7 @@ import { XsdValidationError } from "../src/errors/xsd-validation-error.ts";
 
 describe("error messages", () => {
   it("describes a decode failure with its path and position", () => {
-    const error = XmlDecodeError.make({
+    const error = XmlDecodeError.fromReason({
       path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Provincia",
       position: { column: 12, line: 2, offset: 40 },
       reason: "Expected a string of at most 2 characters",
@@ -18,7 +18,7 @@ describe("error messages", () => {
   });
 
   it("describes a decode failure without a position with its path only", () => {
-    const error = XmlDecodeError.make({ path: "Documento.Titolo", reason: "Missing key" });
+    const error = XmlDecodeError.fromReason({ path: "Documento.Titolo", reason: "Missing key" });
 
     expect(error.message).toBe("Missing key at Documento.Titolo");
   });
@@ -26,7 +26,7 @@ describe("error messages", () => {
   it("keeps the structured fields of a decode failure", () => {
     const cause = new Error("schema");
 
-    const error = XmlDecodeError.make({
+    const error = XmlDecodeError.fromReason({
       cause,
       path: "Documento.Titolo",
       position: { column: 3, line: 1, offset: 2 },
@@ -41,7 +41,7 @@ describe("error messages", () => {
   });
 
   it("describes a parse failure with its position", () => {
-    const error = XmlParseError.make({
+    const error = XmlParseError.fromReason({
       position: { column: 14, line: 1, offset: 13 },
       reason: "Unexpected closing tag </B>",
     });
@@ -50,7 +50,7 @@ describe("error messages", () => {
   });
 
   it("describes an encode failure with its path", () => {
-    const error = XmlEncodeError.make({
+    const error = XmlEncodeError.fromReason({
       path: "Documento.Nota[1].Testo",
       reason: "Character U+0001 is not allowed in XML 1.0.",
     });
@@ -61,7 +61,7 @@ describe("error messages", () => {
   });
 
   it("describes every XSD issue with its line and column", () => {
-    const error = XsdValidationError.make({
+    const error = XsdValidationError.fromReason({
       issues: [
         { column: 1, line: 1, message: "Element 'Numero': missing." },
         { column: 7, line: 4, message: "Element 'Data': invalid." },
@@ -75,7 +75,7 @@ describe("error messages", () => {
   });
 
   it("describes an XSD failure without issues with its reason only", () => {
-    const error = XsdValidationError.make({
+    const error = XsdValidationError.fromReason({
       issues: [],
       reason: "XSD validation failed: libxml2 failed without a diagnostic",
     });

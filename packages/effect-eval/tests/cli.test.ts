@@ -487,10 +487,12 @@ describe("Cli.command with a history", () => {
 
           yield* golden(["--reporter", "history"]);
 
-          const [entry] = (files.get(".eval/history/autofattura/index.jsonl") ?? "")
-            .split("\n")
-            .filter((line) => line.length > 0)
-            .map((line) => Schema.decodeUnknownSync(IndexLineSchema)(line));
+          const [entry] = yield* pipe(
+            (files.get(".eval/history/autofattura/index.jsonl") ?? "")
+              .split("\n")
+              .filter((line) => line.length > 0),
+            Effect.forEach((line) => Schema.decodeEffect(IndexLineSchema)(line)),
+          );
 
           yield* golden(["history"]);
           const listed = (yield* TestConsole.logLines).map(String).join("\n");
@@ -802,7 +804,9 @@ describe("Cli.command output", () => {
     Effect.gen(function* () {
       const failure = yield* Effect.flip(cli([...quiet, "--trials", "0"]));
 
-      expect(JSON.stringify(failure)).toContain("positive number of trials");
+      expect(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(failure)).toContain(
+        "positive number of trials",
+      );
       expect(yield* TestConsole.errorLines).toEqual([]);
     }).pipe(Effect.provide(services)),
   );

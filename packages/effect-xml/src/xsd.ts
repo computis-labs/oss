@@ -38,7 +38,7 @@ const libxml2Message = (cause: unknown) =>
 const validationError = (summary: string, cause: unknown, note = "") => {
   const issues = libxml2Issues(cause);
 
-  return XsdValidationError.make({
+  return XsdValidationError.fromReason({
     cause,
     issues,
     reason: issues.length === 0 ? `${summary}: ${libxml2Message(cause)}${note}` : summary,

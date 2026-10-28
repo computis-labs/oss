@@ -655,7 +655,7 @@ describe("Runner.run with a sensitive dataset", () => {
       expect(run.sensitive).toBe(true);
       expect(events.find(Events.isRunStarted)?.sensitive).toBe(true);
       expect(
-        JSON.stringify(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
           events.flatMap((event) => (Events.isCaseFinished(event) ? [event.output] : [])),
         ),
       ).not.toContain("CUSTOMER_SECRET");
@@ -1862,7 +1862,11 @@ describe("Runner.rescoreRun sensitivity", () => {
       );
 
       expect(rescored.sensitive).toBe(true);
-      expect(JSON.stringify(events.filter(Events.isCaseFinished))).not.toContain("CUSTOMER_SECRET");
+      expect(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+          events.filter(Events.isCaseFinished),
+        ),
+      ).not.toContain("CUSTOMER_SECRET");
     }),
   );
 });
@@ -2045,7 +2049,9 @@ describe("Runner.run outputs it cannot encode", () => {
 
       expect(logged.join("\n")).toContain("The output of a was not stored");
       expect(logged.join("\n")).not.toContain("CUSTOMER-SECRET-123");
-      expect(JSON.stringify(reported)).not.toContain("CUSTOMER-SECRET-123");
+      expect(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(reported),
+      ).not.toContain("CUSTOMER-SECRET-123");
       expect(run.outputs.map((output) => Option.getOrElse(output.outputError, () => ""))).toEqual([
         expect.stringContaining("Invalid value CUSTOMER-SECRET-123"),
       ]);

@@ -1,4 +1,4 @@
-import { Array as Arr, Predicate, SchemaAST, SchemaIssue } from "effect";
+import { Array, Predicate, SchemaAST, SchemaIssue } from "effect";
 import type { Schema } from "effect";
 import { localName, positionAt } from "./characters.ts";
 import type { XmlValue } from "./encoder.ts";
@@ -48,7 +48,7 @@ const locate = (
     return formatted(issue, keys);
   }
 
-  const value = Arr.reduce<PropertyKey, unknown>(keys, input, (current, key) =>
+  const value = Array.reduce<PropertyKey, unknown>(keys, input, (current, key) =>
     Predicate.hasProperty(current, key) ? current[key] : undefined,
   );
 
@@ -92,7 +92,7 @@ const locate = (
 export const firstIssue = (rootName: string, error: Schema.SchemaError, input?: XmlValue) => {
   const { keys, message } = locate(error.issue, [], input);
 
-  const path = Arr.reduce(keys, rootName, (prefix, key) =>
+  const path = Array.reduce(keys, rootName, (prefix, key) =>
     Predicate.isNumber(key) ? `${prefix}[${String(key)}]` : `${prefix}.${String(key)}`,
   );
 
@@ -144,7 +144,7 @@ export const issuePosition = (xml: string, keys: readonly PropertyKey[]): XmlPos
     text: () => true,
   });
 
-  const chain = Arr.reduce(
+  const chain = Array.reduce(
     targets,
     elements.length === 0 ? [] : [0],
     (matched: readonly number[], target, position) => {

@@ -62,14 +62,16 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   const decodeEncodedFattura = Schema.decodeUnknownEffect(FatturaXml);
   const write = makeWriter(xml.plan);
   const validator = yield* Xsd.make({ schema: { path: mainPath } });
-  const encodeFattura = Schema.encodeSync(FatturaXml);
+
+  const encodeFatturaJson = (fattura: typeof FatturaXml.Type) =>
+    Schema.encodeEffect(Schema.fromJsonString(FatturaXml))(fattura).pipe(Effect.orDie);
 
   for (const fixture of fixtures) {
     const decoded = yield* xml.decode(fixture.xml);
     const encoded = yield* xml.encode(fixture.fattura);
     yield* validator.validate(encoded);
 
-    if (JSON.stringify(encodeFattura(decoded)) !== JSON.stringify(encodeFattura(fixture.fattura))) {
+    if ((yield* encodeFatturaJson(decoded)) !== (yield* encodeFatturaJson(fixture.fattura))) {
       yield* Effect.die(`decode diverso per ${fixture.name}`);
     }
   }

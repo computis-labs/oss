@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 import { FatturaElettronica } from "./fattura-xsd.gen.ts";
 
@@ -26,8 +26,6 @@ const specs = [
   { attachmentBytes: 0, lines: 1000, name: "1000 linee" },
   { attachmentBytes: 1_048_576, lines: 20, name: "20 linee + allegato 1 MB" },
 ] as const;
-
-const decodeFattura = Schema.decodeUnknownSync(FatturaXml);
 
 export const fatturaFixtures = specs.map((spec) => {
   const body: FatturaEncoded["FatturaElettronicaBody"][number] = {
@@ -128,5 +126,5 @@ export const fatturaFixtures = specs.map((spec) => {
     versione: "FPR12",
   };
 
-  return { fattura: decodeFattura(document), name: spec.name };
+  return { fattura: Result.getOrThrow(Schema.decodeResult(FatturaXml)(document)), name: spec.name };
 });

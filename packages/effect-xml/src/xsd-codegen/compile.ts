@@ -1,4 +1,4 @@
-import { Array as Arr, Result } from "effect";
+import { Array, Result } from "effect";
 import type { XsdCodegenError } from "../errors/xsd-codegen-error.ts";
 import { IDENTIFIER, makeAllocator, pascal } from "./identifiers.ts";
 import { renderModule } from "./render-module.ts";
@@ -449,7 +449,7 @@ export const compileSchema = (schema: XsdNode, options: ModuleOptions): Compiled
           return yield* fail(node, `A repeated xs:${node.local} is not supported.`);
         }
 
-        const alternatives = yield* Arr.reduce<XsdNode, Compiled<readonly Alternative[]>>(
+        const alternatives = yield* Array.reduce<XsdNode, Compiled<readonly Alternative[]>>(
           node.children,
           Result.succeed(node.local === "sequence" ? [[]] : []),
           (previous, child) =>

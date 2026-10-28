@@ -1,4 +1,4 @@
-import { Array as Arr, Result } from "effect";
+import { Array, Result } from "effect";
 import type { XsdCodegenError } from "../../errors/xsd-codegen-error.ts";
 import { choice, parse } from "../pattern/parse.ts";
 import type { RegexNode } from "../pattern/parse.ts";
@@ -171,7 +171,7 @@ export const restrict = (base: SimpleSpec, restriction: XsdNode) =>
         return { ...facets, whiteSpace: next };
       });
 
-    const facets = yield* Arr.reduce<XsdNode, Result.Result<Facets, XsdCodegenError>>(
+    const facets = yield* Array.reduce<XsdNode, Result.Result<Facets, XsdCodegenError>>(
       restriction.children,
       Result.succeed({
         enumeration: [],

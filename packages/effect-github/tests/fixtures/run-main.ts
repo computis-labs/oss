@@ -5,6 +5,8 @@ import { ActionFailed } from "../../src/errors/action-failed.ts";
 class MergeConflict extends Schema.TaggedError<MergeConflict>()("MergeConflict", {
   path: Schema.String,
 }) {
+  readonly code = "MERGE_CONFLICT";
+
   override get message() {
     return `pnpm-lock.yaml conflicts in ${this.path}`;
   }

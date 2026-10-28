@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { afterEach, describe, expect, it, layer, vi } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Path, Redacted } from "effect";
+import { Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect";
 import { HttpServer, HttpServerResponse } from "effect/http";
 import { ActionRunner } from "../src/action-runner.ts";
 import { ActionInputErrorReason } from "../src/errors/action-input-error.ts";
@@ -93,7 +93,9 @@ layer(Layer.mergeAll(ActionRunner.layer, NodeServices.layer))("ActionRunner.laye
       const token = yield* runner.getIDToken("sts.amazonaws.com");
 
       expect(Redacted.value(token)).toBe("eyJ.oidc.jwt");
-      expect(JSON.stringify({ token })).not.toContain("eyJ.oidc.jwt");
+      expect(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ token }),
+      ).not.toContain("eyJ.oidc.jwt");
     }).pipe(Effect.provide(oidcEndpoint)),
   );
 

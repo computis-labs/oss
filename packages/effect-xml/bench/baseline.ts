@@ -1,6 +1,6 @@
 // oxlint-disable-next-line test-boundary/no-test-imports -- the benchmarks are removed before the merge and share the test invoices until then
 import { FatturaXml as FatturaElettronicaSchema } from "../tests/fixtures/fattura.ts";
-import { Effect, Schema, SchemaAST, SchemaTransformation } from "effect";
+import { Effect, flow, Result, Schema, SchemaAST, SchemaTransformation } from "effect";
 import XMLBuilder from "fast-xml-builder";
 import { XMLParser } from "fast-xml-parser";
 import { validateXML } from "xmllint-wasm";
@@ -53,7 +53,9 @@ const FatturaDocumentSchema = Schema.Union([
 
 class BaselineDecodeError extends Schema.TaggedError<BaselineDecodeError>()("BaselineDecodeError", {
   cause: Schema.Unknown,
-}) {}
+}) {
+  readonly code = "BASELINE_DECODE";
+}
 
 export const makeBaseline = (xsd: {
   readonly dsig: { readonly contents: string; readonly fileName: string };
@@ -85,7 +87,7 @@ export const makeBaseline = (xsd: {
     suppressEmptyNode: true,
   });
 
-  const encodeFattura = Schema.encodeSync(FatturaElettronicaSchema);
+  const encodeFattura = flow(Schema.encodeResult(FatturaElettronicaSchema), Result.getOrThrow);
   const decodeParsed = Schema.decodeUnknownEffect(FatturaDocumentSchema);
 
   const buildDocument = (

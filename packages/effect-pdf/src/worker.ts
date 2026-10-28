@@ -1,5 +1,4 @@
 import * as Console from "effect/Console";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as Runtime from "effect/Runtime";
@@ -13,11 +12,14 @@ const isModuleNotFound = Schema.is(
   Schema.Struct({ code: Schema.Literal("ERR_MODULE_NOT_FOUND"), message: Schema.String }),
 );
 
-class PlatformUnavailable extends Data.TaggedError("PlatformUnavailable")<{
-  readonly cause: unknown;
-  readonly platform: string;
-  readonly reason: "load" | "missing";
-}> {
+class PlatformUnavailable extends Schema.TaggedError<
+  PlatformUnavailable,
+  { readonly brand: unique symbol }
+>()("PlatformUnavailable", {
+  cause: Schema.Defect(),
+  platform: Schema.String,
+  reason: Schema.Literals(["load", "missing"]),
+}) {
   readonly code = "PLATFORM_UNAVAILABLE";
 }
 

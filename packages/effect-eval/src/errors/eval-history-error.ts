@@ -1,8 +1,11 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 
-export class EvalHistoryError extends Data.TaggedError("EvalHistoryError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-}> {
+export class EvalHistoryError extends Schema.TaggedError<
+  EvalHistoryError,
+  { readonly brand: unique symbol }
+>()("EvalHistoryError", {
+  cause: Schema.optionalKey(Schema.Defect()),
+  message: Schema.String,
+}) {
   readonly code = "EVAL_HISTORY";
 }

@@ -74,7 +74,7 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation with a domai
 
       expect(xsd).toStrictEqual(Exit.void);
       expect(Exit.isFailure(decoded)).toBe(true);
-      expect(Schema.decodeUnknownSync(OrderDomain.CountryType)("fr")).toBe("fr");
+      expect(yield* Schema.decodeEffect(OrderDomain.CountryType)("fr")).toBe("fr");
     }),
   );
 
@@ -131,7 +131,7 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation with a domai
       yield* fs.makeDirectory(packageDirectory, { recursive: true });
       yield* fs.writeFileString(
         `${packageDirectory}/package.json`,
-        JSON.stringify({
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
           exports: { ".": { import: "./index.js" } },
           name: "esm-only-domain",
           type: "module",

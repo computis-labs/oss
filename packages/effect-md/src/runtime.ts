@@ -1,5 +1,5 @@
 import { whenDefined } from "./object.ts";
-import { Array as Arr, Effect, Predicate, Schema } from "effect";
+import { Array, Effect, Predicate, Schema } from "effect";
 import { Prompt } from "effect/ai";
 
 export const File = Schema.Struct({
@@ -23,6 +23,8 @@ export class PromptInputError extends Schema.TaggedError<PromptInputError>()("Pr
   detail: Schema.String,
   prompt: Schema.String,
 }) {
+  readonly code = "PROMPT_INPUT";
+
   override get message() {
     return `Invalid input for the prompt '${this.prompt}': ${this.detail}`;
   }
@@ -55,7 +57,7 @@ export const isFilled = (value: Value) => {
 };
 
 export const untrusted = (text: string, lang = "") => {
-  const longest = Arr.reduce(text.matchAll(backtickRunPattern), 0, (max, match) =>
+  const longest = Array.reduce(text.matchAll(backtickRunPattern), 0, (max, match) =>
     Math.max(max, match[0].length),
   );
 

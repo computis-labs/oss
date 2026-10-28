@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-import { Console, Data, Effect } from "effect";
+import { Console, Effect, Schema } from "effect";
 import { main } from "./cli.ts";
 
 const onBun = process.versions["bun"] !== undefined;
 
-class PlatformMissing extends Data.TaggedError("PlatformMissing")<{
-  readonly platform: string;
-}> {
+class PlatformMissing extends Schema.TaggedError<
+  PlatformMissing,
+  { readonly brand: unique symbol }
+>()("PlatformMissing", {
+  platform: Schema.String,
+}) {
   readonly code = "PLATFORM_MISSING";
 }
 

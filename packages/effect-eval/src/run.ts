@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Option, Stream } from "effect";
+import { Array, Effect, Option, Stream } from "effect";
 import type { DateTime, Schema } from "effect";
 import { EvalHistoryError } from "./errors/eval-history-error.ts";
 import {
@@ -113,7 +113,7 @@ export const variantRun = (
 ): VariantRun => {
   const plain = observations.map((item) => item.observation);
 
-  const perTrial = Array.from({ length: trials }, (_, index) =>
+  const perTrial = Array.makeBy(trials, (index) =>
     Metric.summary(
       observations.flatMap((item) => (item.trial === index + 1 ? [item.observation] : [])),
     ),
@@ -126,7 +126,7 @@ export const variantRun = (
   });
 
   const keyed = Object.values(
-    Arr.groupBy(evaluated, (scored) => JSON.stringify([scored.case, scored.observation.key])),
+    Array.groupBy(evaluated, (scored) => JSON.stringify([scored.case, scored.observation.key])),
   ).map((items) => ({
     case: items[0].case,
     key: items[0].observation.key,

@@ -1,14 +1,23 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 import { describePosition } from "./xml-position.ts";
 import type { XmlPosition } from "./xml-position.ts";
 
-export class XmlParseError extends Data.TaggedError("XmlParseError")<{
-  readonly message: string;
-  readonly position: XmlPosition;
-}> {
+export class XmlParseError extends Schema.TaggedError<
+  XmlParseError,
+  { readonly brand: unique symbol }
+>()("XmlParseError", {
+  message: Schema.String,
+  position: Schema.Struct({ column: Schema.Number, line: Schema.Number, offset: Schema.Number }),
+}) {
   readonly code = "XML_PARSE";
 
-  static make({ position, reason }: { readonly position: XmlPosition; readonly reason: string }) {
+  static fromReason({
+    position,
+    reason,
+  }: {
+    readonly position: XmlPosition;
+    readonly reason: string;
+  }) {
     return new XmlParseError({ message: `${reason} ${describePosition(position)}`, position });
   }
 }

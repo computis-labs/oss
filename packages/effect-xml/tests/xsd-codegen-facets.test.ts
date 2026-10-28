@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
-import { Array as Arr, Effect, Exit, Schema } from "effect";
+import { Array, Effect, Exit, Schema } from "effect";
 import * as Facets from "./fixtures/xsd-codegen/facets.gen.ts";
 import * as Xsd from "../src/xsd.ts";
 
@@ -152,8 +152,8 @@ layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", 
       Effect.gen(function* test() {
         const validator = yield* Xsd.make({ schema: { path: FACETS_XSD } });
 
-        const states = Arr.scan(
-          Arr.makeBy(SAMPLES.length * 12 * 4, () => 0),
+        const states = Array.scan(
+          Array.makeBy(SAMPLES.length * 12 * 4, () => 0),
           1,
           (state) => (state * 1_103_515_245 + 12_345) % 2_147_483_648,
         );
@@ -164,7 +164,10 @@ layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", 
         const values = new Set(SAMPLES);
 
         for (const [sampleIndex, sample] of SAMPLES.entries()) {
-          const chars = Array.from(sample.matchAll(/[\s\S]/gu), ([char]) => char);
+          const chars = Array.map(
+            Array.fromIterable(sample.matchAll(/[\s\S]/gu)),
+            ([char]) => char,
+          );
 
           for (let step = 0; step < 12; step += 1) {
             const draw = (sampleIndex * 12 + step) * 4;
@@ -197,11 +200,15 @@ layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", 
             );
 
             if (accepts(value) && Exit.isFailure(exit)) {
-              unsound.push(`${name} ${JSON.stringify(value)}`);
+              unsound.push(
+                `${name} ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(value)}`,
+              );
             }
 
             if (!accepts(value) && Exit.isSuccess(exit) && name !== "Base64") {
-              incomplete.push(`${name} ${JSON.stringify(value)}`);
+              incomplete.push(
+                `${name} ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(value)}`,
+              );
             }
           }
         }

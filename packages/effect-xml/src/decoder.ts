@@ -109,7 +109,7 @@ export const makeDecoder = <S extends Encodable>(
             segments.push(segment(current.child, current.parent));
           }
 
-          state.failure = XmlDecodeError.make({
+          state.failure = XmlDecodeError.fromReason({
             path: [plan.name, ...segments.toReversed()].join("."),
             position: positionAt(xml, offset),
             reason: message,
@@ -480,7 +480,7 @@ export const makeDecoder = <S extends Encodable>(
           Effect.mapError((schemaError) => {
             const { keys, message, path } = firstIssue(plan.name, schemaError, input);
 
-            return XmlDecodeError.make({
+            return XmlDecodeError.fromReason({
               cause: schemaError,
               path,
               position: issuePosition(xml, keys),

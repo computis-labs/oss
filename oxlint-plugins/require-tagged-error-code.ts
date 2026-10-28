@@ -3,25 +3,48 @@ import { definePlugin, defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
 import { isString } from "./predicates.ts";
 
+const isTaggedErrorMember = (node: ESTree.Expression, namespace: string) =>
+  node.type === "MemberExpression" &&
+  !node.computed &&
+  node.object.type === "Identifier" &&
+  node.object.name === namespace &&
+  node.property.type === "Identifier" &&
+  node.property.name === "TaggedError";
+
+const isCodeKey = (key: ESTree.PropertyKey) => {
+  if (key.type === "Identifier") {
+    return key.name === "code";
+  }
+
+  return key.type === "Literal" && key.value === "code";
+};
+
+const isCodeField = (property: ESTree.ObjectExpression["properties"][number]) =>
+  property.type === "Property" && !property.computed && isCodeKey(property.key);
+
 const taggedErrorTag = (superClass: ESTree.Expression | null) => {
   if (superClass === null || superClass.type !== "CallExpression") {
     return null;
   }
 
   const { callee } = superClass;
-  const isDataFactory =
-    callee.type === "MemberExpression" &&
-    !callee.computed &&
-    callee.object.type === "Identifier" &&
-    callee.object.name === "Data" &&
-    callee.property.type === "Identifier" &&
-    callee.property.name === "TaggedError";
+  const isDataFactory = isTaggedErrorMember(callee, "Data");
+  const isSchemaFactory =
+    callee.type === "CallExpression" && isTaggedErrorMember(callee.callee, "Schema");
 
-  if (!isDataFactory) {
+  if (!isDataFactory && !isSchemaFactory) {
     return null;
   }
 
-  const [tag] = superClass.arguments;
+  const [tag, fields] = superClass.arguments;
+  if (
+    isSchemaFactory &&
+    fields?.type === "ObjectExpression" &&
+    fields.properties.some(isCodeField)
+  ) {
+    return null;
+  }
+
   if (tag === undefined || tag.type !== "Literal" || !isString(tag.value)) {
     return null;
   }
@@ -38,14 +61,6 @@ const expectedCode = (tag: string) => {
     .replaceAll(/(?<acronym>[A-Z]+)(?<word>[A-Z][a-z])/gu, "$<acronym>_$<word>")
     .replaceAll(/[^A-Za-z0-9]+/gu, "_")
     .toUpperCase();
-};
-
-const isCodeKey = (key: ESTree.PropertyKey) => {
-  if (key.type === "Identifier") {
-    return key.name === "code";
-  }
-
-  return key.type === "Literal" && key.value === "code";
 };
 
 const codeMember = (body: ESTree.ClassBody) =>
@@ -107,7 +122,7 @@ const requireTaggedErrorCode = defineRule({
   meta: {
     docs: {
       description:
-        "Require every Data.TaggedError class to carry a fixed SCREAMING_SNAKE_CASE code field derived from its tag.",
+        "Require every Data.TaggedError and Schema.TaggedError class to carry a fixed SCREAMING_SNAKE_CASE code field derived from its tag, unless its schema already has a code field.",
     },
     fixable: "code",
     messages: {

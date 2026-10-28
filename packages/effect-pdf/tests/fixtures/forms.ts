@@ -1,8 +1,11 @@
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { A4 } from "../../src/testing.ts";
 
-class FixtureError extends Data.TaggedError("FixtureError")<{ readonly cause: unknown }> {
+class FixtureError extends Schema.TaggedError<FixtureError, { readonly brand: unique symbol }>()(
+  "FixtureError",
+  { cause: Schema.Defect() },
+) {
   readonly code = "FIXTURE";
 }
 

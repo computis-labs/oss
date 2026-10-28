@@ -7,7 +7,9 @@ import type { InputValidationFailure } from "../src/errors/input-validation-fail
 
 class MergeConflict extends Schema.TaggedError<MergeConflict>()("MergeConflict", {
   path: Schema.String,
-}) {}
+}) {
+  readonly code = "MERGE_CONFLICT";
+}
 
 describe("the error guards narrow", () => {
   it("an unknown caught value to the package errors", () => {

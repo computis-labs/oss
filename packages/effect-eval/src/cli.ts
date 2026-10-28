@@ -1,4 +1,4 @@
-import { Array as Arr, Console, Effect, Layer, Logger, Option, pipe } from "effect";
+import { Array, Console, Effect, Layer, Logger, Option, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import * as EvalConfig from "./config.ts";
 import type { FilterOptions, SampleOptions } from "./dataset.ts";
@@ -138,7 +138,7 @@ const loadConfig = EvalConfig.load(CWD).pipe(
 );
 
 const nonEmpty = (values: readonly string[]) =>
-  Option.liftPredicate(values, Arr.isReadonlyArrayNonEmpty);
+  Option.liftPredicate(values, Array.isReadonlyArrayNonEmpty);
 
 const logsToStderr = Layer.succeed(Logger.LogToStderr, true);
 

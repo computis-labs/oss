@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Predicate, Result, Schema } from "effect";
+import { Array, Effect, Predicate, Result, Schema } from "effect";
 import { XmlEncodeError } from "./errors/xml-encode-error.ts";
 import { firstIssue } from "./issue-path.ts";
 import type { ElementPlan, RootPlan } from "./types.ts";
@@ -80,7 +80,7 @@ const illegalAt = (value: string, path: string): XmlEncodeError | undefined => {
 
   return index === -1
     ? undefined
-    : XmlEncodeError.make({ path, reason: `Character U+${code} is not allowed in XML 1.0.` });
+    : XmlEncodeError.fromReason({ path, reason: `Character U+${code} is not allowed in XML 1.0.` });
 };
 
 const findIllegal = (step: Step, value: XmlValue, path: string): XmlEncodeError | undefined => {
@@ -90,7 +90,7 @@ const findIllegal = (step: Step, value: XmlValue, path: string): XmlEncodeError 
 
   const writer = step.element;
 
-  if (value === undefined || Arr.isArray<XmlValue>(value) || writer === undefined) {
+  if (value === undefined || Array.isArray<XmlValue>(value) || writer === undefined) {
     return undefined;
   }
 
@@ -106,7 +106,7 @@ const findIllegal = (step: Step, value: XmlValue, path: string): XmlEncodeError 
   for (const child of writer.steps) {
     const item = value[child.key];
 
-    if (child.many && Arr.isArray<XmlValue>(item)) {
+    if (child.many && Array.isArray<XmlValue>(item)) {
       for (const [index, entry] of item.entries()) {
         const found = findIllegal(child, entry, `${path}.${child.key}[${String(index)}]`);
 
@@ -214,7 +214,7 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
 
     const writer = step.element;
 
-    if (value === undefined || Arr.isArray<XmlValue>(value) || writer === undefined) {
+    if (value === undefined || Array.isArray<XmlValue>(value) || writer === undefined) {
       return true;
     }
 
@@ -243,7 +243,7 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
     const legal = writer.steps.every((child) => {
       const item = value[child.key];
 
-      return child.many && Arr.isArray<XmlValue>(item)
+      return child.many && Array.isArray<XmlValue>(item)
         ? item.every((entry) => writeValue(parts, child, entry))
         : writeValue(parts, child, item);
     });
@@ -260,7 +260,10 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
       ? Result.succeed(parts.join(""))
       : Result.fail(
           findIllegal(rootStep, encoded, plan.name) ??
-            XmlEncodeError.make({ path: plan.name, reason: "Character not allowed in XML 1.0." }),
+            XmlEncodeError.fromReason({
+              path: plan.name,
+              reason: "Character not allowed in XML 1.0.",
+            }),
         );
   };
 };
@@ -279,7 +282,7 @@ export const makePlanEncoder = <S extends Encodable>(
         onFailure: (error) => {
           const { message, path } = firstIssue(plan.name, error);
 
-          return Effect.fail(XmlEncodeError.make({ cause: error, path, reason: message }));
+          return Effect.fail(XmlEncodeError.fromReason({ cause: error, path, reason: message }));
         },
         onSuccess: (encoded) => Effect.fromResult(write(encoded)),
       }),

@@ -63,9 +63,13 @@ export const loadDomain = Effect.fn("XsdCodegen.loadDomain")(function* loadDomai
             suffix: ".mjs",
           });
 
+          const specifier = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
+            options.module,
+          );
+
           yield* fs.writeFileString(
             resolver,
-            `export const url = import.meta.resolve(${JSON.stringify(options.module)});\n`,
+            `export const url = import.meta.resolve(${specifier});\n`,
           );
           const { href } = yield* path.toFileUrl(resolver);
 

@@ -8,7 +8,9 @@ const platformPackage = "@effect/platform-node";
 
 class OssCheckError extends Schema.TaggedError<OssCheckError>()("OssCheckError", {
   message: Schema.String,
-}) {}
+}) {
+  readonly code = "OSS_CHECK";
+}
 
 const StringRecord = Schema.Record(Schema.String, Schema.String);
 

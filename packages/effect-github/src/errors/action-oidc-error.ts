@@ -10,6 +10,8 @@ export class ActionOIDCError extends Schema.TaggedError<ActionOIDCError>()("Acti
   description: Schema.optionalKey(Schema.String),
   reason: Schema.Literals(Object.values(ActionOIDCErrorReason)),
 }) {
+  readonly code = "ACTION_OIDC";
+
   override get message() {
     if (this.reason === ActionOIDCErrorReason.NotAvailable) {
       return "OIDC token is not available in this environment";

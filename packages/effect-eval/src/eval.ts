@@ -1,5 +1,5 @@
 import { Effect, Option, pipe } from "effect";
-import type { Array as Arr, Duration, Schedule, Schema, Scope } from "effect";
+import type { Array, Duration, Schedule, Schema, Scope } from "effect";
 import type { Case, Dataset } from "./dataset.ts";
 import { perCase } from "./execution.ts";
 import type { BatchedExecution, Execution, PerCaseExecution, WholeExecution } from "./execution.ts";
@@ -62,13 +62,13 @@ export type BatchDefinition<
 > = Common<A, O, S, DE, DR, SR, SetupE, SetupR> & {
   readonly execution: BatchedExecution | WholeExecution;
   readonly task: (
-    inputs: Arr.NonEmptyReadonlyArray<Case<A>>,
+    inputs: Array.NonEmptyReadonlyArray<Case<A>>,
     setup: S,
   ) => Effect.Effect<readonly O[], E, R>;
 };
 
 export type BatchRunner<A, O, E, R> = (
-  inputs: Arr.NonEmptyReadonlyArray<Case<A>>,
+  inputs: Array.NonEmptyReadonlyArray<Case<A>>,
 ) => Effect.Effect<readonly O[], E, R>;
 
 export interface Eval<A, O, E = never, DE = never, R = never, DR = never, SR = never> {

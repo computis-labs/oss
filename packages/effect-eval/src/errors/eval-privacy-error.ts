@@ -1,9 +1,13 @@
-import { Data } from "effect";
-import type { Finding } from "../privacy.ts";
+import { Schema } from "effect";
 
-export class EvalPrivacyError extends Data.TaggedError("EvalPrivacyError")<{
-  readonly findings: readonly Finding[];
-}> {
+export class EvalPrivacyError extends Schema.TaggedError<
+  EvalPrivacyError,
+  { readonly brand: unique symbol }
+>()("EvalPrivacyError", {
+  findings: Schema.Array(
+    Schema.Struct({ case: Schema.String, path: Schema.String, rule: Schema.String }),
+  ),
+}) {
   readonly code = "EVAL_PRIVACY";
 
   override get message() {

@@ -1,4 +1,4 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 import { describePosition } from "./xml-position.ts";
 
 export interface XsdIssue {
@@ -7,14 +7,19 @@ export interface XsdIssue {
   readonly message: string;
 }
 
-export class XsdValidationError extends Data.TaggedError("XsdValidationError")<{
-  readonly cause?: unknown;
-  readonly issues: readonly XsdIssue[];
-  readonly message: string;
-}> {
+export class XsdValidationError extends Schema.TaggedError<
+  XsdValidationError,
+  { readonly brand: unique symbol }
+>()("XsdValidationError", {
+  cause: Schema.optionalKey(Schema.Defect()),
+  issues: Schema.Array(
+    Schema.Struct({ column: Schema.Number, line: Schema.Number, message: Schema.String }),
+  ),
+  message: Schema.String,
+}) {
   readonly code = "XSD_VALIDATION";
 
-  static make({
+  static fromReason({
     reason,
     ...fields
   }: {

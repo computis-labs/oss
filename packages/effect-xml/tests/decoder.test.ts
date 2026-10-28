@@ -1,7 +1,7 @@
 /* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Schema, SchemaGetter } from "effect";
+import { Effect, Result, Schema, SchemaGetter } from "effect";
 import { FatturaXml, fatturaFixtures } from "./fixtures/fattura.ts";
 import { startsWith } from "./fixtures/messages.ts";
 import { XmlParseError } from "../src/errors/xml-parse-error.ts";
@@ -10,7 +10,8 @@ import type { Encodable } from "../src/encoder.ts";
 
 const NAMESPACE = "http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2";
 
-const encodeFattura = Schema.encodeSync(FatturaXml);
+const encodeFattura = (fattura: typeof FatturaXml.Type) =>
+  Result.getOrThrow(Schema.encodeResult(FatturaXml)(fattura));
 
 const codecFor = <S extends Encodable>(schema: S, options?: Parameters<typeof codec>[1]) =>
   Effect.fromResult(codec(schema, options));

@@ -34,6 +34,8 @@ export class PromptCompileError extends Schema.TaggedError<PromptCompileError>()
     reason: Schema.Literals(Object.values(PromptCompileErrorReason)),
   },
 ) {
+  readonly code = "PROMPT_COMPILE";
+
   override get message() {
     return `${this.path ?? "<prompt>"}:${this.line}:${this.column} ${this.detail}`;
   }

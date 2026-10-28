@@ -84,7 +84,9 @@ describe("Input", () => {
       );
 
       expect(Redacted.value(token)).toBe("ghs_s3cr3t");
-      expect(JSON.stringify({ token })).not.toContain("ghs_s3cr3t");
+      expect(
+        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ token }),
+      ).not.toContain("ghs_s3cr3t");
     }),
   );
 });

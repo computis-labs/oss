@@ -1,12 +1,15 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeWorker from "@effect/platform-node/NodeWorker";
 import { Worker } from "node:worker_threads";
-import { Data, Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { PdfEngine, pdfWorkerEntry } from "../src/engine.ts";
 
-export class BenchmarkError extends Data.TaggedError("BenchmarkError")<{
-  readonly cause: unknown;
-}> {
+export class BenchmarkError extends Schema.TaggedError<
+  BenchmarkError,
+  { readonly brand: unique symbol }
+>()("BenchmarkError", {
+  cause: Schema.Defect(),
+}) {
   readonly code = "BENCHMARK";
 }
 

@@ -1,16 +1,21 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 import { describePosition } from "./xml-position.ts";
 import type { XmlPosition } from "./xml-position.ts";
 
-export class XmlDecodeError extends Data.TaggedError("XmlDecodeError")<{
-  readonly cause?: unknown;
-  readonly message: string;
-  readonly path: string;
-  readonly position?: XmlPosition | undefined;
-}> {
+export class XmlDecodeError extends Schema.TaggedError<
+  XmlDecodeError,
+  { readonly brand: unique symbol }
+>()("XmlDecodeError", {
+  cause: Schema.optionalKey(Schema.Defect()),
+  message: Schema.String,
+  path: Schema.String,
+  position: Schema.optional(
+    Schema.Struct({ column: Schema.Number, line: Schema.Number, offset: Schema.Number }),
+  ),
+}) {
   readonly code = "XML_DECODE";
 
-  static make({
+  static fromReason({
     reason,
     ...fields
   }: {

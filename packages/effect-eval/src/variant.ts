@@ -1,4 +1,4 @@
-import { Array as Arr, Layer, pipe } from "effect";
+import { Array, Layer, pipe } from "effect";
 
 export interface Variant<ROut, E = never, RIn = never> {
   readonly name: string;
@@ -63,14 +63,14 @@ const combinations = (
 
 export const matrix = <const A extends Axes>(axes: A): readonly Combined<A>[] =>
   combinations(Object.entries(axes))
-    .filter(Arr.isReadonlyArrayNonEmpty)
+    .filter(Array.isReadonlyArrayNonEmpty)
     .map((choices) => {
       const combined = make(
         choices.map(([axis, variant]) => `${axis}=${variant.name}`).join(AXIS_SEPARATOR),
         Layer.mergeAll(
           ...pipe(
             choices,
-            Arr.map(([, variant]) => variant.layer),
+            Array.map(([, variant]) => variant.layer),
           ),
         ),
       );

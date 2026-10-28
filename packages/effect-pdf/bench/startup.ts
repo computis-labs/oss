@@ -34,7 +34,9 @@ const measureOnce = Effect.gen(function* measurePoolStartup() {
   yield* attempt(async () => {
     await runtime.dispose();
   });
-  yield* Console.log(JSON.stringify({ readyMs, rssMb }));
+  yield* Console.log(
+    yield* Schema.encodeEffect(Schema.fromJsonString(Measurement))({ readyMs, rssMb }),
+  );
 });
 
 const compare = Effect.gen(function* comparePoolSizes() {

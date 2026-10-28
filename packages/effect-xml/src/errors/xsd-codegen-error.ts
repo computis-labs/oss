@@ -1,9 +1,12 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 
-export class XsdCodegenError extends Data.TaggedError("XsdCodegenError")<{
-  readonly cause?: unknown;
-  readonly message: string;
-  readonly path: string;
-}> {
+export class XsdCodegenError extends Schema.TaggedError<
+  XsdCodegenError,
+  { readonly brand: unique symbol }
+>()("XsdCodegenError", {
+  cause: Schema.optionalKey(Schema.Defect()),
+  message: Schema.String,
+  path: Schema.String,
+}) {
   readonly code = "XSD_CODEGEN";
 }

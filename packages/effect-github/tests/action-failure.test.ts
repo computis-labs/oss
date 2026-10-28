@@ -21,7 +21,9 @@ import {
 
 class MergeConflict extends Schema.TaggedError<MergeConflict>()("MergeConflict", {
   path: Schema.String,
-}) {}
+}) {
+  readonly code = "MERGE_CONFLICT";
+}
 
 const packageErrors: readonly ActionError[] = [
   new ActionInputError({ name: "token", reason: ActionInputErrorReason.Missing }),

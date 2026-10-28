@@ -13,6 +13,8 @@ export class ActionSummaryError extends Schema.TaggedError<ActionSummaryError>()
     reason: Schema.Literals(Object.values(ActionSummaryErrorReason)),
   },
 ) {
+  readonly code = "ACTION_SUMMARY";
+
   override get message() {
     if (this.reason === ActionSummaryErrorReason.NotAvailable) {
       return "Job summary is not available in this environment";

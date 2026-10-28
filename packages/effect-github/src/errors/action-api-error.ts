@@ -6,6 +6,8 @@ export class ActionApiError extends Schema.TaggedError<ActionApiError>()("Action
   method: Schema.String,
   status: Schema.optionalKey(Schema.Number),
 }) {
+  readonly code = "ACTION_API";
+
   override get message() {
     const status = this.status === undefined ? "" : ` (${this.status})`;
     const description = this.description === undefined ? "" : ` - ${this.description}`;

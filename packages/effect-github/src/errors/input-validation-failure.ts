@@ -17,6 +17,8 @@ export class InputValidationFailure extends Schema.TaggedError<InputValidationFa
     value: Schema.String,
   },
 ) {
+  readonly code = "INPUT_VALIDATION_FAILURE";
+
   get displayMessage() {
     return `Input '${this.input}' is invalid: ${this.message}`;
   }

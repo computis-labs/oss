@@ -45,6 +45,8 @@ export class PromptSyntaxError extends Schema.TaggedError<PromptSyntaxError>()(
     reason: Schema.Literals(Object.values(PromptSyntaxErrorReason)),
   },
 ) {
+  readonly code = "PROMPT_SYNTAX";
+
   override get message() {
     return `${this.path ?? "<prompt>"}:${this.line}:${this.column} ${this.detail}`;
   }

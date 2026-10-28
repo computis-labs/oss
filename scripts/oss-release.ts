@@ -9,7 +9,9 @@ const unreleasedVersion = "0.0.0";
 
 class OssReleaseError extends Schema.TaggedError<OssReleaseError>()("OssReleaseError", {
   message: Schema.String,
-}) {}
+}) {
+  readonly code = "OSS_RELEASE";
+}
 
 const PackageManifest = Schema.Struct({ name: Schema.String, version: Schema.String });
 

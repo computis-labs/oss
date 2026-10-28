@@ -13,6 +13,8 @@ export class PromptProjectError extends Schema.TaggedError<PromptProjectError>()
     reason: Schema.Literals(Object.values(PromptProjectErrorReason)),
   },
 ) {
+  readonly code = "PROMPT_PROJECT";
+
   override get message() {
     return `${this.output}: ${this.detail}`;
   }

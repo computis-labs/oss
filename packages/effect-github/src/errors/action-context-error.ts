@@ -14,6 +14,8 @@ export class ActionContextError extends Schema.TaggedError<ActionContextError>()
     reason: Schema.Literals(Object.values(ActionContextErrorReason)),
   },
 ) {
+  readonly code = "ACTION_CONTEXT";
+
   override get message() {
     return this.description ?? `Context error: ${this.reason}`;
   }

@@ -1,4 +1,4 @@
-import { Array as Arr, Data, DateTime, Option } from "effect";
+import { Array, Data, DateTime, Option } from "effect";
 import type { Schema } from "effect";
 import { within } from "./observation.ts";
 import type { Comparison, Run, VariantRun } from "./run.ts";
@@ -159,7 +159,7 @@ export const caseMap = (
   return names.map((name) => {
     const columns = runs.flatMap((run) =>
       run.variants.some((variant) => variant.variant === name)
-        ? Arr.range(1, run.trials).map((trial) => columnOf(run, trial))
+        ? Array.range(1, run.trials).map((trial) => columnOf(run, trial))
         : [],
     );
 
@@ -175,7 +175,7 @@ export const caseMap = (
         ),
     );
 
-    const rows = Object.entries(Arr.groupBy(cells, (cell) => cell.row))
+    const rows = Object.entries(Array.groupBy(cells, (cell) => cell.row))
       .filter(
         ([, group]) =>
           options.onlyUnstable !== true || new Set(group.map((cell) => cell.verdict)).size > 1,

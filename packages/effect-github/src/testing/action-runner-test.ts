@@ -1,5 +1,4 @@
-import { Effect, Layer, Predicate, Redacted } from "effect";
-import type { Schema } from "effect";
+import { Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import { ActionRunner } from "../action-runner.ts";
 import type { InputOptions } from "../action-runner.ts";
 import { ActionInputError, ActionInputErrorReason } from "../errors/action-input-error.ts";
@@ -121,9 +120,13 @@ export const make = (
     info: log("info"),
     notice: log("notice"),
     saveState: (name, value) =>
-      Effect.sync(() => {
-        recording.state.set(name, Predicate.isString(value) ? value : JSON.stringify(value));
-      }),
+      Effect.gen(function* saveRecordedState() {
+        const stored = Predicate.isString(value)
+          ? value
+          : yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value);
+
+        recording.state.set(name, stored);
+      }).pipe(Effect.orDie),
     setFailed: (message) =>
       Effect.sync(() => {
         recording.failures.push(messageText(message));

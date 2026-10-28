@@ -233,7 +233,7 @@ class Scanner {
   }
 
   fail(offset: number, message: string) {
-    this.failure ??= XmlParseError.make({
+    this.failure ??= XmlParseError.fromReason({
       position: positionAt(this.xml, offset),
       reason: message,
     });

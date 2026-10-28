@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Match, Option, Result, pipe } from "effect";
+import { Array, Effect, Match, Option, Result, pipe } from "effect";
 import { different, exact } from "./agreement.ts";
 import * as Compare from "./compare.ts";
 import type { Case } from "./dataset.ts";
@@ -340,7 +340,7 @@ export const each =
             outcome,
             Result.map((output) =>
               Option.map(
-                Arr.findFirst(split.actual(output), ([id]) => id === item.id),
+                Array.findFirst(split.actual(output), ([id]) => id === item.id),
                 ([, value]) => value,
               ),
             ),

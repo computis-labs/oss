@@ -1,6 +1,16 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConfigProvider, Deferred, Effect, FileSystem, Layer, Option, Path, pipe } from "effect";
+import {
+  ConfigProvider,
+  Deferred,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  pipe,
+} from "effect";
 import * as Dataset from "../src/dataset.ts";
 import * as Eval from "../src/eval.ts";
 import * as Events from "../src/events.ts";
@@ -309,14 +319,14 @@ describe("Reporters with a sensitive history", () => {
           onRunFinished: (run) =>
             History.snapshot(run).pipe(
               Effect.flatMap((history) =>
-                Effect.sync(() => {
+                Effect.gen(function* () {
+                  const toJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+
                   custom.push(
-                    JSON.stringify(historicalView(run, history)),
-                    JSON.stringify(
-                      Option.toArray(history.baseline).map((stored) => stored.outputs),
-                    ),
+                    yield* toJson(historicalView(run, history)),
+                    yield* toJson(Option.toArray(history.baseline).map((stored) => stored.outputs)),
                   );
-                }),
+                }).pipe(Effect.orDie),
               ),
             ),
         }),

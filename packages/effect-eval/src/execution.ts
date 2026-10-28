@@ -1,4 +1,4 @@
-import { Array as Arr, Data } from "effect";
+import { Array, Data } from "effect";
 
 export type Execution = Data.TaggedEnum<{
   PerCase: { readonly concurrency: number };
@@ -29,11 +29,11 @@ export const isPerCase = $is("PerCase");
 export const batchesOf = <A>(
   execution: Execution,
   items: readonly A[],
-): readonly Arr.NonEmptyReadonlyArray<A>[] =>
+): readonly Array.NonEmptyReadonlyArray<A>[] =>
   $match(execution, {
-    Batched: ({ size }) => Arr.chunksOf(items, size),
-    PerCase: () => items.map((item) => Arr.of(item)),
-    Whole: () => (Arr.isReadonlyArrayNonEmpty(items) ? [items] : []),
+    Batched: ({ size }) => Array.chunksOf(items, size),
+    PerCase: () => items.map((item) => Array.of(item)),
+    Whole: () => (Array.isReadonlyArrayNonEmpty(items) ? [items] : []),
   });
 
 export const concurrencyOf = (execution: Execution) =>

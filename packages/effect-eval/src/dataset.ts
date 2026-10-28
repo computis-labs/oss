@@ -1,5 +1,5 @@
 import {
-  Array as Arr,
+  Array,
   Config,
   Effect,
   FileSystem,
@@ -239,7 +239,7 @@ export const directory = <A, E, R>(
   );
 
 export const fromIterable = <A>(entries: Iterable<A | Skip>, identify: Identify<A>): Dataset<A> =>
-  fromItems(Stream.fromIterable(Array.from(entries, entryItem(identify))));
+  fromItems(Stream.fromIterable(Array.map(Array.fromIterable(entries), entryItem(identify))));
 
 export const fromEffect = <A, E, R>(
   entries: Effect.Effect<Iterable<A | Skip>, E, R>,
@@ -247,7 +247,9 @@ export const fromEffect = <A, E, R>(
 ): Dataset<A, E, R> =>
   fromItems(
     Stream.fromIterableEffect(
-      entries.pipe(Effect.map((values) => Array.from(values, entryItem(identify)))),
+      entries.pipe(
+        Effect.map((values) => Array.map(Array.fromIterable(values), entryItem(identify))),
+      ),
     ),
   );
 
@@ -326,7 +328,7 @@ export const sample =
 
       const head = `${options.stratifyBy ?? ""}${TAG_SEPARATOR}`;
 
-      const strata = Arr.groupBy(shuffled, (item) =>
+      const strata = Array.groupBy(shuffled, (item) =>
         options.stratifyBy === undefined
           ? ""
           : (tagsOf(item).find((tag) => tag.startsWith(head)) ?? ""),
@@ -383,7 +385,7 @@ export const guard =
                 }),
               ];
 
-              return Arr.dedupeWith(
+              return Array.dedupeWith(
                 found,
                 (left, right) => left.path === right.path && left.rule === right.rule,
               );

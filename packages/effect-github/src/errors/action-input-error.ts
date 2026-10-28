@@ -12,6 +12,8 @@ export class ActionInputError extends Schema.TaggedError<ActionInputError>()("Ac
   reason: Schema.Literals(Object.values(ActionInputErrorReason)),
   value: Schema.optionalKey(Schema.Unknown),
 }) {
+  readonly code = "ACTION_INPUT";
+
   override get message() {
     if (this.reason === ActionInputErrorReason.InvalidType) {
       return `Input "${this.name}" has invalid type`;

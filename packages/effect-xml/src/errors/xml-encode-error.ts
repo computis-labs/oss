@@ -1,13 +1,16 @@
-import { Data } from "effect";
+import { Schema } from "effect";
 
-export class XmlEncodeError extends Data.TaggedError("XmlEncodeError")<{
-  readonly cause?: unknown;
-  readonly message: string;
-  readonly path: string;
-}> {
+export class XmlEncodeError extends Schema.TaggedError<
+  XmlEncodeError,
+  { readonly brand: unique symbol }
+>()("XmlEncodeError", {
+  cause: Schema.optionalKey(Schema.Defect()),
+  message: Schema.String,
+  path: Schema.String,
+}) {
   readonly code = "XML_ENCODE";
 
-  static make({
+  static fromReason({
     reason,
     ...fields
   }: {

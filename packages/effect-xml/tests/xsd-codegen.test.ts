@@ -2,7 +2,7 @@
 import { fileURLToPath } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
-import { Effect, Exit, FileSystem, Path } from "effect";
+import { Effect, Exit, FileSystem, Path, Schema } from "effect";
 import * as OptionalOrder from "./fixtures/xsd-codegen/optional-order.gen.ts";
 import * as Order from "./fixtures/xsd-codegen/order.gen.ts";
 import * as QualifiedOrder from "./fixtures/xsd-codegen/qualified-order.gen.ts";
@@ -427,7 +427,9 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
         },
       });
 
-      expect(JSON.parse(code)).toStrictEqual(["a 'b' c", "--out=out dir/order.gen.ts"]);
+      expect(
+        yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))(code),
+      ).toStrictEqual(["a 'b' c", "--out=out dir/order.gen.ts"]);
     }),
   );
 

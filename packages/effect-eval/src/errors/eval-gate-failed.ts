@@ -1,9 +1,12 @@
-import { Data, Option } from "effect";
-import type { GateResult } from "../events.ts";
+import { Option, Schema } from "effect";
+import { GateResultSchema } from "../events.ts";
 
-export class EvalGateFailed extends Data.TaggedError("EvalGateFailed")<{
-  readonly results: readonly GateResult[];
-}> {
+export class EvalGateFailed extends Schema.TaggedError<
+  EvalGateFailed,
+  { readonly brand: unique symbol }
+>()("EvalGateFailed", {
+  results: Schema.Array(GateResultSchema),
+}) {
   readonly code = "EVAL_GATE_FAILED";
 
   override get message() {

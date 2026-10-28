@@ -1,4 +1,4 @@
-import { Array as Arr, Config, Effect, Option } from "effect";
+import { Array, Config, Effect, Option } from "effect";
 import type { Schema } from "effect";
 import { isList, isRecord, isText } from "./json.ts";
 
@@ -65,4 +65,4 @@ export const scan = (
 export const resolveDenylist = (privacy: Privacy) =>
   privacy.denylist === undefined
     ? Effect.succeed<readonly string[]>([])
-    : Config.option(privacy.denylist).pipe(Effect.map(Option.getOrElse(Arr.empty<string>)));
+    : Config.option(privacy.denylist).pipe(Effect.map(Option.getOrElse(Array.empty<string>)));
