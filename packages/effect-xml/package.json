@@ -1,6 +1,6 @@
 {
   "name": "@computis/effect-xml",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "XML decoding and encoding with Effect Schema, XSD validation, and an XSD to Effect Schema code generator.",
   "homepage": "https://github.com/computis-labs/oss/tree/main/packages/effect-xml#readme",
   "bugs": "https://github.com/computis-labs/oss/issues",

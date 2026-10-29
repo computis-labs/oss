@@ -1,5 +1,11 @@
 # @computis/effect-xml
 
+## 0.4.0
+
+### Minor Changes
+
+- [`f30df51`](https://github.com/computis-labs/oss/commit/f30df512c07b3afd61ab7c0de234d185a40ab571) Thanks [@zRelux](https://github.com/zRelux)! - Add the `decoder.blankLeaves` option. With `"drop"`, a leaf whose text is only whitespace decodes as if the element were absent, so an `xs:normalizedString` made only of line breaks, which the XSD accepts, no longer fails a pattern that asks for at least one character. The default `"keep"` decodes the text as before.
+
 ## 0.3.0
 
 ### Minor Changes
