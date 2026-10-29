@@ -44,14 +44,15 @@ const program = Effect.gen(function* () {
 | `root(name, { attributes?, namespace?, prefix? })` | The root element: its name, the fields that are attributes, and its namespace. |
 | `element({ attributes })`                          | A nested struct whose listed fields are attributes.                            |
 
-| Option                    | Meaning                                                                                |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| `decoder.maxDepth`        | The deepest element nesting the decoder accepts. The default is 256.                   |
-| `decoder.trimText`        | Removes the whitespace around the text of every leaf. The default keeps it as written. |
-| `decoder.unknownElements` | `"error"` (the default) or `"skip"` for elements the Schema does not declare.          |
-| `encoder.declaration`     | Writes the `<?xml …?>` declaration.                                                    |
-| `encoder.indent`          | Indents the output with a number of spaces or a string.                                |
-| `jit`                     | Compiles the Schema with the Effect Schema JIT. The default is `true`.                 |
+| Option                    | Meaning                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `decoder.maxDepth`        | The deepest element nesting the decoder accepts. The default is 256.                                   |
+| `decoder.trimText`        | Removes the whitespace around the text of every leaf. The default keeps it as written.                 |
+| `decoder.blankLeaves`     | `drop` reads a leaf made only of whitespace as an absent element. The default `keep` decodes its text. |
+| `decoder.unknownElements` | `"error"` (the default) or `"skip"` for elements the Schema does not declare.                          |
+| `encoder.declaration`     | Writes the `<?xml …?>` declaration.                                                                    |
+| `encoder.indent`          | Indents the output with a number of spaces or a string.                                                |
+| `jit`                     | Compiles the Schema with the Effect Schema JIT. The default is `true`.                                 |
 
 ## Validate against an XSD
 

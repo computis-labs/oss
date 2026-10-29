@@ -870,6 +870,32 @@ describe("decode on small schemas", () => {
     }),
   );
 
+  it.effect("drops a leaf made only of whitespace when blankLeaves is drop", () =>
+    Effect.gen(function* test() {
+      const { decode } = yield* codecFor(Documento, {
+        decoder: { blankLeaves: "drop", trimText: true },
+      });
+
+      const documento = yield* decode(
+        "<Documento><Titolo>Offerta</Titolo><Righe>A</Righe><Righe>\r\n  </Righe><Note> </Note><Quantita>1</Quantita></Documento>",
+      );
+
+      expect(documento).toStrictEqual({ Titolo: "Offerta", Righe: ["A"], Quantita: 1 });
+    }),
+  );
+
+  it.effect("fails on a required leaf made only of whitespace when blankLeaves is drop", () =>
+    Effect.gen(function* test() {
+      const { decode } = yield* codecFor(Documento, { decoder: { blankLeaves: "drop" } });
+
+      const error = yield* Effect.flip(
+        decode("<Documento><Titolo>  </Titolo><Quantita>1</Quantita></Documento>"),
+      );
+
+      expect(error).toMatchObject({ path: "Documento.Titolo" });
+    }),
+  );
+
   it.effect("rejects an element out of the Schema sequence", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(Documento);

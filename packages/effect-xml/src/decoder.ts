@@ -11,6 +11,12 @@ import { DEFAULT_MAX_DEPTH, tokenize } from "./tokenizer.ts";
 import type { RootPlan } from "./types.ts";
 
 export interface DecoderOptions {
+  /**
+   * What to do with a leaf whose text is only whitespace (default `keep`). `drop` reads it as if
+   * the element were absent: an `xs:normalizedString` such as «\r\n  » is valid for the XSD,
+   * which replaces the line breaks with spaces, yet carries no value.
+   */
+  readonly blankLeaves: "drop" | "keep";
   /** Deepest element nesting the tokenizer accepts before it fails (default 256). */
   readonly maxDepth: number;
   /**
@@ -88,6 +94,7 @@ export const makeDecoder = <S extends Encodable>(
 ): Decode<S> => {
   const skipUnknown = options.unknownElements === "skip";
   const trimText = options.trimText === true;
+  const dropBlankLeaves = options.blankLeaves === "drop";
   const tokenizeOptions = { maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH };
   const decodeValue = Schema.decodeUnknownEffect(exactDecoder(schema));
   const rootNode = toNode(plan.node, new Map());
@@ -301,7 +308,12 @@ export const makeDecoder = <S extends Encodable>(
               const frame = state.top;
 
               if (state.leaf !== undefined) {
-                store(frame, state.leaf, trimText ? state.leafText.trim() : state.leafText);
+                const text = trimText ? state.leafText.trim() : state.leafText;
+
+                if (!dropBlankLeaves || text.trim() !== "") {
+                  store(frame, state.leaf, text);
+                }
+
                 state.leaf = undefined;
 
                 return true;
