@@ -9,6 +9,36 @@ import {
 } from "./type-information.ts";
 import { isObject, isString } from "./predicates.ts";
 
+const guardName = /^(?:is|has)[A-Z]/u;
+
+const mayNameCheck = (name: string) =>
+  guardName.test(name) || name === "isArray" || name === "parse" || name === "String";
+
+const memberName = (node: ESTree.MemberExpression) => {
+  if (!node.computed && node.property.type === "Identifier") {
+    return node.property.name;
+  }
+  if (node.property.type === "Literal" && isString(node.property.value)) {
+    return node.property.value;
+  }
+  return undefined;
+};
+
+const mayReadCheck = (node: ESTree.Node | null | undefined, aliases: ReadonlySet<string>) => {
+  if (node?.type === "Identifier") {
+    return mayNameCheck(node.name) || aliases.has(node.name);
+  }
+  if (node?.type === "MemberExpression") {
+    const name = memberName(node);
+    return (
+      name === undefined ||
+      mayNameCheck(name) ||
+      (node.object.type === "Identifier" && node.object.name === "String")
+    );
+  }
+  return false;
+};
+
 const noUnknownNarrowing = defineRule({
   create: (context) => {
     const [option] = context.options;
@@ -19,6 +49,38 @@ const noUnknownNarrowing = defineRule({
     const unresolved = (node: ESTree.Node) => {
       const project = projectFor(context.physicalFilename);
       return isUnresolved(project.checker, typeAt(project, context.physicalFilename, node));
+    };
+    const aliases = new Set<string>();
+    const aliasSources: Array<{ readonly local: string; readonly source: ESTree.Node }> = [];
+    const calls: ESTree.CallExpression[] = [];
+    const resolveAliases = () => {
+      const found = aliasSources.filter(
+        ({ local, source }) => !aliases.has(local) && mayReadCheck(source, aliases),
+      );
+      for (const { local } of found) {
+        aliases.add(local);
+      }
+      if (found.length > 0) {
+        resolveAliases();
+      }
+    };
+
+    const checkCall = (node: ESTree.CallExpression) => {
+      const project = projectFor(context.physicalFilename);
+      const check = libraryCheck(project, context.physicalFilename, node.callee);
+      if (check === "JSON.parse") {
+        context.report({ messageId: "jsonParse", node });
+        return;
+      }
+      const [argument] = node.arguments;
+      if (
+        check !== null &&
+        argument !== undefined &&
+        argument.type !== "SpreadElement" &&
+        unresolved(argument)
+      ) {
+        context.report({ data: { check }, messageId: "unknownNarrowing", node });
+      }
     };
 
     return {
@@ -45,20 +107,42 @@ const noUnknownNarrowing = defineRule({
         }
       },
       CallExpression: (node: ESTree.CallExpression) => {
-        const project = projectFor(context.physicalFilename);
-        const check = libraryCheck(project, context.physicalFilename, node.callee);
-        if (check === "JSON.parse") {
-          context.report({ messageId: "jsonParse", node });
+        calls.push(node);
+      },
+      ImportSpecifier: (node: ESTree.ImportSpecifier) => {
+        const imported =
+          node.imported.type === "Identifier" ? node.imported.name : node.imported.value;
+        if (mayNameCheck(imported)) {
+          aliases.add(node.local.name);
+        }
+      },
+      "Program:exit": () => {
+        resolveAliases();
+        for (const call of calls) {
+          const named =
+            call.callee.type === "Identifier" || call.callee.type === "MemberExpression";
+          if (!named || mayReadCheck(call.callee, aliases)) {
+            checkCall(call);
+          }
+        }
+      },
+      VariableDeclarator: (node: ESTree.VariableDeclarator) => {
+        if (node.id.type === "Identifier" && node.init !== null) {
+          aliasSources.push({ local: node.id.name, source: node.init });
+        }
+        if (node.id.type !== "ObjectPattern") {
           return;
         }
-        const [argument] = node.arguments;
-        if (
-          check !== null &&
-          argument !== undefined &&
-          argument.type !== "SpreadElement" &&
-          unresolved(argument)
-        ) {
-          context.report({ data: { check }, messageId: "unknownNarrowing", node });
+        for (const property of node.id.properties) {
+          if (
+            property.type === "Property" &&
+            !property.computed &&
+            property.key.type === "Identifier" &&
+            mayNameCheck(property.key.name) &&
+            property.value.type === "Identifier"
+          ) {
+            aliases.add(property.value.name);
+          }
         }
       },
       TSTypePredicate: (node: ESTree.TSTypePredicate) => {
