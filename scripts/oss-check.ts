@@ -186,6 +186,7 @@ const program = Effect.gen(function* ossCheckProgram() {
     path.join(smoke, "package.json"),
     JSON.stringify({
       dependencies: { ...local, effect: devDependencies.effect },
+      overrides: { "@effect/platform-node-shared": devDependencies.effect },
       private: true,
       type: "module",
     }),
