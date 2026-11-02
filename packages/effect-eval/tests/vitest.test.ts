@@ -1,7 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { afterAll, beforeEach, describe, expect, it } from "@effect/vitest";
 import { Config, Context, Effect, Equivalence, Layer, Option, PlatformError, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { ChildProcess, ChildProcessSpawner, CommandLine } from "effect/process";
 import { TestConsole } from "effect/testing";
 import * as Compare from "../src/compare.ts";
 import type * as EvalConfig from "../src/config.ts";
@@ -77,7 +77,7 @@ describe("EvalTest.describe with split case", () => {
       Effect.sync(() =>
         spawned.push(
           ChildProcess.isStandardCommand(command)
-            ? [command.command, ...command.args].join(" ")
+            ? CommandLine.display([command.command, ...command.args])
             : "",
         ),
       ).pipe(

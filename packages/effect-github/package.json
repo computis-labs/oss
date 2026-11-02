@@ -58,11 +58,11 @@
   },
   "devDependencies": {
     "@computis/config": "workspace:*",
-    "@effect/platform-node": "4.0.6",
-    "@effect/vitest": "4.0.6",
+    "@effect/platform-node": "4.1.1",
+    "@effect/vitest": "4.1.1",
     "@types/node": "^26.6.5",
-    "effect": "4.0.6",
-    "vitest": "5.0.3"
+    "effect": "4.1.1",
+    "vitest": "5.0.5"
   },
   "peerDependencies": {
     "@effect/platform-node": "^4.0.0",

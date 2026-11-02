@@ -182,10 +182,13 @@ export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
       const compression = new CompressionStream("deflate");
       const writer = compression.writable.getWriter();
 
+      const write = async () => {
+        await writer.write(scanlines);
+        await writer.close();
+      };
+
       const [, deflated] = await Promise.all([
-        writer.write(scanlines).then(async () => {
-          await writer.close();
-        }),
+        write(),
         new Response(compression.readable).arrayBuffer(),
       ]);
 

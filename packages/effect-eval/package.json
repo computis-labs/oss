@@ -113,15 +113,15 @@
   },
   "devDependencies": {
     "@computis/config": "workspace:*",
-    "@effect/platform-node": "4.0.6",
-    "@effect/vitest": "4.0.6",
+    "@effect/platform-node": "4.1.1",
+    "@effect/vitest": "4.1.1",
     "@resvg/resvg-js": "2.6.2",
-    "effect": "4.0.6",
+    "effect": "4.1.1",
     "simple-ascii-chart": "6.0.0",
     "terminal-image": "5.0.1",
     "vega": "6.4.0",
     "vega-lite": "6.5.0",
-    "vitest": "5.0.3"
+    "vitest": "5.0.5"
   },
   "peerDependencies": {
     "@effect/vitest": "^4.0.5",

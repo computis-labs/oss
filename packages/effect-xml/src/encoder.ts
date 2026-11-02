@@ -71,7 +71,7 @@ const ATTRIBUTE_ENTITIES = new Map([
 
 export const escapeAttribute = (value: string) =>
   ATTRIBUTE_SPECIAL.test(value)
-    ? value.replace(ATTRIBUTE_SPECIAL_ALL, (char) => ATTRIBUTE_ENTITIES.get(char) ?? char)
+    ? value.replaceAll(ATTRIBUTE_SPECIAL_ALL, (char) => ATTRIBUTE_ENTITIES.get(char) ?? char)
     : value;
 
 const illegalAt = (value: string, path: string): XmlEncodeError | undefined => {
@@ -204,7 +204,7 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
       parts.push(
         step.open,
         special
-          ? value.replace(TEXT_SPECIAL_ALL, (char) => TEXT_ENTITIES.get(char) ?? char)
+          ? value.replaceAll(TEXT_SPECIAL_ALL, (char) => TEXT_ENTITIES.get(char) ?? char)
           : value,
         step.close,
       );
