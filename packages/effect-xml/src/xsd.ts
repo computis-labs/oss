@@ -21,7 +21,7 @@ export interface XsdValidatorApi {
 const utf8 = new TextEncoder();
 
 // oxlint-disable-next-line no-bitwise -- libxml2 parse options are bit flags
-const PARSE_OPTION = ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
+const PARSE_OPTION: ParseOption = ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
 
 const libxml2Issues = (cause: unknown) =>
   cause instanceof XmlLibError

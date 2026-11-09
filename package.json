@@ -12,21 +12,21 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
-    "@effect/platform-node": "4.1.1",
-    "@effect/tsgo": "0.63.0",
-    "@oxlint/plugins": "1.89.0",
-    "@types/node": "26.6.5",
-    "effect": "4.1.1",
-    "oxc-parser": "^0.155.0",
-    "oxfmt": "0.74.0",
-    "oxlint": "1.89.0",
+    "@effect/platform-node": "4.1.2",
+    "@effect/tsgo": "0.67.5",
+    "@oxlint/plugins": "1.90.0",
+    "@types/node": "26.6.6",
+    "effect": "4.1.2",
+    "oxc-parser": "^0.156.0",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
     "oxlint-plugin-react-doctor": "0.9.22",
-    "oxlint-tailwindcss": "1.16.0",
+    "oxlint-tailwindcss": "1.17.1",
     "oxlint-tsgolint": "7.0.2005",
     "publint": "0.3.25",
-    "tsrs": "0.20.1-ts7.1.0-beta",
+    "tsrs": "0.23.0-ts7.1.0-beta",
     "typescript": "7.0.2",
-    "ultracite": "8.1.0"
+    "ultracite": "8.1.1"
   },
   "engines": {
     "node": ">=24.15.0"

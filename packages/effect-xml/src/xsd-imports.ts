@@ -1,6 +1,7 @@
 import { Duration, Effect, Exit, FileSystem, Option, Path } from "effect";
 import type { Scope } from "effect";
 import { XmlDocument, XmlElement, xmlRegisterInputProvider } from "libxml2-wasm";
+import type { ParseOption } from "libxml2-wasm";
 
 const XSD_NAMESPACE = "http://www.w3.org/2001/XMLSchema";
 
@@ -102,7 +103,7 @@ const schemaLocations = (document: XmlDocument) => {
 export const provideImportedSchemas: (
   root: XmlDocument,
   url: string,
-  option: number,
+  option: ParseOption,
 ) => Effect.Effect<void, never, Scope.Scope | FileSystem.FileSystem | Path.Path> = Effect.fn(
   "Xsd.provideImportedSchemas",
 )(function* provideImportedSchemasProgram(root, url, option) {

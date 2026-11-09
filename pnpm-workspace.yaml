@@ -6,8 +6,6 @@ minimumReleaseAgeExclude:
   - oxlint-plugin-react-doctor
   - effect
   - "@effect/*"
-  - tsrs@0.20.1-ts7.1.0-beta
+  - tsrs@0.23.0-ts7.1.0-beta
   - "@tsrs/*"
 trustPolicy: no-downgrade
-overrides:
-  "@effect/platform-node-shared": "4.1.1"

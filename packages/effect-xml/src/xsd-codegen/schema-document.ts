@@ -17,7 +17,7 @@ export const fail = (node: XsdNode, message: string) =>
   Result.fail(new XsdCodegenError({ message, path: `${node.path} (line ${String(node.line)})` }));
 
 // oxlint-disable-next-line no-bitwise -- libxml2 parse options are bit flags
-const PARSE_OPTION = ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
+const PARSE_OPTION: ParseOption = ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
 
 const toNode = (element: XmlElement, parentPath: string): XsdNode => {
   const name = element.attr("name")?.value;

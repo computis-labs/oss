@@ -32,8 +32,8 @@ const operatorsOf = (document: Awaited<ReturnType<typeof getDocumentProxy>>, pag
   });
 
 export const makeBaseline = Effect.gen(function* makePdfJsBaseline() {
-  yield* attempt(async () => {
-    await definePDFJSModule(async () => await import("pdfjs-dist/legacy/build/pdf.mjs"));
+  yield* Effect.sync(() => {
+    definePDFJSModule(async () => await import("pdfjs-dist/legacy/build/pdf.mjs"));
   });
   const { ImageKind, OPS } = yield* attempt(async () => await getResolvedPDFJS());
 
