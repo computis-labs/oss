@@ -1,19 +1,21 @@
 /* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test. */
 import { fileURLToPath } from "node:url";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Path, Schema } from "effect";
+
+import { XsdCodegenError } from "../src/errors/xsd-codegen-error.ts";
+import { codec } from "../src/index.ts";
+import { compile } from "../src/plan.ts";
+import { generate } from "../src/xsd-codegen/generate.ts";
+import type { GenerateOptions } from "../src/xsd-codegen/generate.ts";
+import { HELPERS } from "../src/xsd-codegen/simple-type/emit.ts";
+import * as Xsd from "../src/xsd.ts";
 import * as OptionalOrder from "./fixtures/xsd-codegen/optional-order.gen.ts";
 import * as Order from "./fixtures/xsd-codegen/order.gen.ts";
 import * as QualifiedOrder from "./fixtures/xsd-codegen/qualified-order.gen.ts";
 import * as SignedOrder from "./fixtures/xsd-codegen/signed-order.gen.ts";
-import { XsdCodegenError } from "../src/errors/xsd-codegen-error.ts";
-import { codec } from "../src/index.ts";
-import { compile } from "../src/plan.ts";
-import * as Xsd from "../src/xsd.ts";
-import { generate } from "../src/xsd-codegen/generate.ts";
-import type { GenerateOptions } from "../src/xsd-codegen/generate.ts";
-import { HELPERS } from "../src/xsd-codegen/simple-type/emit.ts";
 
 const NAMESPACE = "urn:example:order";
 
@@ -22,7 +24,10 @@ const fixture = (name: string) =>
 
 const ORDER_XSD = fixture("order.xsd");
 
-const schemaDocument = (body: string, attributes = "") => `<?xml version="1.0" encoding="UTF-8"?>
+const schemaDocument = (
+  body: string,
+  attributes = ""
+) => `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" ${attributes}>
 ${body}
 </xs:schema>
@@ -31,7 +36,10 @@ ${body}
 const generateFrom = (xsd: string, options: Partial<GenerateOptions> = {}) =>
   generate({
     root: "Order",
-    xsd: { contents: new TextEncoder().encode(xsd), url: fixture("inline.xsd") },
+    xsd: {
+      contents: new TextEncoder().encode(xsd),
+      url: fixture("inline.xsd"),
+    },
     ...options,
   });
 
@@ -80,7 +88,10 @@ const UNSUPPORTED = [
   ],
   [
     "the totalDigits facet",
-    simpleElement('<xs:totalDigits value="3"/>').replace("xs:string", "xs:decimal"),
+    simpleElement('<xs:totalDigits value="3"/>').replace(
+      "xs:string",
+      "xs:decimal"
+    ),
     "xs:restriction/xs:totalDigits",
     "The totalDigits facet is not supported.",
   ],
@@ -98,42 +109,49 @@ const UNSUPPORTED = [
   ],
   [
     "a repeated sequence",
-    complexType(`<xs:sequence maxOccurs="2"><xs:element name="A" type="xs:string"/></xs:sequence>`),
+    complexType(
+      `<xs:sequence maxOccurs="2"><xs:element name="A" type="xs:string"/></xs:sequence>`
+    ),
     'xs:complexType[@name="OrderType"]/xs:sequence',
     "A repeated xs:sequence is not supported.",
   ],
   [
     "a recursive type",
     complexType(
-      `<xs:sequence><xs:element name="Child" type="OrderType" minOccurs="0"/></xs:sequence>`,
+      `<xs:sequence><xs:element name="Child" type="OrderType" minOccurs="0"/></xs:sequence>`
     ),
     'xs:complexType[@name="OrderType"]',
     "Recursive types are not supported.",
   ],
   [
     "mixed content",
-    complexType(`<xs:sequence/>`).replace('name="OrderType"', 'name="OrderType" mixed="true"'),
+    complexType(`<xs:sequence/>`).replace(
+      'name="OrderType"',
+      'name="OrderType" mixed="true"'
+    ),
     'xs:complexType[@name="OrderType"]',
     'mixed="true" is not supported.',
   ],
   [
     "simple content",
     complexType(
-      `<xs:simpleContent><xs:extension base="xs:string"><xs:attribute name="a" type="xs:string"/></xs:extension></xs:simpleContent>`,
+      `<xs:simpleContent><xs:extension base="xs:string"><xs:attribute name="a" type="xs:string"/></xs:extension></xs:simpleContent>`
     ),
     'xs:complexType[@name="OrderType"]/xs:simpleContent',
     "xs:simpleContent is not supported in a complex type.",
   ],
   [
     "a fixed element value",
-    complexType(`<xs:sequence><xs:element name="A" type="xs:string" fixed="x"/></xs:sequence>`),
+    complexType(
+      `<xs:sequence><xs:element name="A" type="xs:string" fixed="x"/></xs:sequence>`
+    ),
     'xs:element[@name="A"]',
     "Elements with a fixed value are not supported.",
   ],
   [
     "a nillable element",
     complexType(
-      `<xs:sequence><xs:element name="A" type="xs:string" nillable="true"/></xs:sequence>`,
+      `<xs:sequence><xs:element name="A" type="xs:string" nillable="true"/></xs:sequence>`
     ),
     'xs:element[@name="A"]',
     'nillable="true" is not supported.',
@@ -141,7 +159,7 @@ const UNSUPPORTED = [
   [
     "maxOccurs zero",
     complexType(
-      `<xs:sequence><xs:element name="A" type="xs:string" minOccurs="0" maxOccurs="0"/></xs:sequence>`,
+      `<xs:sequence><xs:element name="A" type="xs:string" minOccurs="0" maxOccurs="0"/></xs:sequence>`
     ),
     'xs:element[@name="A"]',
     'maxOccurs="0" is not supported.',
@@ -149,7 +167,7 @@ const UNSUPPORTED = [
   [
     "an element name used twice",
     complexType(
-      `<xs:sequence><xs:element name="A" type="xs:string"/><xs:element name="A" type="xs:string"/></xs:sequence>`,
+      `<xs:sequence><xs:element name="A" type="xs:string"/><xs:element name="A" type="xs:string"/></xs:sequence>`
     ),
     'xs:complexType[@name="OrderType"]',
     "A appears twice in the same content",
@@ -163,7 +181,9 @@ const UNSUPPORTED = [
   ],
   [
     "a built-in type outside the supported set",
-    complexType(`<xs:sequence><xs:element name="A" type="xs:boolean"/></xs:sequence>`),
+    complexType(
+      `<xs:sequence><xs:element name="A" type="xs:boolean"/></xs:sequence>`
+    ),
     'xs:element[@name="A"]',
     "The built-in type xs:boolean is not supported.",
   ],
@@ -192,7 +212,7 @@ const UNSUPPORTED = [
   <xs:element name="Order"><xs:complexType><xs:sequence>
     <xs:element ref="sig:Signature"/>
   </xs:sequence></xs:complexType></xs:element>`,
-      `xmlns:sig="urn:example:signature"`,
+      `xmlns:sig="urn:example:signature"`
     ),
     'xs:element[@ref="sig:Signature"]',
     "The required element sig:Signature belongs to another namespace",
@@ -200,31 +220,35 @@ const UNSUPPORTED = [
 ] as const;
 
 layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
-  it.effect("turns sequences into Structs in the XSD order and choices into Unions", () =>
-    Effect.gen(function* test() {
-      const plan = yield* Effect.fromResult(compile(Order.Order));
+  it.effect(
+    "turns sequences into Structs in the XSD order and choices into Unions",
+    () =>
+      Effect.gen(function* test() {
+        const plan = yield* Effect.fromResult(compile(Order.Order));
 
-      const customer = plan.node.children.get("Customer")?.node;
+        const customer = plan.node.children.get("Customer")?.node;
 
-      expect(plan.node.sequence.map((child) => [child.name, child.arity])).toStrictEqual([
-        ["Number", "one"],
-        ["Customer", "one"],
-        ["Line", "many"],
-        ["Note", "many"],
-        ["Tag", "many"],
-        ["Country", "optional"],
-      ]);
-      expect(
-        customer?.kind === "element"
-          ? customer.sequence.map((child) => [child.name, child.optional])
-          : [],
-      ).toStrictEqual([
-        ["Company", true],
-        ["FirstName", true],
-        ["LastName", true],
-        ["Email", true],
-      ]);
-    }),
+        expect(
+          plan.node.sequence.map((child) => [child.name, child.arity])
+        ).toStrictEqual([
+          ["Number", "one"],
+          ["Customer", "one"],
+          ["Line", "many"],
+          ["Note", "many"],
+          ["Tag", "many"],
+          ["Country", "optional"],
+        ]);
+        expect(
+          customer?.kind === "element"
+            ? customer.sequence.map((child) => [child.name, child.optional])
+            : []
+        ).toStrictEqual([
+          ["Company", true],
+          ["FirstName", true],
+          ["LastName", true],
+          ["Email", true],
+        ]);
+      })
   );
 
   it.effect("decodes and encodes a document the XSD accepts", () =>
@@ -245,53 +269,69 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
         Country: "IT",
         version: "1.0",
       });
-      expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(Exit.void);
-    }),
+      expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(
+        Exit.void
+      );
+    })
   );
 
-  it.effect("keeps an absent optional sequence distinct from a partial sequence", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* Effect.fromResult(codec(OptionalOrder.Order));
-      const validator = yield* validatorFor(fixture("optional-order.xsd"));
+  it.effect(
+    "keeps an absent optional sequence distinct from a partial sequence",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* Effect.fromResult(codec(OptionalOrder.Order));
+        const validator = yield* validatorFor(fixture("optional-order.xsd"));
 
-      for (const [xml, expected] of [
-        ["<Order/>", {}],
-        [
-          "<Order><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Order>",
-          { FirstName: "Ada", LastName: "Lovelace" },
-        ],
-      ] as const) {
-        expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(Exit.void);
-        expect(yield* decode(xml)).toStrictEqual(expected);
-      }
+        for (const [xml, expected] of [
+          ["<Order/>", {}],
+          [
+            "<Order><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Order>",
+            { FirstName: "Ada", LastName: "Lovelace" },
+          ],
+        ] as const) {
+          expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(
+            Exit.void
+          );
+          expect(yield* decode(xml)).toStrictEqual(expected);
+        }
 
-      const partial = "<Order><FirstName>Ada</FirstName></Order>";
-      expect(Exit.isFailure(yield* Effect.exit(validator.validate(partial)))).toBe(true);
-      expect(Exit.isFailure(yield* Effect.exit(decode(partial)))).toBe(true);
-    }),
+        const partial = "<Order><FirstName>Ada</FirstName></Order>";
+        expect(
+          Exit.isFailure(yield* Effect.exit(validator.validate(partial)))
+        ).toBe(true);
+        expect(Exit.isFailure(yield* Effect.exit(decode(partial)))).toBe(true);
+      })
   );
 
-  it.effect("declares the root attributes on root and the other attributes on element", () =>
-    Effect.gen(function* test() {
-      const plan = yield* Effect.fromResult(compile(Order.Order));
-      const line = plan.node.children.get("Line")?.node;
+  it.effect(
+    "declares the root attributes on root and the other attributes on element",
+    () =>
+      Effect.gen(function* test() {
+        const plan = yield* Effect.fromResult(compile(Order.Order));
+        const line = plan.node.children.get("Line")?.node;
 
-      expect([...plan.node.attributes.values()]).toStrictEqual([
-        { name: "version" },
-        { name: "channel" },
-      ]);
-      expect(line?.kind === "element" ? [...line.attributes.values()] : []).toStrictEqual([
-        { name: "unit" },
-      ]);
-    }),
+        expect([...plan.node.attributes.values()]).toStrictEqual([
+          { name: "version" },
+          { name: "channel" },
+        ]);
+        expect(
+          line?.kind === "element" ? [...line.attributes.values()] : []
+        ).toStrictEqual([{ name: "unit" }]);
+      })
   );
 
   it.effect.each([
-    ["an undeclared enumeration value", ORDER_XML.replace('version="1.0"', 'version="3.0"')],
+    [
+      "an undeclared enumeration value",
+      ORDER_XML.replace('version="1.0"', 'version="3.0"'),
+    ],
     ["a missing required attribute", ORDER_XML.replace(' unit="kg"', "")],
     [
       "too many occurrences",
-      ORDER_XML.replace("<Country/>", "<Note>a</Note><Note>b</Note><Note>c</Note><Country/>"),
+      ORDER_XML.replace(
+        "<Country/>",
+        "<Note>a</Note><Note>b</Note><Note>c</Note><Country/>"
+      ),
     ],
     [
       "a value outside minInclusive and maxInclusive",
@@ -301,7 +341,10 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
       "a value that breaks the pattern",
       ORDER_XML.replace("<Price>9.90</Price>", "<Price>9.9</Price>"),
     ],
-    ["a value of the wrong length", ORDER_XML.replace("<Country/>", "<Country>ITA</Country>")],
+    [
+      "a value of the wrong length",
+      ORDER_XML.replace("<Country/>", "<Country>ITA</Country>"),
+    ],
     [
       "both branches of a choice missing",
       ORDER_XML.replace(/<Customer>.*<\/Customer>/u, "<Customer></Customer>"),
@@ -312,10 +355,10 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
     ],
     [
       "a complete choice branch followed by an incomplete branch",
-      ORDER_XML.replace("<Customer>", "<Customer><Company>Acme</Company>").replace(
-        "<LastName>Lovelace</LastName>",
-        "",
-      ),
+      ORDER_XML.replace(
+        "<Customer>",
+        "<Customer><Company>Acme</Company>"
+      ).replace("<LastName>Lovelace</LastName>", ""),
     ],
   ] as const)("rejects %s like the XSD does", ([, xml]) =>
     Effect.gen(function* test() {
@@ -324,9 +367,11 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
 
       const decoded = yield* Effect.exit(decode(xml));
 
-      expect(Exit.isFailure(yield* Effect.exit(validator.validate(xml)))).toBe(true);
+      expect(Exit.isFailure(yield* Effect.exit(validator.validate(xml)))).toBe(
+        true
+      );
       expect(Exit.isFailure(decoded)).toBe(true);
-    }),
+    })
   );
 
   it("names anonymous types after their path and named types after the XSD", () => {
@@ -345,18 +390,20 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
     ]);
   });
 
-  it.effect.each(HELPERS)("renames the XSD type %s so that it keeps the runtime helper", (helper) =>
-    Effect.gen(function* test() {
-      const code = yield* generateFrom(
-        schemaDocument(`<xs:element name="Order"><xs:complexType><xs:sequence>
+  it.effect.each(HELPERS)(
+    "renames the XSD type %s so that it keeps the runtime helper",
+    (helper) =>
+      Effect.gen(function* test() {
+        const code = yield* generateFrom(
+          schemaDocument(`<xs:element name="Order"><xs:complexType><xs:sequence>
     <xs:element name="Value" type="${helper}"/>
   </xs:sequence></xs:complexType></xs:element>
-  <xs:simpleType name="${helper}"><xs:restriction base="xs:string"/></xs:simpleType>`),
-      );
+  <xs:simpleType name="${helper}"><xs:restriction base="xs:string"/></xs:simpleType>`)
+        );
 
-      expect(code).toContain(`export const ${helper}2 = `);
-      expect(code).not.toContain(`export const ${helper} = `);
-    }),
+        expect(code).toContain(`export const ${helper}2 = `);
+        expect(code).not.toContain(`export const ${helper} = `);
+      })
   );
 
   it.effect.each([
@@ -369,14 +416,19 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
     ["xs:decimal", String.raw`[0-9]*\.[0-9]+`, true],
     ["xs:integer", String.raw`[0-9]+\.[0-9]`, true],
     ["xs:integer", "[0-9+]{1,3}", true],
-  ] as const)("on %s with the pattern %s keeps the lexical check: %s", ([base, pattern, kept]) =>
-    Effect.gen(function* test() {
-      const code = yield* generateFrom(
-        simpleElement(`<xs:pattern value="${pattern}"/>`).replace("xs:string", base),
-      );
+  ] as const)(
+    "on %s with the pattern %s keeps the lexical check: %s",
+    ([base, pattern, kept]) =>
+      Effect.gen(function* test() {
+        const code = yield* generateFrom(
+          simpleElement(`<xs:pattern value="${pattern}"/>`).replace(
+            "xs:string",
+            base
+          )
+        );
 
-      expect(code.includes("xsdLexical(")).toBe(kept);
-    }),
+        expect(code.includes("xsdLexical(")).toBe(kept);
+      })
   );
 
   it.effect("writes the same file for the same XSD", () =>
@@ -388,98 +440,125 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
       const second = yield* generateFrom(xsd);
 
       expect(second).toBe(first);
-    }),
+    })
   );
 
-  it.effect("keeps a line break of the XSD file name inside the header comment", () =>
-    Effect.gen(function* test() {
-      const fs = yield* FileSystem.FileSystem;
-      const xsd = yield* fs.readFileString(ORDER_XSD);
+  it.effect(
+    "keeps a line break of the XSD file name inside the header comment",
+    () =>
+      Effect.gen(function* test() {
+        const fs = yield* FileSystem.FileSystem;
+        const xsd = yield* fs.readFileString(ORDER_XSD);
 
-      const code = yield* generateFrom(xsd, {
-        xsd: {
-          contents: new TextEncoder().encode(xsd),
-          url: "order\nexport const injected = 1;\u2028export const separated = 2;\r.xsd",
-        },
-      });
+        const code = yield* generateFrom(xsd, {
+          xsd: {
+            contents: new TextEncoder().encode(xsd),
+            url: "order\nexport const injected = 1;\u2028export const separated = 2;\r.xsd",
+          },
+        });
 
-      expect(code).not.toMatch(/^export const (?:injected|separated)/mu);
-      expect(code.split(/\r\n|[\n\r\u2028\u2029]/u)[0]).toContain("export const injected = 1;");
-    }),
+        expect(code).not.toMatch(/^export const (?:injected|separated)/mu);
+        expect(code.split(/\r\n|[\n\r\u2028\u2029]/u)[0]).toContain(
+          "export const injected = 1;"
+        );
+      })
   );
 
-  it.effect("passes the format arguments as given and replaces {file} with the path", () =>
-    Effect.gen(function* test() {
-      const fs = yield* FileSystem.FileSystem;
-      const xsd = yield* fs.readFileString(ORDER_XSD);
+  it.effect(
+    "passes the format arguments as given and replaces {file} with the path",
+    () =>
+      Effect.gen(function* test() {
+        const fs = yield* FileSystem.FileSystem;
+        const xsd = yield* fs.readFileString(ORDER_XSD);
 
-      const code = yield* generateFrom(xsd, {
-        format: {
-          args: [
-            "-e",
-            "process.stdout.write(JSON.stringify(process.argv.slice(1)))",
-            "--",
-            "a 'b' c",
-            "--out={file}",
-          ],
-          command: process.execPath,
-          path: "out dir/order.gen.ts",
-        },
-      });
+        const code = yield* generateFrom(xsd, {
+          format: {
+            args: [
+              "-e",
+              "process.stdout.write(JSON.stringify(process.argv.slice(1)))",
+              "--",
+              "a 'b' c",
+              "--out={file}",
+            ],
+            command: process.execPath,
+            path: "out dir/order.gen.ts",
+          },
+        });
 
-      expect(
-        yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))(code),
-      ).toStrictEqual(["a 'b' c", "--out=out dir/order.gen.ts"]);
-    }),
+        expect(
+          yield* Schema.decodeEffect(
+            Schema.fromJsonString(Schema.Array(Schema.String))
+          )(code)
+        ).toStrictEqual(["a 'b' c", "--out=out dir/order.gen.ts"]);
+      })
   );
 
-  it.effect("leaves optional elements of another namespace out and notes them in the file", () =>
-    Effect.gen(function* test() {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
+  it.effect(
+    "leaves optional elements of another namespace out and notes them in the file",
+    () =>
+      Effect.gen(function* test() {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
 
-      const { decode } = yield* Effect.fromResult(
-        codec(SignedOrder.Order, { decoder: { unknownElements: "skip" } }),
-      );
+        const { decode } = yield* Effect.fromResult(
+          codec(SignedOrder.Order, { decoder: { unknownElements: "skip" } })
+        );
 
-      const order = yield* decode(
-        `<o:Order xmlns:o="${NAMESPACE}"><Number>7</Number><s:Signature xmlns:s="urn:example:signature"><s:Value>x</s:Value></s:Signature></o:Order>`,
-      );
+        const order = yield* decode(
+          `<o:Order xmlns:o="${NAMESPACE}"><Number>7</Number><s:Signature xmlns:s="urn:example:signature"><s:Value>x</s:Value></s:Signature></o:Order>`
+        );
 
-      const code = yield* fs.readFileString(
-        path.join(path.dirname(fixture("signed-order.xsd")), "signed-order.gen.ts"),
-      );
+        const code = yield* fs.readFileString(
+          path.join(
+            path.dirname(fixture("signed-order.xsd")),
+            "signed-order.gen.ts"
+          )
+        );
 
-      expect(order).toStrictEqual({ Number: "7" });
-      expect(code).toContain(
-        "// - OrderType: sig:Signature (urn:example:signature), minOccurs 0, maxOccurs 1",
-      );
-    }),
+        expect(order).toStrictEqual({ Number: "7" });
+        expect(code).toContain(
+          "// - OrderType: sig:Signature (urn:example:signature), minOccurs 0, maxOccurs 1"
+        );
+      })
   );
 
-  it.effect("puts qualified local elements in the default namespace of the root", () =>
-    Effect.gen(function* test() {
-      const { encode } = yield* Effect.fromResult(codec(QualifiedOrder.Order));
-      const validator = yield* validatorFor(fixture("qualified-order.xsd"));
+  it.effect(
+    "puts qualified local elements in the default namespace of the root",
+    () =>
+      Effect.gen(function* test() {
+        const { encode } = yield* Effect.fromResult(
+          codec(QualifiedOrder.Order)
+        );
 
-      const xml = yield* encode({ Number: "7" });
+        const validator = yield* validatorFor(fixture("qualified-order.xsd"));
 
-      expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(Exit.void);
-    }),
+        const xml = yield* encode({ Number: "7" });
+
+        expect(yield* Effect.exit(validator.validate(xml))).toStrictEqual(
+          Exit.void
+        );
+      })
   );
 
-  it.effect.each(UNSUPPORTED)("fails on %s with its path in the XSD", ([, xsd, path, message]) =>
-    Effect.gen(function* test() {
-      const error = yield* Effect.flip(generateFrom(xsd));
+  it.effect.each(UNSUPPORTED)(
+    "fails on %s with its path in the XSD",
+    ([, xsd, path, message]) =>
+      Effect.gen(function* test() {
+        const error = yield* Effect.flip(generateFrom(xsd));
 
-      expect(error).toBeInstanceOf(XsdCodegenError);
-      expect(error.path).toContain(path);
-      expect(error.message).toContain(message);
-    }),
+        expect(error).toBeInstanceOf(XsdCodegenError);
+        expect(error.path).toContain(path);
+        expect(error.message).toContain(message);
+      })
   );
 
   it.effect.each([
-    ["unqualified local elements without a prefix", "", {}, "the root needs a prefix"],
+    [
+      "unqualified local elements without a prefix",
+      "",
+      {},
+      "the root needs a prefix",
+    ],
     [
       "qualified local elements with a prefix",
       'elementFormDefault="qualified"',
@@ -492,35 +571,40 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
         `<xs:element name="Order"><xs:complexType><xs:sequence>
     <xs:element name="Number" type="xs:string"/>
   </xs:sequence></xs:complexType></xs:element>`,
-        `targetNamespace="${NAMESPACE}" ${form}`,
+        `targetNamespace="${NAMESPACE}" ${form}`
       );
 
       const error = yield* Effect.flip(generateFrom(xsd, options));
 
       expect(error.path).toContain("xs:schema");
       expect(error.message).toContain(message);
-    }),
+    })
   );
 
   it.effect("fails on an XSD that libxml2 cannot compile", () =>
     Effect.gen(function* test() {
       const error = yield* Effect.flip(
-        generateFrom(schemaDocument(`<xs:element name="Order" type="Missing"/>`)),
+        generateFrom(
+          schemaDocument(`<xs:element name="Order" type="Missing"/>`)
+        )
       );
 
       expect(error.path).toBe(fixture("inline.xsd"));
       expect(error.message).toContain("XSD schema could not be compiled");
-    }),
+    })
   );
 
   it.effect("fails on an XSD file that does not exist", () =>
     Effect.gen(function* test() {
       const error = yield* Effect.flip(
-        generate({ root: "Order", xsd: { path: "tests/fixtures/xsd/missing.xsd" } }),
+        generate({
+          root: "Order",
+          xsd: { path: "tests/fixtures/xsd/missing.xsd" },
+        })
       );
 
       expect(error.path).toBe("tests/fixtures/xsd/missing.xsd");
       expect(error.message).toBe("The XSD file could not be read.");
-    }),
+    })
   );
 });

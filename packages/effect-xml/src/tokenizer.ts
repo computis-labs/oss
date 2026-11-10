@@ -1,6 +1,12 @@
 /* oxlint-disable unicorn/prefer-code-point -- the checks compare UTF-16 code units */
 import { Result } from "effect";
-import { characterWidth, nextIndexOf, nextNonCharacter, positionAt } from "./characters.ts";
+
+import {
+  characterWidth,
+  nextIndexOf,
+  nextNonCharacter,
+  positionAt,
+} from "./characters.ts";
 import { XmlParseError } from "./errors/xml-parse-error.ts";
 import type { TokenHandler, Tokenize } from "./types.ts";
 
@@ -89,14 +95,17 @@ const replaceSegments = (
   xml: string,
   start: number,
   end: number,
-  replacements: readonly Replacement[],
+  replacements: readonly Replacement[]
 ) =>
   replacements.length === 0
     ? xml.slice(start, end)
     : replacements
         .map(
           (replacement, index) =>
-            xml.slice(replacements[index - 1]?.end ?? start, replacement.start) + replacement.text,
+            xml.slice(
+              replacements[index - 1]?.end ?? start,
+              replacement.start
+            ) + replacement.text
         )
         .join("") + xml.slice(replacements.at(-1)?.end ?? start, end);
 
@@ -106,7 +115,8 @@ const isNameStart = (xml: string, index: number) => {
   if (code >= LOWER_A_CODE) {
     return (
       code <= LOWER_Z_CODE ||
-      (code > ASCII_LAST_CODE && (code < HIGH_SURROGATE_CODE || characterWidth(xml, index) > 0))
+      (code > ASCII_LAST_CODE &&
+        (code < HIGH_SURROGATE_CODE || characterWidth(xml, index) > 0))
     );
   }
 
@@ -134,7 +144,9 @@ const nameEnd = (xml: string, start: number) => {
 
       const width =
         index === start && code >= LOW_SURROGATE_CODE && code < PRIVATE_USE_CODE
-          ? Number(previous >= HIGH_SURROGATE_CODE && previous < LOW_SURROGATE_CODE)
+          ? Number(
+              previous >= HIGH_SURROGATE_CODE && previous < LOW_SURROGATE_CODE
+            )
           : characterWidth(xml, index);
 
       if (width === 0) {
@@ -160,7 +172,12 @@ const whitespaceEnd = (xml: string, start: number) => {
   for (let index = start; ; index += 1) {
     const code = xml.charCodeAt(index);
 
-    if (code !== SPACE_CODE && code !== LF_CODE && code !== TAB_CODE && code !== CR_CODE) {
+    if (
+      code !== SPACE_CODE &&
+      code !== LF_CODE &&
+      code !== TAB_CODE &&
+      code !== CR_CODE
+    ) {
       return index;
     }
   }
@@ -224,7 +241,10 @@ class Scanner {
     }
 
     if (this.depth > 0) {
-      this.fail(length, `Unclosed element <${this.stack[this.depth - 1] ?? ""}>`);
+      this.fail(
+        length,
+        `Unclosed element <${this.stack[this.depth - 1] ?? ""}>`
+      );
     } else if (!this.rootSeen) {
       this.fail(length, "Missing root element");
     }
@@ -242,7 +262,10 @@ class Scanner {
   }
 
   failCharacter(offset: number, message: string) {
-    return this.fail(offset, characterWidth(this.xml, offset) === 0 ? INVALID_CHARACTER : message);
+    return this.fail(
+      offset,
+      characterWidth(this.xml, offset) === 0 ? INVALID_CHARACTER : message
+    );
   }
 
   text(position: number) {
@@ -250,7 +273,9 @@ class Scanner {
     const contentStart = whitespaceEnd(xml, position);
 
     const lt =
-      xml.charCodeAt(contentStart) === LT_CODE ? contentStart : xml.indexOf(LT, contentStart);
+      xml.charCodeAt(contentStart) === LT_CODE
+        ? contentStart
+        : xml.indexOf(LT, contentStart);
 
     const textEnd = lt === -1 ? xml.length : lt;
 
@@ -260,7 +285,10 @@ class Scanner {
 
     if (this.depth === 0) {
       return contentStart < textEnd
-        ? this.fail(contentStart, "Text is not allowed outside the root element")
+        ? this.fail(
+            contentStart,
+            "Text is not allowed outside the root element"
+          )
         : textEnd;
     }
 
@@ -277,7 +305,9 @@ class Scanner {
     }
 
     if (this.isPlainText(position, textEnd)) {
-      return this.handler.text(xml.slice(position, textEnd), position) ? textEnd : STOPPED_CODE;
+      return this.handler.text(xml.slice(position, textEnd), position)
+        ? textEnd
+        : STOPPED_CODE;
     }
 
     const value = this.decode(position, textEnd, TEXT);
@@ -354,7 +384,7 @@ class Scanner {
         lt,
         found === name
           ? `Malformed closing tag </${name}>`
-          : `Closing tag </${found}> does not match <${name}>`,
+          : `Closing tag </${found}> does not match <${name}>`
       );
     }
 
@@ -422,7 +452,9 @@ class Scanner {
     }
 
     const value =
-      this.nextCarriageReturn < end ? this.decode(start, end, CDATA) : xml.slice(start, end);
+      this.nextCarriageReturn < end
+        ? this.decode(start, end, CDATA)
+        : xml.slice(start, end);
 
     return this.handler.text(value, lt) ? end + 3 : STOPPED_CODE;
   }
@@ -450,13 +482,19 @@ class Scanner {
     const target = xml.slice(lt + 2, targetEnd);
 
     if (lt !== documentStart && target.toLowerCase() === XML_TARGET) {
-      return this.fail(lt, "The XML declaration is only allowed at the start of the document");
-    }
-
-    if (target === XML_TARGET && !XML_DECLARATION.test(xml.slice(lt, end + 2))) {
       return this.fail(
         lt,
-        'Malformed XML declaration: expected version="1.x", then optional encoding and standalone',
+        "The XML declaration is only allowed at the start of the document"
+      );
+    }
+
+    if (
+      target === XML_TARGET &&
+      !XML_DECLARATION.test(xml.slice(lt, end + 2))
+    ) {
+      return this.fail(
+        lt,
+        'Malformed XML declaration: expected version="1.x", then optional encoding and standalone'
       );
     }
 
@@ -475,7 +513,10 @@ class Scanner {
     }
 
     if (this.depth >= this.maxDepth) {
-      return this.fail(lt, `Maximum element depth of ${String(this.maxDepth)} exceeded`);
+      return this.fail(
+        lt,
+        `Maximum element depth of ${String(this.maxDepth)} exceeded`
+      );
     }
 
     const afterName = nameEnd(xml, lt + 2);
@@ -511,7 +552,10 @@ class Scanner {
       }
 
       if (!isNameStart(xml, next)) {
-        return this.failCharacter(next, `Unexpected character in start tag <${name}>`);
+        return this.failCharacter(
+          next,
+          `Unexpected character in start tag <${name}>`
+        );
       }
 
       if (next === index) {
@@ -527,7 +571,9 @@ class Scanner {
       return this.fail(slash, "Expected '>' after '/' in an empty-element tag");
     }
 
-    return this.handler.openEnd() && this.handler.close() ? slash + 2 : STOPPED_CODE;
+    return this.handler.openEnd() && this.handler.close()
+      ? slash + 2
+      : STOPPED_CODE;
   }
 
   attribute(start: number, count: number) {
@@ -549,7 +595,10 @@ class Scanner {
     const quote = xml[quoteIndex] ?? "";
 
     if (quote !== DOUBLE_QUOTE && quote !== SINGLE_QUOTE) {
-      return this.fail(quoteIndex, `Expected a quoted value for attribute ${name}`);
+      return this.fail(
+        quoteIndex,
+        `Expected a quoted value for attribute ${name}`
+      );
     }
 
     const valueStart = quoteIndex + 1;
@@ -563,7 +612,12 @@ class Scanner {
 
     return lt < valueEnd
       ? this.fail(lt, "'<' is not allowed in attribute values")
-      : this.emitAttribute(name, this.decode(valueStart, valueEnd, ATTRIBUTE), start, valueEnd);
+      : this.emitAttribute(
+          name,
+          this.decode(valueStart, valueEnd, ATTRIBUTE),
+          start,
+          valueEnd
+        );
   }
 
   emitAttribute(name: string, value: string, start: number, valueEnd: number) {
@@ -571,7 +625,9 @@ class Scanner {
       return FAILED_CODE;
     }
 
-    return this.handler.attribute(name, value, start) ? valueEnd + 1 : STOPPED_CODE;
+    return this.handler.attribute(name, value, start)
+      ? valueEnd + 1
+      : STOPPED_CODE;
   }
 
   isDuplicate(name: string, count: number) {
@@ -606,7 +662,10 @@ class Scanner {
     return false;
   }
 
-  nextMarker(from: number, mode: typeof ATTRIBUTE | typeof CDATA | typeof TEXT) {
+  nextMarker(
+    from: number,
+    mode: typeof ATTRIBUTE | typeof CDATA | typeof TEXT
+  ) {
     const { xml } = this;
 
     if (this.nextCarriageReturn < from) {
@@ -617,7 +676,10 @@ class Scanner {
       this.nextNonCharacter = nextNonCharacter(xml, from);
     }
 
-    const cdataMarker = Math.min(this.nextCarriageReturn, this.nextNonCharacter);
+    const cdataMarker = Math.min(
+      this.nextCarriageReturn,
+      this.nextNonCharacter
+    );
 
     if (mode === CDATA) {
       return cdataMarker;
@@ -644,7 +706,11 @@ class Scanner {
     return Math.min(next, this.nextLineFeed, this.nextTab);
   }
 
-  decodeLong(start: number, end: number, mode: typeof ATTRIBUTE | typeof CDATA | typeof TEXT) {
+  decodeLong(
+    start: number,
+    end: number,
+    mode: typeof ATTRIBUTE | typeof CDATA | typeof TEXT
+  ) {
     const { xml } = this;
     const replacements: Replacement[] = [];
 
@@ -667,8 +733,14 @@ class Scanner {
         });
         index = this.nextMarker(this.referenceEnd, mode);
       } else if (char === CR) {
-        const after = index + (index + 1 < end && xml[index + 1] === LF ? 2 : 1);
-        replacements.push({ end: after, start: index, text: mode === ATTRIBUTE ? SPACE : LF });
+        const after =
+          index + (index + 1 < end && xml[index + 1] === LF ? 2 : 1);
+
+        replacements.push({
+          end: after,
+          start: index,
+          text: mode === ATTRIBUTE ? SPACE : LF,
+        });
         index = this.nextMarker(after, mode);
       } else if (char === LF || char === TAB) {
         replacements.push({ end: index + 1, start: index, text: SPACE });
@@ -683,7 +755,11 @@ class Scanner {
     return replaceSegments(xml, start, end, replacements);
   }
 
-  decode(start: number, end: number, mode: typeof ATTRIBUTE | typeof CDATA | typeof TEXT) {
+  decode(
+    start: number,
+    end: number,
+    mode: typeof ATTRIBUTE | typeof CDATA | typeof TEXT
+  ) {
     if (end - start > LONG_TEXT) {
       return this.decodeLong(start, end, mode);
     }
@@ -710,14 +786,25 @@ class Scanner {
         });
         index = this.referenceEnd;
       } else if (code === CR_CODE) {
-        const after = index + (index + 1 < end && xml[index + 1] === LF ? 2 : 1);
-        replacements.push({ end: after, start: index, text: mode === ATTRIBUTE ? SPACE : LF });
+        const after =
+          index + (index + 1 < end && xml[index + 1] === LF ? 2 : 1);
+
+        replacements.push({
+          end: after,
+          start: index,
+          text: mode === ATTRIBUTE ? SPACE : LF,
+        });
         index = after;
-      } else if (mode === ATTRIBUTE && (code === LF_CODE || code === TAB_CODE)) {
+      } else if (
+        mode === ATTRIBUTE &&
+        (code === LF_CODE || code === TAB_CODE)
+      ) {
         replacements.push({ end: index + 1, start: index, text: SPACE });
         index += 1;
       } else if (
-        code < SPACE_CODE ? code !== LF_CODE && code !== TAB_CODE : code >= HIGH_SURROGATE_CODE
+        code < SPACE_CODE
+          ? code !== LF_CODE && code !== TAB_CODE
+          : code >= HIGH_SURROGATE_CODE
       ) {
         const width = characterWidth(xml, index);
 
@@ -765,7 +852,11 @@ class Scanner {
     const radix = xml[ampersand + 2] === LOWER_X ? 16 : 10;
     const digitsStart = ampersand + (radix === 16 ? 3 : 2);
     const semicolon = xml.indexOf(SEMICOLON, digitsStart);
-    const digits = semicolon === -1 || semicolon >= limit ? "" : xml.slice(digitsStart, semicolon);
+
+    const digits =
+      semicolon === -1 || semicolon >= limit
+        ? ""
+        : xml.slice(digitsStart, semicolon);
 
     const value = (radix === 16 ? HEX_DIGITS : DECIMAL_DIGITS).test(digits)
       ? Number.parseInt(digits, radix)

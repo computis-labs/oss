@@ -1,6 +1,6 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
+
 import { isObject } from "./predicates.ts";
 
 const requireNamedGenerator = defineRule({

@@ -20,11 +20,11 @@ The root entrypoint exports every core module as a namespace: `import { Dataset,
 
 Some entrypoints need an optional peer dependency, so the root entrypoint leaves them out. Install the peer only if you import that entrypoint.
 
-| Entrypoint                            | Peer dependency                                          |
-| ------------------------------------- | -------------------------------------------------------- |
-| `@computis/effect-eval/vitest`        | `vitest`, `@effect/vitest`                               |
-| `@computis/effect-eval/chart-vega`    | `vega`, `vega-lite`, `@resvg/resvg-js`, `terminal-image` |
-| `@computis/effect-eval/chart-unicode` | `simple-ascii-chart`                                     |
+| Entrypoint | Peer dependency |
+| --- | --- |
+| `@computis/effect-eval/vitest` | `vitest`, `@effect/vitest` |
+| `@computis/effect-eval/chart-vega` | `vega`, `vega-lite`, `@resvg/resvg-js`, `terminal-image` |
+| `@computis/effect-eval/chart-unicode` | `simple-ascii-chart` |
 
 `chart-html` and `chart-mermaid` need nothing: the HTML renderer loads Vega from a CDN in the page.
 
@@ -37,10 +37,25 @@ A dataset yields `Case`s: an id, the input and tags such as `group:pricing`. The
 The task extracts a product from the HTML of a store page. The golden set is a JSON file with the expected fields of each page. Some fields are known gaps (the page does not show them), and a title that only differs by a condition suffix is excluded as a known convention.
 
 ```ts
-import { BigDecimal, Config, Context, Effect, Layer, Option, Schema } from "effect";
-import { NodeServices } from "@effect/platform-node";
-import { Compare, Dataset, Eval, Gate, Metric, Scorer } from "@computis/effect-eval";
+import {
+  Compare,
+  Dataset,
+  Eval,
+  Gate,
+  Metric,
+  Scorer,
+} from "@computis/effect-eval";
 import * as EvalTest from "@computis/effect-eval/vitest";
+import { NodeServices } from "@effect/platform-node";
+import {
+  BigDecimal,
+  Config,
+  Context,
+  Effect,
+  Layer,
+  Option,
+  Schema,
+} from "effect";
 
 const ProductSchema = Schema.Struct({
   category: Schema.String,
@@ -52,7 +67,9 @@ type Product = typeof ProductSchema.Type;
 
 const GoldenPageSchema = Schema.Struct({
   expected: ProductSchema,
-  gaps: Schema.Array(Schema.Struct({ key: Schema.String, reason: Schema.String })),
+  gaps: Schema.Array(
+    Schema.Struct({ key: Schema.String, reason: Schema.String })
+  ),
   html: Schema.String,
   id: Schema.String,
   store: Schema.String,
@@ -64,21 +81,32 @@ class ProductExtractor extends Context.Service<
   { readonly extract: (html: string) => Effect.Effect<Product> }
 >()("ProductExtractor") {}
 
-const read = (key: keyof Product) => (product: Product) => Option.fromNullishOr(product[key]);
+const read = (key: keyof Product) => (product: Product) =>
+  Option.fromNullishOr(product[key]);
 
 const productFields = Scorer.fields<GoldenPage, Product>({
   expected: (page) => page.expected,
   fields: [
-    { compare: Compare.exact(), group: "pricing", key: "currency", read: read("currency") },
+    {
+      compare: Compare.exact(),
+      group: "pricing",
+      key: "currency",
+      read: read("currency"),
+    },
     {
       compare: Compare.mapInput(BigDecimal.fromStringUnsafe)(
-        Compare.tolerance(BigDecimal.fromStringUnsafe("0.01")),
+        Compare.tolerance(BigDecimal.fromStringUnsafe("0.01"))
       ),
       group: "pricing",
       key: "price",
       read: read("price"),
     },
-    { compare: Compare.exact(), group: "catalog", key: "category", read: read("category") },
+    {
+      compare: Compare.exact(),
+      group: "catalog",
+      key: "category",
+      read: read("category"),
+    },
     {
       compare: Compare.tokenSimilarity(),
       exclude: ({ actualValue }) =>
@@ -93,7 +121,7 @@ const productFields = Scorer.fields<GoldenPage, Product>({
   gap: (page, key) =>
     Option.map(
       Option.fromNullishOr(page.gaps.find((entry) => entry.key === key)),
-      (entry) => entry.reason,
+      (entry) => entry.reason
     ),
   onlyActual: Scorer.onlyActualPolicies.exclude,
 });
@@ -112,7 +140,8 @@ export const productExtraction = Eval.make({
   name: "product-extraction",
   output: ProductSchema,
   score: productFields,
-  task: (page) => ProductExtractor.use((extractor) => extractor.extract(page.input.html)),
+  task: (page) =>
+    ProductExtractor.use((extractor) => extractor.extract(page.input.html)),
   timeout: "3 minutes",
 });
 ```
@@ -142,8 +171,6 @@ EvalTest.describe(productExtraction, {
 The task routes support tickets to a queue, in pages of 20. A `setup` seeds the tickets in an inbox once per trial, and its value reaches every call of the task; a task that takes a setup value does not compile without `setup`. Two models and two reasoning settings give four variants. Each case runs three times per variant.
 
 ```ts
-import { Context, Effect, Layer, Option } from "effect";
-import { NodeServices } from "@effect/platform-node";
 import {
   Dataset,
   Eval,
@@ -157,6 +184,8 @@ import {
   Scorer,
   Variant,
 } from "@computis/effect-eval";
+import { NodeServices } from "@effect/platform-node";
+import { Context, Effect, Layer, Option } from "effect";
 
 interface Ticket {
   readonly id: string;
@@ -164,8 +193,12 @@ interface Ticket {
   readonly queue: string | null;
 }
 
-const Model = Context.Reference<string>("Model", { defaultValue: () => "google/gemini-2.5-flash" });
-const Reasoning = Context.Reference<boolean>("Reasoning", { defaultValue: () => false });
+const Model = Context.Reference<string>("Model", {
+  defaultValue: () => "google/gemini-2.5-flash",
+});
+const Reasoning = Context.Reference<boolean>("Reasoning", {
+  defaultValue: () => false,
+});
 
 class TicketRouter extends Context.Service<
   TicketRouter,
@@ -173,7 +206,7 @@ class TicketRouter extends Context.Service<
     readonly seed: (tickets: readonly Ticket[]) => Effect.Effect<string>;
     readonly route: (
       inbox: string,
-      page: readonly Ticket[],
+      page: readonly Ticket[]
     ) => Effect.Effect<readonly (string | null)[]>;
   }
 >()("TicketRouter") {}
@@ -192,22 +225,26 @@ export const ticketRouting = Eval.makeBatched({
   name: "ticket-routing",
   score: Scorer.label<Ticket, string | null>({
     actual: Option.fromNullishOr,
-    expected: (ticket) => (ticket.queue === null ? Scorer.absent : Scorer.present(ticket.queue)),
+    expected: (ticket) =>
+      ticket.queue === null ? Scorer.absent : Scorer.present(ticket.queue),
   }),
   setup: TicketRouter.use((router) => router.seed(tickets)),
   task: (page, inbox) =>
     TicketRouter.use((router) =>
       router.route(
         inbox,
-        page.map((entry) => entry.input),
-      ),
+        page.map((entry) => entry.input)
+      )
     ),
   trials: 3,
 });
 
 export const variants = Variant.matrix({
   model: [
-    Variant.make("gemini-flash", Layer.succeed(Model, "google/gemini-2.5-flash")),
+    Variant.make(
+      "gemini-flash",
+      Layer.succeed(Model, "google/gemini-2.5-flash")
+    ),
     Variant.make("gpt-5-mini", Layer.succeed(Model, "openai/gpt-5-mini")),
   ],
   reasoning: [
@@ -221,7 +258,7 @@ export const program = Runner.run(ticketRouting, { variants }).pipe(
   Effect.provide(ticketRouterLayer),
   Effect.provide(Reporter.layer([Reporters.terminal(), History.reporter])),
   Effect.provide(History.layerFileSystem()),
-  Effect.provide(NodeServices.layer),
+  Effect.provide(NodeServices.layer)
 );
 ```
 
@@ -243,8 +280,16 @@ One case is an article with many claims. The task matches each claim to the sour
 The same eval runs on two datasets: made-up articles that live in the repository, and real data that must never leave the machine. The real dataset comes from a path in `CITATION_EVAL_DATASET`; when the variable is not set, it is empty. `Dataset.guard` fails the run when an input matches a privacy rule or a denylist token. For a file dataset it scans both the raw entry and the decoded input, so a string a schema default or transformation adds is checked too; a decoded input that is not JSON cannot be scanned and fails the guard. `sensitive: true` hides observation details, failures and outputs from every reporter that does not accept sensitive data. A dataset from `Dataset.optional` is sensitive by itself, so the real eval would hide them even without the flag.
 
 ```ts
+import {
+  Compare,
+  Dataset,
+  Eval,
+  Gate,
+  Metric,
+  Privacy,
+  Scorer,
+} from "@computis/effect-eval";
 import { Config, Context, Effect, Equivalence, Option, Schema } from "effect";
-import { Compare, Dataset, Eval, Gate, Metric, Privacy, Scorer } from "@computis/effect-eval";
 
 const ArticleSchema = Schema.Struct({
   claims: Schema.Array(
@@ -253,7 +298,7 @@ const ArticleSchema = Schema.Struct({
       id: Schema.String,
       sources: Schema.Array(Schema.String),
       text: Schema.String,
-    }),
+    })
   ),
   id: Schema.String,
 });
@@ -261,7 +306,11 @@ type Article = typeof ArticleSchema.Type;
 
 class CitationMatcher extends Context.Service<
   CitationMatcher,
-  { readonly match: (article: Article) => Effect.Effect<ReadonlyMap<string, readonly string[]>> }
+  {
+    readonly match: (
+      article: Article
+    ) => Effect.Effect<ReadonlyMap<string, readonly string[]>>;
+  }
 >()("CitationMatcher") {}
 
 const score = Scorer.each(
@@ -276,7 +325,7 @@ const score = Scorer.each(
     compare: Compare.subset(Equivalence.String),
     expected: (claim) => Scorer.present(claim.sources),
     show: (source) => source,
-  }),
+  })
 );
 
 const privacy: Privacy.Privacy = {
@@ -301,14 +350,16 @@ declare const madeUpArticles: readonly Article[];
 
 export const madeUp = Eval.make({
   ...shared,
-  dataset: Dataset.fromIterable(madeUpArticles, { id: (article) => article.id }),
+  dataset: Dataset.fromIterable(madeUpArticles, {
+    id: (article) => article.id,
+  }),
   name: "citations",
 });
 
 const realArticles = Dataset.guard(privacy)(
   Dataset.optional(Config.String("CITATION_EVAL_DATASET"), ArticleSchema, {
     id: (article) => article.id,
-  }),
+  })
 );
 
 export const real = Eval.make({
@@ -328,15 +379,15 @@ In vitest, `EvalTest.guard("citations-real", realArticles, NodeServices.layer)` 
 
 ## Datasets
 
-| Constructor                                  | Reads                                             |
-| -------------------------------------------- | ------------------------------------------------- |
-| `Dataset.fromIterable(entries, identify)`    | values in memory                                  |
-| `Dataset.fromEffect(effect, identify)`       | values an effect returns                          |
-| `Dataset.stream(stream, identify)`           | values a stream emits                             |
-| `Dataset.json(schema, path, identify)`       | a JSON array, decoding each entry with the schema |
-| `Dataset.jsonl(schema, path, identify)`      | one JSON value per line                           |
-| `Dataset.directory(folder, options)`         | every file with an extension, in name order       |
-| `Dataset.optional(config, schema, identify)` | a JSON file named by a config, or nothing         |
+| Constructor | Reads |
+| --- | --- |
+| `Dataset.fromIterable(entries, identify)` | values in memory |
+| `Dataset.fromEffect(effect, identify)` | values an effect returns |
+| `Dataset.stream(stream, identify)` | values a stream emits |
+| `Dataset.json(schema, path, identify)` | a JSON array, decoding each entry with the schema |
+| `Dataset.jsonl(schema, path, identify)` | one JSON value per line |
+| `Dataset.directory(folder, options)` | every file with an extension, in name order |
+| `Dataset.optional(config, schema, identify)` | a JSON file named by a config, or nothing |
 
 `identify` gives the id (`id`) and the tags (`tags`) of an input. Put `Dataset.skip(id, reason, { tags })` among the entries to list a case that cannot run yet; it shows in the report. A tag filter keeps the skips that carry one of its tags, so `--tag store:outlet` still lists the skipped pages of that store. `Dataset.filter({ ids, tags, limit })` keeps the matching entries and then the first `limit` of them, skips included, as a golden set limits its pages. `Dataset.sample({ size, seed, stratifyBy })` and `Dataset.concat(other)` also return a new dataset. A sample with the same seed draws the same cases; `stratifyBy: "group"` keeps the share of each `group:<name>` tag.
 
@@ -348,14 +399,14 @@ The input hash that rescore checks is the hash of the canonical JSON of the inpu
 
 `Compare` functions return an `Agreement` for two present values: `exact(equivalence?)`, `normalizedText()` (case, outer and repeated spaces), `tolerance(bigDecimal)`, `numericTolerance(n, { relative? })`, `similarity()` (normalized Levenshtein on code points), `tokenSimilarity({ minContained? })` (word by word, accent and punctuation blind), `subset(equivalence)` (two empty sets are `Exact`; an empty actual set against a non-empty expected one is `Different`), `custom(f)` and `mapInput(f)`.
 
-| Metric          | Kind  | Definition                                                                                                  |
-| --------------- | ----- | ----------------------------------------------------------------------------------------------------------- |
-| `answered`      | ratio | answers given, not errored, over the observations not excluded                                              |
-| `precision`     | ratio | right answers over the answers given                                                                        |
-| `recall`        | ratio | right answers over the values expected                                                                      |
-| `accuracy`      | ratio | credit (right 1, partial its score) over the evaluated observations whose expected value is known           |
-| `meanAgreement` | ratio | mean credit where both sides are present                                                                    |
-| counts          | count | `right`, `partial`, `wrong`, `missed`, `gaps`, `unscored`, `errored`, `falsePositives`, `excluded(reason?)` |
+| Metric | Kind | Definition |
+| --- | --- | --- |
+| `answered` | ratio | answers given, not errored, over the observations not excluded |
+| `precision` | ratio | right answers over the answers given |
+| `recall` | ratio | right answers over the values expected |
+| `accuracy` | ratio | credit (right 1, partial its score) over the evaluated observations whose expected value is known |
+| `meanAgreement` | ratio | mean credit where both sides are present |
+| counts | count | `right`, `partial`, `wrong`, `missed`, `gaps`, `unscored`, `errored`, `falsePositives`, `excluded(reason?)` |
 
 Ratios carry a Wilson interval (`Statistics.wilson(successes, n, { confidence })`, 0.95 by default), or a seeded bootstrap interval when partial credit is involved; `meanAgreement` always takes the bootstrap interval, as its definition asks, so a run where every agreement is exact has the interval [1, 1]. A ratio with no denominator is not measurable, and a gate on it fails. `Metric.by("group")` summarizes each `group:<name>` tag; an observation that repeats a tag counts once in its group.
 
@@ -380,15 +431,15 @@ const numbers = run.variants.map((variant) => {
 
 ## Reading a run
 
-| To count                                     | Read                                                          |
-| -------------------------------------------- | ------------------------------------------------------------- |
-| Missed values, known gaps included           | `Metric.missed` + `Metric.gaps`                               |
-| Share of observations answered               | `Metric.answered`                                             |
-| Share of expected values found               | `Metric.recall`                                               |
-| Right answers over the known expected values | `Metric.accuracy`, not `Metric.answered`                      |
-| Answers given                                | `Metric.read(summary, Metric.answered).hits`                  |
-| Pending and skipped fields                   | `Metric.excluded("pending")` and `Metric.excluded("skipped")` |
-| Skipped cases                                | `run.skipped`, not excluded field observations                |
+| To count | Read |
+| --- | --- |
+| Missed values, known gaps included | `Metric.missed` + `Metric.gaps` |
+| Share of observations answered | `Metric.answered` |
+| Share of expected values found | `Metric.recall` |
+| Right answers over the known expected values | `Metric.accuracy`, not `Metric.answered` |
+| Answers given | `Metric.read(summary, Metric.answered).hits` |
+| Pending and skipped fields | `Metric.excluded("pending")` and `Metric.excluded("skipped")` |
+| Skipped cases | `run.skipped`, not excluded field observations |
 
 The summary has an "Exclusions" table with every reason, including custom reasons. It counts all observations, including those of failed cases. To count pending and skipped fields only on the cases whose task succeeded, filter by task outcome first:
 
@@ -398,7 +449,7 @@ import { Run } from "@computis/effect-eval";
 const successful = Metric.summary(
   Run.succeededObservations(run)
     .filter((scored) => scored.variant === "default")
-    .map((scored) => scored.observation),
+    .map((scored) => scored.observation)
 );
 const pending = Metric.read(successful, Metric.excluded("pending"));
 const skipped = Metric.read(successful, Metric.excluded("skipped"));
@@ -412,14 +463,14 @@ Use `gap` on `Scorer.each` or `Scorer.fields` instead of wrapping their observat
 
 The runner prints nothing. It publishes events to the reporters of `Reporter.layer` and returns the `Run` folded from the same events. The layer needs the services of every reporter in its list, such as `History` for `Reporters.history` and `FileSystem` and `Path` for `Reporters.markdown`; their union is inferred, so `Reporter.layer([Reporters.history, Reporters.markdown()])` needs no type argument.
 
-| Reporter                                              | Output                                       |
-| ----------------------------------------------------- | -------------------------------------------- |
-| `Reporters.terminal(options)`                         | progress lines and the summary view          |
+| Reporter | Output |
+| --- | --- |
+| `Reporters.terminal(options)` | progress lines and the summary view |
 | `Reporters.markdown({ file?, compareFile?, write? })` | the summary as Markdown, to a file or stdout |
-| `Reporters.html({ file, compareFile? })`              | the dashboard as one HTML file               |
-| `Reporters.json({ file?, write? })`                   | one JSON line per event                      |
-| `Reporters.history`                                   | the run in the `History` service             |
-| `Reporter.silent`                                     | nothing                                      |
+| `Reporters.html({ file, compareFile? })` | the dashboard as one HTML file |
+| `Reporters.json({ file?, write? })` | one JSON line per event |
+| `Reporters.history` | the run in the `History` service |
+| `Reporter.silent` | nothing |
 
 Write your own with `Reporter.make({ name, onRunStarted, onCaseFinished, onRunFinished, onComparison, … })`, `Reporter.fromStream(name, consume)` or `Reporter.process(name, command, args)`, which pipes JSON lines to a child process. `onRunFinished` receives the run folded from every event of the run, also when the reporter is sliding and dropped some of them. `onComparison(base, head)` draws a comparison: the terminal reporter prints it as text and the Markdown one as Markdown. A reporter that writes a file writes the comparison to its own file, `compareFile`, by default the report's name with `.compare` before the extension (`.eval/report.html` → `.eval/report.compare.html`), so the run report stays; `Reporter.compare(base, head)` sends one to every installed reporter that has it, redacted for those that do not accept sensitive data when either run is sensitive. Then adjust it:
 
@@ -437,7 +488,9 @@ const slack = Reporter.make({
 });
 
 Runner.run(ticketRouting, { variants }).pipe(
-  Effect.provide(Reporter.layer([Reporter.required(slack), Reporters.terminal()])),
+  Effect.provide(
+    Reporter.layer([Reporter.required(slack), Reporters.terminal()])
+  )
 );
 ```
 
@@ -460,12 +513,21 @@ A selector names a stored run: `History.id(id)`, `History.latest`, `History.base
 The CLI and the reporter names read `eval.config.ts` (or `.mts`, `.js`, `.mjs`) from the working folder or one of its parents. A reporter module path in the config is relative to the folder of the config; a `--reporter` path is relative to the working folder.
 
 ```ts
-import { ChartHtml, ChartMermaid, EvalConfig, View } from "@computis/effect-eval";
+import {
+  ChartHtml,
+  ChartMermaid,
+  EvalConfig,
+  View,
+} from "@computis/effect-eval";
 import * as ChartUnicode from "@computis/effect-eval/chart-unicode";
 
 export default EvalConfig.define({
   history: { baseBranch: "main", directory: ".eval/history" },
-  renderer: View.firstOf(ChartHtml.renderer(), ChartMermaid.renderer(), ChartUnicode.renderer()),
+  renderer: View.firstOf(
+    ChartHtml.renderer(),
+    ChartMermaid.renderer(),
+    ChartUnicode.renderer()
+  ),
   reporters: ["terminal", "history", ["html", { file: ".eval/report.html" }]],
   view: View.summary,
 });
@@ -480,10 +542,10 @@ The base branch of `History.baseline` comes from `EVAL_BASE_BRANCH`, then from `
 `EvalCli.command` turns an eval into an `effect/cli` command.
 
 ```ts
+import { EvalCli } from "@computis/effect-eval";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { Command } from "effect/cli";
-import { EvalCli } from "@computis/effect-eval";
 
 const cli = EvalCli.command({
   eval: () => ticketRouting,
@@ -498,22 +560,22 @@ cli.pipe(
   Command.run({ version: "1.0.0" }),
   Effect.provide(ticketRouterLayer),
   Effect.provide(NodeServices.layer),
-  NodeRuntime.runMain,
+  NodeRuntime.runMain
 );
 ```
 
-| Flag                            | Effect                                                          |
-| ------------------------------- | --------------------------------------------------------------- |
-| `--variant <name>`              | run this variant; repeat it for more, a repeated name runs once |
-| `--case`, `--tag`, `--limit`    | filter the dataset                                              |
-| `--sample <size>[:<seed>]`      | run a seeded sample                                             |
-| `--trials`, `--concurrency`     | override the eval; `--trials` must be positive                  |
-| `--reporter <name or path>`     | replace the reporters of `eval.config.ts`; repeat it for more   |
-| `--format text\|json\|markdown` | replace the stdout reporter; history and file reporters stay    |
-| `--no-history`                  | keep the run out of the history, whatever reporter stores it    |
-| `--rescore <run>`               | score a stored run again: an id, `latest` or `baseline`         |
-| `--baseline <run>`              | compare with a stored run and fail on regressions               |
-| `--yes`                         | confirm a plan above `budget.confirmAbove`                      |
+| Flag | Effect |
+| --- | --- |
+| `--variant <name>` | run this variant; repeat it for more, a repeated name runs once |
+| `--case`, `--tag`, `--limit` | filter the dataset |
+| `--sample <size>[:<seed>]` | run a seeded sample |
+| `--trials`, `--concurrency` | override the eval; `--trials` must be positive |
+| `--reporter <name or path>` | replace the reporters of `eval.config.ts`; repeat it for more |
+| `--format text\|json\|markdown` | replace the stdout reporter; history and file reporters stay |
+| `--no-history` | keep the run out of the history, whatever reporter stores it |
+| `--rescore <run>` | score a stored run again: an id, `latest` or `baseline` |
+| `--baseline <run>` | compare with a stored run and fail on regressions |
+| `--yes` | confirm a plan above `budget.confirmAbove` |
 
 The command prints the plan, warnings and logs to stderr, never to stdout, and exits with a non-zero code when a gate fails. `--format` replaces every built-in that writes to stdout: a name, a `[name, options]` without a `file`, or a value whose `destination` is `stdout`, such as `Reporters.terminal()` or `Reporters.json()`. Reporters that write a file (`Reporters.markdown({ file })`, a `["json", { file }]`, html), in any of these forms, the history and custom reporters stay. It loads the `--baseline` run once, before the run, and uses it for the gate, for the "Δ baseline" of the summary in every report (`Runner.run`'s `reportBaseline`) and for the comparison, which goes through the chosen reporters: the terminal reporter prints it as text, the Markdown one as Markdown, a file reporter writes it to its `compareFile` next to the run report, and `--format json` keeps stdout to JSON lines. Two subcommands read the history without calling the task: `history [--branch] [--variant] [--limit]` lists the runs, with the accuracy of each variant, and `compare <base> <head> [--reporter] [--format]` compares two of them through the same reporters, redacted when either run is sensitive. The run and both subcommands read and write the history of the eval's own `name`; `name` of the command is only the CLI word, so a command `golden-set` for the eval `product-extraction` keeps one history. The subcommands take the command's own flags too and build the eval from them to read its name, without running it. `evalName` names the history without building the eval; when it is not the eval's name, the run fails with `EvalConfigError`. A reporter module is replaced by `--format` like a value: by its `destination` once it is loaded.
 
@@ -535,19 +597,19 @@ Inside `it.effect`, timeouts of the task and timestamps of the run use the real 
 
 A `View` is a list of blocks: sections, rows, tabs, texts, badges, tables and figures. `View.summary(run, history)`, `View.compare(base, head)` and `View.dashboard(run, history)` build the standard ones. The summary has a "Cases" section with the cases that succeeded and failed per variant and trial, counted from the stored outputs and their failures (so a page is one case however many fields it has), and a "Groups" section with the accuracy, recall and precision of each `group:` tag when the run has groups. A figure holds a `Chart` and a table to show when no renderer can draw it.
 
-| Renderer                                              | Draws                                                                 |
-| ----------------------------------------------------- | --------------------------------------------------------------------- |
-| `ViewText.render(view, { width, color, renderer? })`  | text for the terminal; a row folds into a column when it does not fit |
-| `ViewMarkdown.render(view, { renderer? })`            | Markdown                                                              |
-| `ViewHtml.render(view, { title, renderer?, theme? })` | one HTML page, every text escaped                                     |
+| Renderer | Draws |
+| --- | --- |
+| `ViewText.render(view, { width, color, renderer? })` | text for the terminal; a row folds into a column when it does not fit |
+| `ViewMarkdown.render(view, { renderer? })` | Markdown |
+| `ViewHtml.render(view, { title, renderer?, theme? })` | one HTML page, every text escaped |
 
-| Chart renderer                      | Output                                                                                                          |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `ChartUnicode.renderer({ color? })` | bars, maps and plots in Unicode                                                                                 |
+| Chart renderer | Output |
+| --- | --- |
+| `ChartUnicode.renderer({ color? })` | bars, maps and plots in Unicode |
 | `ChartVega.terminal({ protocol? })` | a PNG inline with the kitty or iTerm protocol, or `terminal-image`; none on CI or when stdout is not a terminal |
-| `ChartVega.svg()`                   | an SVG through Vega-Lite                                                                                        |
-| `ChartMermaid.renderer()`           | a Mermaid `xychart-beta` for trend, variants and delta charts                                                   |
-| `ChartHtml.renderer()`              | a `vegaEmbed` call for an HTML page                                                                             |
+| `ChartVega.svg()` | an SVG through Vega-Lite |
+| `ChartMermaid.renderer()` | a Mermaid `xychart-beta` for trend, variants and delta charts |
+| `ChartHtml.renderer()` | a `vegaEmbed` call for an HTML page |
 
 A chart renderer returns a `Drawing`, `View.drawing(kind, content)`, whose kind says where it can go: `html` (`ChartHtml`, `ChartVega.svg`), `markdown` (`ChartMermaid`), `terminal` (`ChartVega.terminal`, coloured `ChartUnicode`) or `text` (plain `ChartUnicode`). Each view takes only the kinds it can show and falls back to the table otherwise: HTML puts a `text` drawing escaped in a `<pre>` and inserts only `html` as markup, Markdown puts `text` in a code fence longer than any run of backticks in it, and the terminal takes `text` and `terminal`. `ChartHtml` escapes every `<`, `>` and `&` of the spec it embeds, so no label can close or open a script. `View.firstOf(a, b)` tries renderers in order and takes the first drawing of a kind the target accepts. `Chart.toVegaLite(chart, theme)` returns the Vega-Lite spec of any chart. `Theme.computis` is the default theme; pass your own `theme` to any renderer. A theme gives a colour to each of the eight verdicts, which case maps use.
 
@@ -556,10 +618,15 @@ Charts place runs by run id and show the date and short sha only as labels. `Cha
 ```ts
 const text = ViewText.render(View.summary(run), {
   color: true,
-  renderer: View.firstOf(ChartVega.terminal(), ChartUnicode.renderer({ color: true })),
+  renderer: View.firstOf(
+    ChartVega.terminal(),
+    ChartUnicode.renderer({ color: true })
+  ),
   width: 100,
 });
-const markdown = ViewMarkdown.render(View.summary(run), { renderer: ChartMermaid.renderer() });
+const markdown = ViewMarkdown.render(View.summary(run), {
+  renderer: ChartMermaid.renderer(),
+});
 const html = ViewHtml.render(View.dashboard(run), {
   renderer: ChartHtml.renderer(),
   title: run.eval,
@@ -570,16 +637,16 @@ const html = ViewHtml.render(View.dashboard(run), {
 
 Every error is a `Data.TaggedError` with a `code`. A task that fails is never one of them: it becomes an `errored` observation.
 
-| Error                | When                                                                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `EvalDatasetError`   | a dataset file cannot be read or decoded, or two cases share an id                                                                                                             |
-| `EvalPrivacyError`   | `Dataset.guard` finds a match; it lists every finding                                                                                                                          |
-| `EvalBudgetExceeded` | the plan is above `confirmAbove` and the run is not confirmed                                                                                                                  |
-| `EvalGateFailed`     | one or more gates failed                                                                                                                                                       |
-| `EvalHistoryError`   | the history cannot be read, or no run matches the selector                                                                                                                     |
-| `EvalConfigError`    | `eval.config.ts` or a reporter module cannot be loaded, `trials` is not a positive integer, or the variants are empty, repeat a name or are not in the stored run of a rescore |
-| `EvalReporterFailed` | a required reporter failed                                                                                                                                                     |
-| `EvalReporterError`  | `Reporter.process` exited with a non-zero code                                                                                                                                 |
+| Error | When |
+| --- | --- |
+| `EvalDatasetError` | a dataset file cannot be read or decoded, or two cases share an id |
+| `EvalPrivacyError` | `Dataset.guard` finds a match; it lists every finding |
+| `EvalBudgetExceeded` | the plan is above `confirmAbove` and the run is not confirmed |
+| `EvalGateFailed` | one or more gates failed |
+| `EvalHistoryError` | the history cannot be read, or no run matches the selector |
+| `EvalConfigError` | `eval.config.ts` or a reporter module cannot be loaded, `trials` is not a positive integer, or the variants are empty, repeat a name or are not in the stored run of a rescore |
+| `EvalReporterFailed` | a required reporter failed |
+| `EvalReporterError` | `Reporter.process` exited with a non-zero code |
 
 ## License
 

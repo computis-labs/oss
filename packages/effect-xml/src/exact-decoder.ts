@@ -1,4 +1,5 @@
 import { Array, Match, Schema, SchemaAST, SchemaIssue } from "effect";
+
 import type { XmlObject } from "./encoder.ts";
 
 const exactNodes = new WeakMap<SchemaAST.AST, SchemaAST.AST>();
@@ -12,7 +13,9 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
 
   const rebuilt: SchemaAST.AST = Match.value(ast).pipe(
     Match.when(
-      (node: SchemaAST.AST): node is SchemaAST.AST & { readonly encoding: SchemaAST.Encoding } =>
+      (
+        node: SchemaAST.AST
+      ): node is SchemaAST.AST & { readonly encoding: SchemaAST.Encoding } =>
         node.encoding !== undefined,
       (node) => {
         const last = Array.lastNonEmpty(node.encoding);
@@ -27,29 +30,36 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
           ...node,
           encoding: Array.append(
             Array.initNonEmpty(node.encoding),
-            new SchemaAST.Link(to, last.transformation),
+            new SchemaAST.Link(to, last.transformation)
           ),
         };
 
         Reflect.setPrototypeOf(copy, Reflect.getPrototypeOf(node));
 
         return copy;
-      },
+      }
     ),
     Match.when(SchemaAST.isObjects, (objects) => {
       if (objects.propertySignatures.length === 0) {
         return objects;
       }
 
-      const declared = new Set(objects.propertySignatures.map((property) => property.name));
+      const declared = new Set(
+        objects.propertySignatures.map((property) => property.name)
+      );
 
-      const rejectUndeclared = new SchemaAST.Filter<XmlObject>((input, self) => {
-        const key = Object.keys(input).find((name) => !declared.has(name));
+      const rejectUndeclared = new SchemaAST.Filter<XmlObject>(
+        (input, self) => {
+          const key = Object.keys(input).find((name) => !declared.has(name));
 
-        return key === undefined
-          ? undefined
-          : new SchemaIssue.Pointer([key], new SchemaIssue.UnexpectedKey(self, input[key]));
-      });
+          return key === undefined
+            ? undefined
+            : new SchemaIssue.Pointer(
+                [key],
+                new SchemaIssue.UnexpectedKey(self, input[key])
+              );
+        }
+      );
 
       return new SchemaAST.Objects(
         SchemaAST.mapOrSame(objects.propertySignatures, (property) => {
@@ -64,7 +74,7 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
         objects.checks,
         undefined,
         objects.context,
-        [rejectUndeclared, ...(objects.encodingChecks ?? [])],
+        [rejectUndeclared, ...(objects.encodingChecks ?? [])]
       );
     }),
     Match.when(SchemaAST.isArrays, (arrays) => {
@@ -81,7 +91,7 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
             arrays.checks,
             undefined,
             arrays.context,
-            arrays.encodingChecks,
+            arrays.encodingChecks
           );
     }),
     Match.when(SchemaAST.isUnion, (union) => {
@@ -96,7 +106,7 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
             union.checks,
             undefined,
             union.context,
-            union.encodingChecks,
+            union.encodingChecks
           );
     }),
     Match.when(SchemaAST.isSuspend, (suspend) => {
@@ -110,10 +120,10 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
             suspend.annotations,
             suspend.checks,
             undefined,
-            suspend.context,
+            suspend.context
           );
     }),
-    Match.orElse(() => ast),
+    Match.orElse(() => ast)
   );
 
   exactNodes.set(ast, rebuilt);
@@ -122,4 +132,6 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
 };
 
 export const exactDecoder = <S extends Schema.Top>(schema: S) =>
-  Schema.make<Schema.Decoder<S["Type"], S["DecodingServices"]>>(exact(schema.ast));
+  Schema.make<Schema.Decoder<S["Type"], S["DecodingServices"]>>(
+    exact(schema.ast)
+  );

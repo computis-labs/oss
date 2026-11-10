@@ -1,29 +1,36 @@
 import { setFailed } from "@actions/core";
-import { thrownMessage } from "./thrown-message.ts";
 import { Cause, Effect, Layer, Logger, ManagedRuntime, Option } from "effect";
 import type { Redacted } from "effect";
+
 import { ActionClient } from "./action-client.ts";
 import { ActionContext } from "./action-context.ts";
 import { ActionRunner } from "./action-runner.ts";
 import { ActionSummary } from "./action-summary.ts";
 import { isActionFailure } from "./errors/action-failure.ts";
 import { PlatformMissing } from "./errors/platform-missing.ts";
+import { thrownMessage } from "./thrown-message.ts";
 
-export type ActionRequirements = ActionRunner | ActionContext | ActionClient | ActionSummary;
+export type ActionRequirements =
+  | ActionRunner
+  | ActionContext
+  | ActionClient
+  | ActionSummary;
 
-export const layer = (token: Redacted.Redacted): Layer.Layer<ActionRequirements> =>
+export const layer = (
+  token: Redacted.Redacted
+): Layer.Layer<ActionRequirements> =>
   Layer.mergeAll(
     ActionRunner.layer,
     ActionContext.layer,
     ActionClient.layer(token),
-    ActionSummary.layer,
+    ActionSummary.layer
   );
 
 export const layerConfig = Layer.mergeAll(
   ActionRunner.layer,
   ActionContext.layer,
   ActionClient.layerConfig,
-  ActionSummary.layer,
+  ActionSummary.layer
 );
 
 export const runMain = <A, E>(
@@ -32,12 +39,16 @@ export const runMain = <A, E>(
     readonly disableErrorReporting?: boolean;
     readonly disablePrettyLogger?: boolean;
     readonly token?: Redacted.Redacted;
-  } = {},
+  } = {}
 ) => {
   const program = effect.pipe(
-    Effect.provide(options.token === undefined ? layerConfig : layer(options.token)),
+    Effect.provide(
+      options.token === undefined ? layerConfig : layer(options.token)
+    ),
     Effect.tapCause(
-      Effect.fn("Action.reportFailure")(function* reportFailure<F>(cause: Cause.Cause<F>) {
+      Effect.fn("Action.reportFailure")(function* reportFailure<F>(
+        cause: Cause.Cause<F>
+      ) {
         if (Cause.hasInterruptsOnly(cause)) {
           return;
         }
@@ -53,13 +64,15 @@ export const runMain = <A, E>(
               isActionFailure(error)
                 ? error.displayMessage
                 : thrownMessage(error, Cause.pretty(cause)),
-          }),
+          })
         );
-      }),
+      })
     ),
     Effect.provide(
-      options.disablePrettyLogger === true ? Layer.empty : Logger.layer([Logger.consolePretty()]),
-    ),
+      options.disablePrettyLogger === true
+        ? Layer.empty
+        : Logger.layer([Logger.consolePretty()])
+    )
   );
 
   Effect.runFork(
@@ -70,15 +83,16 @@ export const runMain = <A, E>(
       Effect.flatMap((NodeRuntime) =>
         Effect.sync(() => {
           NodeRuntime.runMain(program, { disableErrorReporting: true });
-        }),
+        })
       ),
       Effect.catchTag("PlatformMissing", (missing) =>
         Effect.sync(() => {
           setFailed(missing.message);
-        }),
-      ),
-    ),
+        })
+      )
+    )
   );
 };
 
-export const makeRuntime = (token: Redacted.Redacted) => ManagedRuntime.make(layer(token));
+export const makeRuntime = (token: Redacted.Redacted) =>
+  ManagedRuntime.make(layer(token));

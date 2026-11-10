@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Option, Schema, Stream, pipe } from "effect";
+
 import * as Dataset from "../src/dataset.ts";
 import * as Eval from "../src/eval.ts";
 import * as Events from "../src/events.ts";
@@ -14,15 +15,24 @@ const recordRun = Effect.gen(function* () {
   const events: EvalEvent[] = [];
 
   const categorize = Eval.make({
-    dataset: Dataset.fromIterable(["rent", "fuel", "fail", Dataset.skip("gone", "no truth")], {
-      id: (id: string) => id,
-      tags: () => ["group:bank"],
-    }),
+    dataset: Dataset.fromIterable(
+      ["rent", "fuel", "fail", Dataset.skip("gone", "no truth")],
+      {
+        id: (id: string) => id,
+        tags: () => ["group:bank"],
+      }
+    ),
     gates: [Gate.min(Metric.accuracy, 0.5)],
     name: "categorizer",
     output: Schema.String,
-    score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
-    task: (input) => (input.id === "fail" ? Effect.fail("timeout") : Effect.succeed(input.input)),
+    score: Scorer.label<string, string>({
+      actual: Option.some,
+      expected: Scorer.present,
+    }),
+    task: (input) =>
+      input.id === "fail"
+        ? Effect.fail("timeout")
+        : Effect.succeed(input.input),
     trials: 2,
   });
 
@@ -31,10 +41,10 @@ const recordRun = Effect.gen(function* () {
       Reporter.layer([
         Reporter.fromStream(
           "recording",
-          Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+          Stream.runForEach((event) => Effect.sync(() => events.push(event)))
         ),
-      ]),
-    ),
+      ])
+    )
   );
 
   return events;
@@ -47,7 +57,9 @@ describe("Events.encodeLine and decodeLine", () => {
 
       const decoded = yield* pipe(
         events,
-        Effect.forEach((event) => Events.encodeLine(event).pipe(Effect.flatMap(Events.decodeLine))),
+        Effect.forEach((event) =>
+          Events.encodeLine(event).pipe(Effect.flatMap(Events.decodeLine))
+        )
       );
 
       expect(decoded).toEqual(events);
@@ -61,7 +73,7 @@ describe("Events.encodeLine and decodeLine", () => {
         events.some(Events.isGateEvaluated),
         events.some(Events.isRunFinished),
       ]).toEqual([true, true, true, true, true, true, true, true]);
-    }),
+    })
   );
 
   it.effect("writes one JSON object per line with the events version", () =>
@@ -70,14 +82,14 @@ describe("Events.encodeLine and decodeLine", () => {
       const line = first === undefined ? "" : yield* Events.encodeLine(first);
 
       expect(line).not.toContain("\n");
-      expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(line)).toMatchObject(
-        {
-          eval: "categorizer",
-          sequence: 0,
-          version: 1,
-        },
-      );
-    }),
+      expect(
+        yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(line)
+      ).toMatchObject({
+        eval: "categorizer",
+        sequence: 0,
+        version: 1,
+      });
+    })
   );
 
   it.effect("refuses a line of another events version", () =>
@@ -86,10 +98,10 @@ describe("Events.encodeLine and decodeLine", () => {
       const line = first === undefined ? "" : yield* Events.encodeLine(first);
 
       const failure = yield* Effect.flip(
-        Events.decodeLine(line.replace('"version":1', '"version":2')),
+        Events.decodeLine(line.replace('"version":1', '"version":2'))
       );
 
       expect(Schema.isSchemaError(failure)).toBe(true);
-    }),
+    })
   );
 });

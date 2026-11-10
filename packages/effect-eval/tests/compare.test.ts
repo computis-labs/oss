@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { BigDecimal, Equivalence } from "effect";
+
 import * as Agreement from "../src/agreement.ts";
 import * as Compare from "../src/compare.ts";
 
@@ -9,15 +10,17 @@ describe("Compare.exact", () => {
   it("agrees on equal values and disagrees on different ones", () => {
     const compare = Compare.exact<string>();
 
-    expect([compare("IT01234567890", "IT01234567890"), compare("IT01234567890", "IT0")]).toEqual([
-      Agreement.exact,
-      Agreement.different,
-    ]);
+    expect([
+      compare("IT01234567890", "IT01234567890"),
+      compare("IT01234567890", "IT0"),
+    ]).toEqual([Agreement.exact, Agreement.different]);
   });
 
   it("uses the equivalence it receives", () => {
     const compare = Compare.exact(
-      Equivalence.mapInput(Equivalence.String, (text: string) => text.toLowerCase()),
+      Equivalence.mapInput(Equivalence.String, (text: string) =>
+        text.toLowerCase()
+      )
     );
 
     expect(compare("Rossi", "ROSSI")).toEqual(Agreement.exact);
@@ -26,11 +29,15 @@ describe("Compare.exact", () => {
 
 describe("Compare.normalizedText", () => {
   it("ignores case, outer spaces and repeated inner spaces", () => {
-    expect(Compare.normalizedText()("  Via  Roma 1 ", "via roma 1")).toEqual(Agreement.exact);
+    expect(Compare.normalizedText()("  Via  Roma 1 ", "via roma 1")).toEqual(
+      Agreement.exact
+    );
   });
 
   it("disagrees when the words differ", () => {
-    expect(Compare.normalizedText()("Via Roma 1", "Via Roma 2")).toEqual(Agreement.different);
+    expect(Compare.normalizedText()("Via Roma 1", "Via Roma 2")).toEqual(
+      Agreement.different
+    );
   });
 });
 
@@ -39,8 +46,14 @@ describe("Compare.tolerance", () => {
     const compare = Compare.tolerance(BigDecimal.fromStringUnsafe("0.01"));
 
     expect([
-      compare(BigDecimal.fromStringUnsafe("100.00"), BigDecimal.fromStringUnsafe("100.01")),
-      compare(BigDecimal.fromStringUnsafe("100.00"), BigDecimal.fromStringUnsafe("100.02")),
+      compare(
+        BigDecimal.fromStringUnsafe("100.00"),
+        BigDecimal.fromStringUnsafe("100.01")
+      ),
+      compare(
+        BigDecimal.fromStringUnsafe("100.00"),
+        BigDecimal.fromStringUnsafe("100.02")
+      ),
     ]).toEqual([Agreement.exact, Agreement.different]);
   });
 });
@@ -49,13 +62,19 @@ describe("Compare.numericTolerance", () => {
   it("compares the absolute difference by default", () => {
     const compare = Compare.numericTolerance(0.5);
 
-    expect([compare(10, 10.5), compare(10, 10.6)]).toEqual([Agreement.exact, Agreement.different]);
+    expect([compare(10, 10.5), compare(10, 10.6)]).toEqual([
+      Agreement.exact,
+      Agreement.different,
+    ]);
   });
 
   it("scales the tolerance by the expected value when relative", () => {
     const compare = Compare.numericTolerance(0.1, { relative: true });
 
-    expect([compare(200, 219), compare(200, 221)]).toEqual([Agreement.exact, Agreement.different]);
+    expect([compare(200, 219), compare(200, 221)]).toEqual([
+      Agreement.exact,
+      Agreement.different,
+    ]);
   });
 });
 
@@ -65,7 +84,9 @@ describe("Compare.similarity", () => {
   });
 
   it("agrees exactly on texts equal after normalization", () => {
-    expect(Compare.similarity()("Bianchi Srl", "BIANCHI SRL")).toEqual(Agreement.exact);
+    expect(Compare.similarity()("Bianchi Srl", "BIANCHI SRL")).toEqual(
+      Agreement.exact
+    );
   });
 
   it("disagrees on texts with nothing in common", () => {
@@ -85,32 +106,36 @@ describe("Compare.levenshteinRatio", () => {
 
 describe("Compare.tokenSimilarity", () => {
   it("agrees when the expected name is contained in the actual one", () => {
-    expect(Compare.tokenSimilarity()("Bianchi Software", "Bianchi Software S.r.l.")).toEqual(
-      Agreement.exact,
-    );
+    expect(
+      Compare.tokenSimilarity()("Bianchi Software", "Bianchi Software S.r.l.")
+    ).toEqual(Agreement.exact);
   });
 
   it("ignores accents and punctuation", () => {
-    expect(Compare.tokenSimilarity()("Caffè Nerò", "CAFFE' NERO")).toEqual(Agreement.exact);
+    expect(Compare.tokenSimilarity()("Caffè Nerò", "CAFFE' NERO")).toEqual(
+      Agreement.exact
+    );
   });
 
   it("treats a name glued into one word as contained in the spaced one", () => {
-    expect(Compare.tokenSimilarity()("BianchiSoftware", "Bianchi Software Srl")).toEqual(
-      Agreement.exact,
-    );
+    expect(
+      Compare.tokenSimilarity()("BianchiSoftware", "Bianchi Software Srl")
+    ).toEqual(Agreement.exact);
   });
 
   it("falls back to the compact similarity when the name is shorter than minContained", () => {
     const agreement = Compare.tokenSimilarity({ minContained: 20 })(
       "BianchiSoftware",
-      "Bianchi Software Srl",
+      "Bianchi Software Srl"
     );
 
     expect(scoreOf(agreement)).toBeCloseTo(15 / 18);
   });
 
   it("gives partial credit when only some of the expected words match", () => {
-    const score = scoreOf(Compare.tokenSimilarity()("Mario Rossi", "Mario Bianchi"));
+    const score = scoreOf(
+      Compare.tokenSimilarity()("Mario Rossi", "Mario Bianchi")
+    );
 
     expect(score).toBeGreaterThan(0.5);
     expect(score).toBeLessThan(1);
@@ -121,15 +146,21 @@ describe("Compare.subset", () => {
   const compare = Compare.subset(Equivalence.String);
 
   it("agrees when both sides hold the same items in any order", () => {
-    expect(compare(["INV-1", "INV-2"], ["INV-2", "INV-1"])).toEqual(Agreement.exact);
+    expect(compare(["INV-1", "INV-2"], ["INV-2", "INV-1"])).toEqual(
+      Agreement.exact
+    );
   });
 
   it("gives partial credit for a non empty subset of the expected items", () => {
-    expect(compare(["INV-1", "INV-2", "INV-3"], ["INV-1"])).toEqual(Agreement.partial(1 / 3));
+    expect(compare(["INV-1", "INV-2", "INV-3"], ["INV-1"])).toEqual(
+      Agreement.partial(1 / 3)
+    );
   });
 
   it("disagrees when the actual side has an item that was not expected", () => {
-    expect(compare(["INV-1", "INV-2"], ["INV-1", "INV-9"])).toEqual(Agreement.different);
+    expect(compare(["INV-1", "INV-2"], ["INV-1", "INV-9"])).toEqual(
+      Agreement.different
+    );
   });
 
   it("disagrees when the actual side is empty", () => {
@@ -141,16 +172,20 @@ describe("Compare.subset", () => {
   });
 
   it("counts a repeated item once", () => {
-    expect(compare(["INV-1", "INV-2"], ["INV-1", "INV-1"])).toEqual(Agreement.partial(1 / 2));
+    expect(compare(["INV-1", "INV-2"], ["INV-1", "INV-1"])).toEqual(
+      Agreement.partial(1 / 2)
+    );
   });
 });
 
 describe("Compare.custom and Compare.mapInput", () => {
   it("compares a field read from a record with a custom comparator", () => {
-    const compare = Compare.mapInput((supplier: { readonly vat: string }) => supplier.vat)(
+    const compare = Compare.mapInput(
+      (supplier: { readonly vat: string }) => supplier.vat
+    )(
       Compare.custom<string>((expected, actual) =>
-        expected === actual ? Agreement.exact : Agreement.partial(0.5),
-      ),
+        expected === actual ? Agreement.exact : Agreement.partial(0.5)
+      )
     );
 
     expect([

@@ -23,30 +23,40 @@ export const assemblePdf = (objects: readonly Uint8Array[]) => {
   const header = latin1("%PDF-1.7\n");
 
   const chunks = objects.map((body, index) =>
-    concat([latin1(`${(index + 1).toString()} 0 obj\n`), body, latin1("\nendobj\n")]),
+    concat([
+      latin1(`${(index + 1).toString()} 0 obj\n`),
+      body,
+      latin1("\nendobj\n"),
+    ])
   );
 
-  const offsets = Arr.scan(chunks, header.length, (position, chunk) => position + chunk.length);
+  const offsets = Arr.scan(
+    chunks,
+    header.length,
+    (position, chunk) => position + chunk.length
+  );
 
   const table = [
     "xref",
     `0 ${(objects.length + 1).toString()}`,
     "0000000000 65535 f ",
-    ...offsets.slice(0, -1).map((offset) => `${offset.toString().padStart(10, "0")} 00000 n `),
+    ...offsets
+      .slice(0, -1)
+      .map((offset) => `${offset.toString().padStart(10, "0")} 00000 n `),
   ].join("\n");
 
   return concat([
     header,
     ...chunks,
     latin1(
-      `${table}\ntrailer\n<< /Size ${(objects.length + 1).toString()} /Root 1 0 R >>\nstartxref\n${(offsets.at(-1) ?? 0).toString()}\n%%EOF\n`,
+      `${table}\ntrailer\n<< /Size ${(objects.length + 1).toString()} /Root 1 0 R >>\nstartxref\n${(offsets.at(-1) ?? 0).toString()}\n%%EOF\n`
     ),
   ]);
 };
 
 export const onePagePdf = (
   content: string,
-  xobjects: Readonly<Record<string, Uint8Array>> = {},
+  xobjects: Readonly<Record<string, Uint8Array>> = {}
 ) => {
   const names = Object.keys(xobjects);
   const fontNumber = 5 + names.length;
@@ -59,7 +69,7 @@ export const onePagePdf = (
     latin1("<< /Type /Catalog /Pages 2 0 R >>"),
     latin1("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
     latin1(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.width.toString()} ${A4.height.toString()}] /Resources << /XObject << ${xobjectRefs} >> /Font << /F1 ${fontNumber.toString()} 0 R >> >> /Contents 4 0 R >>`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.width.toString()} ${A4.height.toString()}] /Resources << /XObject << ${xobjectRefs} >> /Font << /F1 ${fontNumber.toString()} 0 R >> >> /Contents 4 0 R >>`
     ),
     pdfStream("", latin1(content)),
     ...Object.values(xobjects),
@@ -73,11 +83,13 @@ const BILEVEL_ROW_BYTES = Math.ceil(BILEVEL_WIDTH / 8);
 
 export const bilevelScan = {
   height: BILEVEL_HEIGHT,
-  rows: Uint8Array.from({ length: BILEVEL_ROW_BYTES * BILEVEL_HEIGHT }, (_, index) =>
-    Math.floor(index / BILEVEL_ROW_BYTES) < BILEVEL_HEIGHT / 2 &&
-    (index % BILEVEL_ROW_BYTES) % 2 === 0
-      ? 0x0f
-      : 0xff,
+  rows: Uint8Array.from(
+    { length: BILEVEL_ROW_BYTES * BILEVEL_HEIGHT },
+    (_, index) =>
+      Math.floor(index / BILEVEL_ROW_BYTES) < BILEVEL_HEIGHT / 2 &&
+      (index % BILEVEL_ROW_BYTES) % 2 === 0
+        ? 0x0f
+        : 0xff
   ),
   width: BILEVEL_WIDTH,
 } as const;
@@ -85,7 +97,7 @@ export const bilevelScan = {
 export const bilevelImage = () =>
   pdfStream(
     `/Type /XObject /Subtype /Image /Width ${bilevelScan.width.toString()} /Height ${bilevelScan.height.toString()} /ColorSpace /DeviceGray /BitsPerComponent 1`,
-    bilevelScan.rows,
+    bilevelScan.rows
   );
 
 export const fullPage = (name: string) =>
@@ -107,7 +119,7 @@ export const scanPdf = ({
       ...(hiddenText === undefined ? [] : [textAt(hiddenText, HIDDEN)]),
       ...(visibleText === undefined ? [] : [textAt(visibleText, VISIBLE)]),
     ].join(""),
-    { Scan: bilevelImage() },
+    { Scan: bilevelImage() }
   );
 
 export const scanPageKinds = {
@@ -122,14 +134,18 @@ export const scanPageKinds = {
 export type ScanPageKind = (typeof scanPageKinds)[keyof typeof scanPageKinds];
 
 const OVERSIZED_SIDE = 4224;
-const OVERSIZED_RUNS = (OVERSIZED_SIDE * OVERSIZED_SIDE) / RUN_LENGTH_MAX_REPEAT;
+
+const OVERSIZED_RUNS =
+  (OVERSIZED_SIDE * OVERSIZED_SIDE) / RUN_LENGTH_MAX_REPEAT;
+
 const WHITE = 255;
 const pagePlacement = `${A4.width.toString()} 0 0 ${A4.height.toString()} 0 0 cm`;
 const halfHeight = (A4.height / 2).toString();
 
 const ocrLines = Array.from(
   { length: 5 },
-  (_, index) => `Riga ${(index + 1).toString()} del testo letto dallo scanner sotto l'immagine`,
+  (_, index) =>
+    `Riga ${(index + 1).toString()} del testo letto dallo scanner sotto l'immagine`
 );
 
 const scanContent = {
@@ -148,28 +164,33 @@ const scanContent = {
       `1 0 0 1 40 ${(A4.height - 60).toString()} Tm`,
       ...ocrLines.map((line) => `(${line}) Tj T*`),
       "ET",
-    ].join("\n"),
+    ].join("\n")
   ),
   strips: latin1(
     `q ${A4.width.toString()} 0 0 ${halfHeight} 0 0 cm /Im1 Do Q\n` +
-      `q ${A4.width.toString()} 0 0 ${halfHeight} 0 ${halfHeight} cm /Im1 Do Q`,
+      `q ${A4.width.toString()} 0 0 ${halfHeight} 0 ${halfHeight} cm /Im1 Do Q`
   ),
 } satisfies Record<ScanPageKind, Uint8Array>;
 
 export const scansPdf = (pages: readonly ScanPageKind[]) => {
   const firstPage = 7;
-  const kids = pages.map((_, index) => `${(firstPage + index * 2).toString()} 0 R`).join(" ");
+
+  const kids = pages
+    .map((_, index) => `${(firstPage + index * 2).toString()} 0 R`)
+    .join(" ");
 
   return assemblePdf([
     latin1("<< /Type /Catalog /Pages 2 0 R >>"),
-    latin1(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length.toString()} >>`),
+    latin1(
+      `<< /Type /Pages /Kids [${kids}] /Count ${pages.length.toString()} >>`
+    ),
     pdfStream(
       "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
-      Uint8Array.of(WHITE),
+      Uint8Array.of(WHITE)
     ),
     pdfStream(
       `/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Matrix [${pagePlacement.replace(" cm", "")}] /Resources << /XObject << /Im1 3 0 R >> >>`,
-      latin1("/Im1 Do"),
+      latin1("/Im1 Do")
     ),
     pages.includes(scanPageKinds.oversized)
       ? pdfStream(
@@ -180,13 +201,13 @@ export const scansPdf = (pages: readonly ScanPageKind[]) => {
               0,
             ]).flat(),
             RUN_LENGTH_END,
-          ]),
+          ])
         )
       : latin1("null"),
     latin1("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
     ...pages.flatMap((page, index) => [
       latin1(
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.width.toString()} ${A4.height.toString()}] /Resources << /XObject << /Im1 3 0 R /Fm1 4 0 R /Big 5 0 R >> /Font << /F1 6 0 R >> >> /Contents ${(firstPage + index * 2 + 1).toString()} 0 R >>`,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.width.toString()} ${A4.height.toString()}] /Resources << /XObject << /Im1 3 0 R /Fm1 4 0 R /Big 5 0 R >> /Font << /F1 6 0 R >> >> /Contents ${(firstPage + index * 2 + 1).toString()} 0 R >>`
       ),
       pdfStream("", scanContent[page]),
     ]),

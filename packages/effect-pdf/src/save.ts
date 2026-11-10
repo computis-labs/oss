@@ -1,4 +1,5 @@
 import * as Result from "effect/Result";
+
 import { PdfSaveError } from "./errors/pdf-save-error.ts";
 import type { PdfHandle } from "./handle.ts";
 
@@ -12,13 +13,21 @@ const ascii = new TextEncoder();
 export const saveDocument = (
   { document, lib }: PdfHandle,
   incremental: boolean,
-  signatureFields: ReadonlySet<number>,
+  signatureFields: ReadonlySet<number>
 ): Result.Result<Uint8Array<ArrayBuffer>, PdfSaveError> => {
   const writer = lib.PDFiumExt_OpenFileWriter();
 
   try {
-    if (!lib.FPDF_SaveAsCopy(document, writer, incremental ? INCREMENTAL : NO_INCREMENTAL)) {
-      return Result.fail(new PdfSaveError({ message: "PDFium could not write the document." }));
+    if (
+      !lib.FPDF_SaveAsCopy(
+        document,
+        writer,
+        incremental ? INCREMENTAL : NO_INCREMENTAL
+      )
+    ) {
+      return Result.fail(
+        new PdfSaveError({ message: "PDFium could not write the document." })
+      );
     }
 
     const size = lib.PDFiumExt_GetFileWriterSize(writer);
@@ -54,7 +63,7 @@ export const saveDocument = (
       return Result.fail(
         new PdfSaveError({
           message: `The signature field in object ${missing.objectNumber.toString()} was not written as PDFium writes it, so it could not be marked as a signature field.`,
-        }),
+        })
       );
     }
 

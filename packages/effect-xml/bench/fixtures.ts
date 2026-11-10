@@ -4,7 +4,10 @@ import type { Baseline } from "./baseline.ts";
 
 export const makeFixtures = (baseline: Baseline) =>
   fatturaFixtures.map(({ fattura, name }) => {
-    const xml = baseline.buildDocument("pretty", baseline.encodeFattura(fattura));
+    const xml = baseline.buildDocument(
+      "pretty",
+      baseline.encodeFattura(fattura)
+    );
 
     return {
       bytes: new TextEncoder().encode(xml).byteLength,

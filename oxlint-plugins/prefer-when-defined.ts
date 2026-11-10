@@ -1,6 +1,6 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
+
 import { isObject, isString } from "./predicates.ts";
 
 const unwrap = (expression: ESTree.Expression): ESTree.Expression => {
@@ -24,16 +24,25 @@ const isNullish = (expression: ESTree.Expression | ESTree.PrivateIdentifier) =>
 const nullishBranches = (node: ESTree.ConditionalExpression) => {
   const test = unwrap(node.test);
 
-  if (test.type !== "BinaryExpression" || !(isNullish(test.left) || isNullish(test.right))) {
+  if (
+    test.type !== "BinaryExpression" ||
+    !(isNullish(test.left) || isNullish(test.right))
+  ) {
     return undefined;
   }
 
   if (test.operator === "===" || test.operator === "==") {
-    return { defined: unwrap(node.alternate), missing: unwrap(node.consequent) };
+    return {
+      defined: unwrap(node.alternate),
+      missing: unwrap(node.consequent),
+    };
   }
 
   if (test.operator === "!==" || test.operator === "!=") {
-    return { defined: unwrap(node.consequent), missing: unwrap(node.alternate) };
+    return {
+      defined: unwrap(node.consequent),
+      missing: unwrap(node.alternate),
+    };
   }
 
   return undefined;
@@ -49,7 +58,7 @@ type Argument = ESTree.CallExpression["arguments"][number];
 const addsKeysOnly = (
   text: (node: ESTree.Node) => string,
   missing: readonly Argument[],
-  defined: readonly Argument[],
+  defined: readonly Argument[]
 ) => {
   const last = defined.at(-1);
 
@@ -64,7 +73,8 @@ const addsKeysOnly = (
 
   if (
     shared.some(
-      (argument, index) => missing[index] === undefined || text(argument) !== text(missing[index]),
+      (argument, index) =>
+        missing[index] === undefined || text(argument) !== text(missing[index])
     )
   ) {
     return false;
@@ -80,11 +90,16 @@ const addsKeysOnly = (
 
   if (base.type === "ObjectExpression") {
     const baseKeys = base.properties.map(text);
-    return keys.length > baseKeys.length && baseKeys.every((key) => keys.includes(key));
+    return (
+      keys.length > baseKeys.length &&
+      baseKeys.every((key) => keys.includes(key))
+    );
   }
 
   return last.properties.some(
-    (property) => property.type === "SpreadElement" && text(property.argument) === text(base),
+    (property) =>
+      property.type === "SpreadElement" &&
+      text(property.argument) === text(base)
   );
 };
 
@@ -123,7 +138,11 @@ const preferWhenDefined = defineRule({
           text(missing.callee) === text(defined.callee) &&
           addsKeysOnly(text, missing.arguments, defined.arguments)
         ) {
-          context.report({ data: { helper }, messageId: "duplicatedCall", node });
+          context.report({
+            data: { helper },
+            messageId: "duplicatedCall",
+            node,
+          });
         }
       },
     };
@@ -234,5 +253,8 @@ const noMembershipSet = defineRule({
 
 export default definePlugin({
   meta: { name: "object-policy" },
-  rules: { "no-membership-set": noMembershipSet, "prefer-when-defined": preferWhenDefined },
+  rules: {
+    "no-membership-set": noMembershipSet,
+    "prefer-when-defined": preferWhenDefined,
+  },
 });

@@ -14,8 +14,9 @@ import {
   pipe,
 } from "effect";
 import type { Scope } from "effect";
-import { withLive } from "./clock.ts";
+
 import * as Bus from "./bus.ts";
+import { withLive } from "./clock.ts";
 import * as Dataset from "./dataset.ts";
 import type { Case, FilterOptions, Loaded, SampleOptions } from "./dataset.ts";
 import { EvalBudgetExceeded } from "./errors/eval-budget-exceeded.ts";
@@ -47,7 +48,11 @@ export interface Selection {
 
 export type ResolvedBaseline = History.ResolvedBaseline;
 
-export interface Options<ROut = never, VE = never, RIn = never> extends Selection {
+export interface Options<
+  ROut = never,
+  VE = never,
+  RIn = never,
+> extends Selection {
   readonly variants?: readonly Variant<ROut, VE, RIn>[];
   readonly trials?: number;
   readonly concurrency?: number;
@@ -72,16 +77,24 @@ const UNHASHED = "unhashed";
 const BUDGET = "budget: the run reached its maxCalls";
 const NOT_STORED = "missing: the stored run has no output for this case";
 const STALE = "stale: the input changed since the stored run";
-const UNDECODABLE = "undecodable: the stored output does not match the output schema";
+
+const UNDECODABLE =
+  "undecodable: the stored output does not match the output schema";
+
 const UNENCODABLE = "unencodable";
 const exhausted = { reason: BUDGET } as const;
 
 export const validVariants = (names: readonly string[]) => {
-  const repeated = [...new Set(names.filter((name, index) => names.indexOf(name) !== index))];
+  const repeated = [
+    ...new Set(names.filter((name, index) => names.indexOf(name) !== index)),
+  ];
 
   if (names.length === 0) {
     return Effect.fail(
-      new EvalConfigError({ message: "Choose at least one variant.", path: "variants" }),
+      new EvalConfigError({
+        message: "Choose at least one variant.",
+        path: "variants",
+      })
     );
   }
 
@@ -91,25 +104,34 @@ export const validVariants = (names: readonly string[]) => {
         new EvalConfigError({
           message: `Every variant needs its own name, but ${repeated.join(", ")} appears more than once.`,
           path: "variants",
-        }),
+        })
       );
 };
 
-const NO_CODEC = "missing: the eval declares no output schema, so no output was stored";
+const NO_CODEC =
+  "missing: the eval declares no output schema, so no output was stored";
+
 const LINE_BREAK = "\n";
 
 const liveMillis = withLive(Clock.currentTimeMillis);
 
-const failureMessage = Schema.decodeUnknownOption(Schema.Struct({ message: Schema.String }));
+const failureMessage = Schema.decodeUnknownOption(
+  Schema.Struct({ message: Schema.String })
+);
 
 const failureOf = (cause: Cause.Cause<unknown>) =>
   Option.getOrElse(
-    Option.map(failureMessage(Cause.squash(cause)), (failure) => failure.message),
+    Option.map(
+      failureMessage(Cause.squash(cause)),
+      (failure) => failure.message
+    ),
     () => {
       const pretty = Cause.pretty(cause).split(LINE_BREAK)[0] ?? "";
 
-      return pretty.startsWith("Error: ") ? pretty.slice("Error: ".length) : pretty;
-    },
+      return pretty.startsWith("Error: ")
+        ? pretty.slice("Error: ".length)
+        : pretty;
+    }
   );
 
 const isJson = Schema.is(Schema.Json);
@@ -130,26 +152,39 @@ export const validTrials = (trials: number) =>
         new EvalConfigError({
           message: `The trials must be a positive integer, got ${String(trials)}.`,
           path: "trials",
-        }),
+        })
       );
 
 const trialsOf = <A, O, E, DE, R, DR, SR>(
   self: Eval<A, O, E, DE, R, DR, SR>,
-  trials: number | undefined,
-) => validTrials(self.trials).pipe(Effect.andThen(validTrials(trials ?? self.trials)));
+  trials: number | undefined
+) =>
+  validTrials(self.trials).pipe(
+    Effect.andThen(validTrials(trials ?? self.trials))
+  );
 
-const select = <A, O, E, DE, R, DR, SR>(self: Eval<A, O, E, DE, R, DR, SR>, selection: Selection) =>
+const select = <A, O, E, DE, R, DR, SR>(
+  self: Eval<A, O, E, DE, R, DR, SR>,
+  selection: Selection
+) =>
   Dataset.load(
     pipe(
       self.dataset,
       (dataset) =>
-        selection.filter === undefined ? dataset : Dataset.filter(selection.filter)(dataset),
+        selection.filter === undefined
+          ? dataset
+          : Dataset.filter(selection.filter)(dataset),
       (dataset) =>
-        selection.sample === undefined ? dataset : Dataset.sample(selection.sample)(dataset),
-    ),
+        selection.sample === undefined
+          ? dataset
+          : Dataset.sample(selection.sample)(dataset)
+    )
   );
 
-const hashCases = <A, O, E, DE, R, DR, SR>(self: Eval<A, O, E, DE, R, DR, SR>, loaded: Loaded<A>) =>
+const hashCases = <A, O, E, DE, R, DR, SR>(
+  self: Eval<A, O, E, DE, R, DR, SR>,
+  loaded: Loaded<A>
+) =>
   pipe(
     loaded.cases,
     Effect.forEach((input) =>
@@ -160,20 +195,28 @@ const hashCases = <A, O, E, DE, R, DR, SR>(self: Eval<A, O, E, DE, R, DR, SR>, l
             Option.match({
               onNone: () => Effect.succeed(UNHASHED),
               onSome: (json) => sha256(canonical(json)),
-            }),
+            })
           ),
         onSome: (hash) => sha256(hash(input.input)),
-      }).pipe(Effect.map((hash) => [input.id, hash] as const)),
+      }).pipe(Effect.map((hash) => [input.id, hash] as const))
     ),
-    Effect.map((entries) => new Map(entries)),
+    Effect.map((entries) => new Map(entries))
   );
 
-export const plan = Effect.fn("Eval.plan")(function* planRun<A, O, E, DE, R, DR, SR>(
+export const plan = Effect.fn("Eval.plan")(function* planRun<
+  A,
+  O,
+  E,
+  DE,
+  R,
+  DR,
+  SR,
+>(
   self: Eval<A, O, E, DE, R, DR, SR>,
   options: Selection & {
     readonly variants?: number;
     readonly trials?: number;
-  } = {},
+  } = {}
 ) {
   const trials = yield* trialsOf(self, options.trials);
   const loaded = yield* select(self, options);
@@ -200,15 +243,19 @@ interface BatchResult<O> {
 
 type Obtain<A, O, R> = (
   batch: Array.NonEmptyReadonlyArray<Case<A>>,
-  record: (usage: Usage) => Effect.Effect<void>,
+  record: (usage: Usage) => Effect.Effect<void>
 ) => Effect.Effect<BatchResult<O>, never, R>;
 
 interface Source<A, O, R> {
   readonly rescoreOf: Option.Option<string>;
-  readonly judgements: (variant: string, trial: number, id: string) => readonly Judgement[];
-  readonly open: (
+  readonly judgements: (
     variant: string,
     trial: number,
+    id: string
+  ) => readonly Judgement[];
+  readonly open: (
+    variant: string,
+    trial: number
   ) => Effect.Effect<Obtain<A, O, R>, never, R | Scope.Scope>;
 }
 
@@ -233,7 +280,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
     readonly source: Source<A, O, R>;
     readonly baselines: readonly ResolvedBaseline[];
     readonly reportBaseline: Option.Option<History.Selector>;
-  },
+  }
 ) {
   const batches = batchesOf(self.execution, loaded.cases);
   const reporters = yield* Reporters;
@@ -248,7 +295,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
   const hashes = yield* hashCases(self, loaded);
 
   const datasetHash = yield* sha256(
-    [...hashes].map(([id, hash]) => `${id}:${hash}`).join(LINE_BREAK),
+    [...hashes].map(([id, hash]) => `${id}:${hash}`).join(LINE_BREAK)
   );
 
   const history = yield* Effect.serviceOption(History.History);
@@ -260,12 +307,14 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
         ...Gate.baselinesOf(self.gates),
         Option.getOrElse(settings.reportBaseline, () => History.baseline()),
       ],
-      Equal.equals,
+      Equal.equals
     ),
     Effect.forEach((selector) =>
       Option.match(
         Option.fromNullishOr(
-          settings.baselines.find(([candidate]) => Equal.equals(candidate, selector)),
+          settings.baselines.find(([candidate]) =>
+            Equal.equals(candidate, selector)
+          )
         ),
         {
           onNone: () =>
@@ -274,19 +323,21 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
               onSome: (service) =>
                 History.resolve(self.name, selector, variantNames).pipe(
                   Effect.provideService(History.History, service),
-                  Effect.option,
+                  Effect.option
                 ),
             }),
           onSome: ([, found]) => Effect.succeed(found),
-        },
-      ).pipe(Effect.map((found): ResolvedBaseline => [selector, found])),
-    ),
+        }
+      ).pipe(Effect.map((found): ResolvedBaseline => [selector, found]))
+    )
   );
 
   const baselines: Gate.Baselines = (selector) =>
     Option.flatMap(
-      Option.fromNullishOr(resolved.find(([candidate]) => Equal.equals(candidate, selector))),
-      ([, found]) => found,
+      Option.fromNullishOr(
+        resolved.find(([candidate]) => Equal.equals(candidate, selector))
+      ),
+      ([, found]) => found
     );
 
   return yield* Effect.scoped(
@@ -336,54 +387,70 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                     failedReporters,
                     interrupted,
                     passed,
-                    unreportedUsage: [...new Set(pending.map((entry) => entry.variant))].map(
-                      (variant) => ({
-                        usage: Usages.total(
-                          pending.flatMap((entry) =>
-                            entry.variant === variant ? [entry.usage] : [],
-                          ),
-                        ),
-                        variant,
-                      }),
-                    ),
+                    unreportedUsage: [
+                      ...new Set(pending.map((entry) => entry.variant)),
+                    ].map((variant) => ({
+                      usage: Usages.total(
+                        pending.flatMap((entry) =>
+                          entry.variant === variant ? [entry.usage] : []
+                        )
+                      ),
+                      variant,
+                    })),
                   });
-                }),
+                })
           ),
-          Effect.uninterruptible,
+          Effect.uninterruptible
         );
 
-      const scoreCase = (variant: string, trial: number, input: Case<A>, outcome: Outcome<O>) =>
+      const scoreCase = (
+        variant: string,
+        trial: number,
+        input: Case<A>,
+        outcome: Outcome<O>
+      ) =>
         Effect.gen(function* scoreMetered() {
           const spent = yield* Ref.make(Usages.empty);
           const made = yield* Ref.make<readonly Judgement[]>([]);
-          const recordUnreported = pend(scoreUnit(variant, trial, input.id), variant);
+
+          const recordUnreported = pend(
+            scoreUnit(variant, trial, input.id),
+            variant
+          );
 
           const observations = yield* self.score(input, outcome).pipe(
             Effect.provideService(Meter, {
               record: (usage) =>
                 Effect.uninterruptible(
-                  Ref.update(spent, (current) => Usages.add(current, usage)).pipe(
-                    Effect.andThen(recordUnreported(usage)),
-                  ),
+                  Ref.update(spent, (current) =>
+                    Usages.add(current, usage)
+                  ).pipe(Effect.andThen(recordUnreported(usage)))
                 ),
             }),
             Effect.provideService(
               Judgements,
-              memory(settings.source.judgements(variant, trial, input.id), (judgement) =>
-                Ref.update(made, (current) => [...current, judgement]),
-              ),
-            ),
+              memory(
+                settings.source.judgements(variant, trial, input.id),
+                (judgement) =>
+                  Ref.update(made, (current) => [...current, judgement])
+              )
+            )
           );
 
           const keys = observations.map((observation) => observation.key);
-          const repeated = [...new Set(keys.filter((key, index) => keys.indexOf(key) !== index))];
+
+          const repeated = [
+            ...new Set(
+              keys.filter((key, index) => keys.indexOf(key) !== index)
+            ),
+          ];
 
           if (repeated.length > 0) {
             return yield* new EvalConfigError({
               message: `The scorer gave case ${input.id} more than one observation with the key ${repeated
                 .map((key) => JSON.stringify(key))
                 .join(
-                  ", ",
+                  ", "
                 )}. Give each label or set of Scorer.all its own key, each judge its own name and each field its own key.`,
               path: "score",
             });
@@ -400,19 +467,25 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
         variant: string,
         trial: number,
         obtain: Obtain<A, O, R>,
-        batch: Array.NonEmptyReadonlyArray<Case<A>>,
+        batch: Array.NonEmptyReadonlyArray<Case<A>>
       ) =>
         Effect.gen(function* scoreBatchRun() {
           yield* Effect.forEach(
             batch,
             (input) =>
-              bus.emit({ _tag: "CaseStarted", case: input.id, tags: input.tags, trial, variant }),
-            { discard: true },
+              bus.emit({
+                _tag: "CaseStarted",
+                case: input.id,
+                tags: input.tags,
+                trial,
+                variant,
+              }),
+            { discard: true }
           );
 
           const obtained = yield* obtain(
             batch,
-            pend(taskUnit(variant, trial, batch[0].id), variant),
+            pend(taskUnit(variant, trial, batch[0].id), variant)
           );
 
           return yield* Effect.forEach(
@@ -423,12 +496,16 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                   Array.get(obtained.outcomes, index),
                   () =>
                     Result.fail(
-                      `The task returned ${String(obtained.outcomes.length)} outputs for ${String(batch.length)} cases.`,
-                    ),
+                      `The task returned ${String(obtained.outcomes.length)} outputs for ${String(batch.length)} cases.`
+                    )
                 );
 
                 const scored = yield* scoreCase(variant, trial, input, outcome);
-                const usage = Usages.add(index === 0 ? obtained.usage : Usages.empty, scored.usage);
+
+                const usage = Usages.add(
+                  index === 0 ? obtained.usage : Usages.empty,
+                  scored.usage
+                );
 
                 const common = {
                   case: input.id,
@@ -443,7 +520,11 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
 
                 const event = yield* Result.match(outcome, {
                   onFailure: (failure) =>
-                    Effect.succeed<EventBody>({ ...common, _tag: "CaseErrored", failure }),
+                    Effect.succeed<EventBody>({
+                      ...common,
+                      _tag: "CaseErrored",
+                      failure,
+                    }),
                   onSuccess: (output) =>
                     Option.match(self.output, {
                       onNone: () =>
@@ -457,14 +538,14 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                             onFailure: (error) => ({
                               output: Option.none<Schema.Json>(),
                               outputError: Option.some(
-                                `${UNENCODABLE}: ${error.message.split(LINE_BREAK)[0] ?? ""}`,
+                                `${UNENCODABLE}: ${error.message.split(LINE_BREAK)[0] ?? ""}`
                               ),
                             }),
                             onSuccess: (encoded) => ({
                               output: Option.some(encoded),
                               outputError: Option.none<string>(),
                             }),
-                          }),
+                          })
                         ),
                     }).pipe(
                       Effect.tap(({ outputError }) =>
@@ -474,15 +555,15 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                             Effect.logWarning(
                               self.sensitive
                                 ? `The output of ${input.id} was not stored: ${UNENCODABLE}; the eval is sensitive, so the reason stays in the run`
-                                : `The output of ${input.id} was not stored: ${reason}`,
+                                : `The output of ${input.id} was not stored: ${reason}`
                             ),
-                        }),
+                        })
                       ),
                       Effect.map((stored): EventBody => ({
                         ...common,
                         ...stored,
                         _tag: "CaseFinished",
-                      })),
+                      }))
                     ),
                 });
 
@@ -493,10 +574,12 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                       Effect.andThen(
                         settle([
                           scoreUnit(variant, trial, input.id),
-                          ...(index === 0 ? [taskUnit(variant, trial, input.id)] : []),
-                        ]),
-                      ),
-                    ),
+                          ...(index === 0
+                            ? [taskUnit(variant, trial, input.id)]
+                            : []),
+                        ])
+                      )
+                    )
                 );
 
                 return {
@@ -509,15 +592,20 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                   usage,
                 };
               }),
-            { discard: false },
+            { discard: false }
           );
         });
 
       const body = Effect.gen(function* runBody() {
         yield* Effect.forEach(
           loaded.skipped,
-          (skipped) => bus.emit({ _tag: "CaseSkipped", id: skipped.id, reason: skipped.reason }),
-          { discard: true },
+          (skipped) =>
+            bus.emit({
+              _tag: "CaseSkipped",
+              id: skipped.id,
+              reason: skipped.reason,
+            }),
+          { discard: true }
         );
 
         const variantRuns = yield* Effect.forEach(
@@ -543,21 +631,28 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                                   trial,
                                   variant: variant.name,
                                 },
-                              }),
+                              })
                             ),
-                          { concurrency: settings.concurrency },
-                        ),
-                      ),
-                    ),
+                          { concurrency: settings.concurrency }
+                        )
+                      )
+                    )
                   ).pipe(
                     Effect.withSpan("Eval.trial", {
-                      attributes: { eval: self.name, trial, variant: variant.name },
-                    }),
+                      attributes: {
+                        eval: self.name,
+                        trial,
+                        variant: variant.name,
+                      },
+                    })
                   ),
-                { discard: false },
+                { discard: false }
               );
 
-              const flat = results.flatMap((trialResults) => trialResults.flat());
+              const flat = results.flatMap((trialResults) =>
+                trialResults.flat()
+              );
+
               const usage = Usages.total(flat.map((result) => result.usage));
 
               const summarized = variantRun(
@@ -565,7 +660,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                 flat.flatMap((result) => result.scored),
                 settings.trials,
                 usage,
-                (yield* liveMillis) - variantStart,
+                (yield* liveMillis) - variantStart
               );
 
               yield* bus.emit({
@@ -583,18 +678,28 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
               Effect.withSpan("Eval.variant", {
                 attributes: { eval: self.name, variant: variant.name },
               }),
-              Effect.provide(variant.layer),
+              Effect.provide(variant.layer)
             ),
-          { concurrency: "unbounded" },
+          { concurrency: "unbounded" }
         );
 
-        const results = Gate.evaluate(self.gates, variantRuns, baselines, Number.POSITIVE_INFINITY);
-        yield* Effect.forEach(results, (result) => bus.emit({ ...result, _tag: "GateEvaluated" }), {
-          discard: true,
-        });
+        const results = Gate.evaluate(
+          self.gates,
+          variantRuns,
+          baselines,
+          Number.POSITIVE_INFINITY
+        );
+
+        yield* Effect.forEach(
+          results,
+          (result) => bus.emit({ ...result, _tag: "GateEvaluated" }),
+          {
+            discard: true,
+          }
+        );
         yield* finish(
           results.every((result) => result.passed),
-          false,
+          false
         );
       });
 
@@ -620,14 +725,16 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
           .pipe(
             Effect.andThen(restore(body)),
             Effect.exit,
-            Effect.tap((outcome) => (Exit.isSuccess(outcome) ? Effect.void : finish(false, true))),
+            Effect.tap((outcome) =>
+              Exit.isSuccess(outcome) ? Effect.void : finish(false, true)
+            ),
             Effect.flatMap((outcome) =>
               bus.close.pipe(
                 Effect.exit,
-                Effect.map((closed) => ({ closed, outcome })),
-              ),
-            ),
-          ),
+                Effect.map((closed) => ({ closed, outcome }))
+              )
+            )
+          )
       );
 
       yield* exit.outcome;
@@ -636,25 +743,45 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
       const run: Run = { ...folded, failedReporters };
 
       return run;
-    }),
+    })
   ).pipe(
     Effect.provideService(History.ResolvedBaselines, resolved),
-    Effect.provideService(History.ReportBaseline, settings.reportBaseline),
+    Effect.provideService(History.ReportBaseline, settings.reportBaseline)
   );
 });
 
-const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, ROut, VE, RIn>(
+const runWith = Effect.fn("Eval.run")(function* runEval<
+  A,
+  O,
+  E,
+  DE,
+  R,
+  DR,
+  SR,
+  ROut,
+  VE,
+  RIn,
+>(
   self: Eval<A, O, E, DE, R, DR, SR>,
-  options: Options<ROut, VE, RIn> & { readonly variants: readonly Variant<ROut, VE, RIn>[] },
+  options: Options<ROut, VE, RIn> & {
+    readonly variants: readonly Variant<ROut, VE, RIn>[];
+  }
 ) {
   const trials = yield* trialsOf(self, options.trials);
   yield* validVariants(options.variants.map((variant) => variant.name));
   const loaded = yield* select(self, options);
   const variantCount = options.variants.length;
-  const invocations = batchesOf(self.execution, loaded.cases).length * variantCount * trials;
+
+  const invocations =
+    batchesOf(self.execution, loaded.cases).length * variantCount * trials;
+
   const limit = self.budget.confirmAbove;
 
-  if (limit !== undefined && invocations > limit && options.confirmed !== true) {
+  if (
+    limit !== undefined &&
+    invocations > limit &&
+    options.confirmed !== true
+  ) {
     return yield* new EvalBudgetExceeded({ limit, planned: invocations });
   }
 
@@ -668,14 +795,16 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
         Effect.flatMap((prepared) =>
           Exit.isFailure(prepared) && Cause.hasInterrupts(prepared.cause)
             ? Effect.orDie(Effect.failCause(prepared.cause))
-            : Effect.succeed(prepared),
+            : Effect.succeed(prepared)
         ),
         Effect.map((prepared): Obtain<A, O, R> =>
           Exit.match(prepared, {
             onFailure: (cause) => (batch) =>
               Effect.succeed({
                 durationMs: 0,
-                outcomes: batch.map(() => Result.fail(`setup: ${failureOf(cause)}`)),
+                outcomes: batch.map(() =>
+                  Result.fail(`setup: ${failureOf(cause)}`)
+                ),
                 usage: Usages.empty,
               }),
             onSuccess:
@@ -688,10 +817,17 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                   const meter = {
                     record: (usage: Usage) =>
                       Effect.uninterruptible(
-                        Ref.update(spent, (current) => Usages.add(current, usage)).pipe(
-                          Effect.andThen(Ref.update(recordedCalls, (count) => count + usage.calls)),
-                          Effect.andThen(recordUnreported(usage)),
-                        ),
+                        Ref.update(spent, (current) =>
+                          Usages.add(current, usage)
+                        ).pipe(
+                          Effect.andThen(
+                            Ref.update(
+                              recordedCalls,
+                              (count) => count + usage.calls
+                            )
+                          ),
+                          Effect.andThen(recordUnreported(usage))
+                        )
                       ),
                   };
 
@@ -700,52 +836,54 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                   const task = (): Effect.Effect<readonly O[], unknown, R> =>
                     Effect.suspend(() => runner(batch));
 
-                  const attempt: Effect.Effect<readonly O[], unknown, R> = Ref.modify(
-                    calls,
-                    (used): readonly [boolean, number] =>
-                      maxCalls !== undefined && used >= maxCalls ? [false, used] : [true, used + 1],
-                  ).pipe(
-                    Effect.flatMap((allowed) =>
-                      allowed
-                        ? Ref.get(recordedCalls).pipe(
-                            Effect.flatMap((before) =>
-                              task().pipe(
-                                Effect.onInterrupt(() =>
-                                  Ref.get(recordedCalls).pipe(
-                                    Effect.flatMap((after) =>
-                                      after === before
-                                        ? meter.record(Usages.fromRecorded({}))
-                                        : Effect.void,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                        : Effect.fail(exhausted),
-                    ),
-                  );
+                  const attempt: Effect.Effect<readonly O[], unknown, R> =
+                    Ref.modify(calls, (used): readonly [boolean, number] =>
+                      maxCalls !== undefined && used >= maxCalls
+                        ? [false, used]
+                        : [true, used + 1]
+                    ).pipe(
+                      Effect.flatMap((allowed) =>
+                        allowed
+                          ? Ref.get(recordedCalls).pipe(
+                              Effect.flatMap((before) =>
+                                task().pipe(
+                                  Effect.onInterrupt(() =>
+                                    Ref.get(recordedCalls).pipe(
+                                      Effect.flatMap((after) =>
+                                        after === before
+                                          ? meter.record(
+                                              Usages.fromRecorded({})
+                                            )
+                                          : Effect.void
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          : Effect.fail(exhausted)
+                      )
+                    );
 
-                  const timed: Effect.Effect<readonly O[], unknown, R> = Option.match(
-                    self.timeout,
-                    {
+                  const timed: Effect.Effect<readonly O[], unknown, R> =
+                    Option.match(self.timeout, {
                       onNone: () => attempt,
                       onSome: (duration) => Effect.timeout(attempt, duration),
-                    },
-                  );
+                    });
 
-                  const guarded: Effect.Effect<readonly O[], unknown, R> = Option.match(
-                    self.retry,
-                    {
+                  const guarded: Effect.Effect<readonly O[], unknown, R> =
+                    Option.match(self.retry, {
                       onNone: () => timed,
                       onSome: (schedule) =>
-                        Effect.retry(timed, { schedule, while: (error) => error !== exhausted }),
-                    },
-                  );
+                        Effect.retry(timed, {
+                          schedule,
+                          while: (error) => error !== exhausted,
+                        }),
+                    });
 
                   const exit = yield* withLive(guarded).pipe(
                     Effect.provideService(Meter, meter),
-                    Effect.exit,
+                    Effect.exit
                   );
 
                   if (Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)) {
@@ -756,12 +894,16 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                     onFailure: (cause) =>
                       batch.map(() =>
                         Result.fail(
-                          Option.contains(Cause.findErrorOption(cause), exhausted)
+                          Option.contains(
+                            Cause.findErrorOption(cause),
+                            exhausted
+                          )
                             ? BUDGET
-                            : failureOf(cause),
-                        ),
+                            : failureOf(cause)
+                        )
                       ),
-                    onSuccess: (outputs) => outputs.map((output) => Result.succeed(output)),
+                    onSuccess: (outputs) =>
+                      outputs.map((output) => Result.succeed(output)),
                   });
 
                   return {
@@ -770,8 +912,8 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
                     usage: yield* Ref.get(spent),
                   };
                 }),
-          }),
-        ),
+          })
+        )
       ),
     rescoreOf: Option.none(),
   };
@@ -784,7 +926,10 @@ const runWith = Effect.fn("Eval.run")(function* runEval<A, O, E, DE, R, DR, SR, 
     trials,
   };
 
-  return yield* execute(self, loaded, { ...settings, variants: options.variants });
+  return yield* execute(self, loaded, {
+    ...settings,
+    variants: options.variants,
+  });
 });
 
 export type RunError<DE> =
@@ -796,15 +941,17 @@ export type RunError<DE> =
 
 export function run<A, O, E, DE, R, DR, SR>(
   self: Eval<A, O, E, DE, R, DR, SR>,
-  options?: Options & { readonly variants?: undefined },
+  options?: Options & { readonly variants?: undefined }
 ): Effect.Effect<Run, RunError<DE>, R | DR | SR>;
 export function run<A, O, E, DE, R, DR, SR, ROut, VE, RIn>(
   self: Eval<A, O, E, DE, R, DR, SR>,
-  options: Options<ROut, VE, RIn> & { readonly variants: readonly Variant<ROut, VE, RIn>[] },
+  options: Options<ROut, VE, RIn> & {
+    readonly variants: readonly Variant<ROut, VE, RIn>[];
+  }
 ): Effect.Effect<Run, RunError<DE> | VE, Exclude<R | SR, ROut> | RIn | DR>;
 export function run<A, O, E, DE, R, DR, SR, ROut, VE, RIn>(
   self: Eval<A, O, E, DE, R, DR, SR>,
-  options: Options<ROut, VE, RIn> = {},
+  options: Options<ROut, VE, RIn> = {}
 ) {
   return options.variants === undefined
     ? runWith(self, { ...options, variants: [Variants.none] })
@@ -826,7 +973,7 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
     readonly variants?: readonly string[];
     readonly baselines?: readonly ResolvedBaseline[];
     readonly reportBaseline?: History.Selector;
-  } = {},
+  } = {}
 ) {
   const loaded = yield* select(self, selection);
   const hashes = yield* hashCases(self, loaded);
@@ -835,7 +982,7 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
     from.outputs.map((output): readonly [string, StoredOutput] => [
       outputKey(output.variant, output.trial, output.case),
       output,
-    ]),
+    ])
   );
 
   const decode = (output: StoredOutput): Effect.Effect<Outcome<O>> =>
@@ -850,11 +997,11 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
                 Effect.match({
                   onFailure: () => Result.fail(UNDECODABLE),
                   onSuccess: (value) => Result.succeed(value),
-                }),
+                })
               ),
           }),
         onSome: (failure) => Effect.succeed(Result.fail(failure)),
-      },
+      }
     );
 
   const isFresh = (output: StoredOutput, id: string) =>
@@ -862,23 +1009,37 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
 
   const source: Source<A, O, never> = {
     judgements: (variant, trial, id) =>
-      Option.match(Option.fromNullishOr(stored.get(outputKey(variant, trial, id))), {
-        onNone: () => [],
-        onSome: (output) => (isFresh(output, id) ? output.judgements : []),
-      }),
+      Option.match(
+        Option.fromNullishOr(stored.get(outputKey(variant, trial, id))),
+        {
+          onNone: () => [],
+          onSome: (output) => (isFresh(output, id) ? output.judgements : []),
+        }
+      ),
     open: (variant, trial) =>
       Effect.succeed((batch): Effect.Effect<BatchResult<O>> =>
         pipe(
           batch,
           Effect.forEach((input) =>
-            Option.match(Option.fromNullishOr(stored.get(outputKey(variant, trial, input.id))), {
-              onNone: () => Effect.succeed(Result.fail(NOT_STORED)),
-              onSome: (output) =>
-                isFresh(output, input.id) ? decode(output) : Effect.succeed(Result.fail(STALE)),
-            }),
+            Option.match(
+              Option.fromNullishOr(
+                stored.get(outputKey(variant, trial, input.id))
+              ),
+              {
+                onNone: () => Effect.succeed(Result.fail(NOT_STORED)),
+                onSome: (output) =>
+                  isFresh(output, input.id)
+                    ? decode(output)
+                    : Effect.succeed(Result.fail(STALE)),
+              }
+            )
           ),
-          Effect.map((outcomes) => ({ durationMs: 0, outcomes, usage: Usages.empty })),
-        ),
+          Effect.map((outcomes) => ({
+            durationMs: 0,
+            outcomes,
+            usage: Usages.empty,
+          }))
+        )
       ),
     rescoreOf: Option.some(from.id),
   };
@@ -913,18 +1074,27 @@ export const rescoreRun = Effect.fn("Eval.rescoreRun")(function* rescoreStored<
   });
 });
 
-export const rescore = Effect.fn("Eval.rescore")(function* rescoreEval<A, O, E, DE, R, DR, SR>(
+export const rescore = Effect.fn("Eval.rescore")(function* rescoreEval<
+  A,
+  O,
+  E,
+  DE,
+  R,
+  DR,
+  SR,
+>(
   self: Eval<A, O, E, DE, R, DR, SR>,
   options: Selection & {
     readonly from: History.Selector;
     readonly variants?: readonly string[];
     readonly baselines?: readonly ResolvedBaseline[];
     readonly reportBaseline?: History.Selector;
-  },
+  }
 ) {
   const from = yield* History.load(self.name, options.from);
 
   return yield* rescoreRun(self, from, options);
 });
 
-export const check = (self: Run) => Gate.check(self.gates, { sensitive: self.sensitive });
+export const check = (self: Run) =>
+  Gate.check(self.gates, { sensitive: self.sensitive });

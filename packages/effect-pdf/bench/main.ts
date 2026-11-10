@@ -3,35 +3,54 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Console, Effect, FileSystem, Layer, Path } from "effect";
 import { encode } from "fast-png";
 import { Bench } from "tinybench";
-import { makeBaseline } from "./baseline.ts";
-import { BenchmarkError, attempt, formatNumber, nodePdfEngine } from "./support.ts";
-import { bilevelScanPdf, invoicePdf, jpegScanPdf } from "./fixtures.ts";
+
 import type { PdfEngine } from "../src/engine.ts";
 import { open } from "../src/index.ts";
 import { encodePng, pngScanlines } from "../src/png.ts";
 import type { Raster } from "../src/png.ts";
 import { pdfPageKinds } from "../src/types.ts";
 import type { PdfDocument } from "../src/types.ts";
+import { makeBaseline } from "./baseline.ts";
+import { bilevelScanPdf, invoicePdf, jpegScanPdf } from "./fixtures.ts";
+import {
+  BenchmarkError,
+  attempt,
+  formatNumber,
+  nodePdfEngine,
+} from "./support.ts";
 
 const RENDER_WIDTH = 900;
 const PDFJS = "pdf.js (pipeline attuale)";
 const EFFECT_PDF = "effect-pdf";
-const picturedKinds: ReadonlySet<string> = new Set([pdfPageKinds.image, pdfPageKinds.mixed]);
+
+const picturedKinds: ReadonlySet<string> = new Set([
+  pdfPageKinds.image,
+  pdfPageKinds.mixed,
+]);
 
 const picturedImages = (document: PdfDocument) =>
   Effect.gen(function* picturedPageImages() {
     const { pages } = yield* document.classify;
-    const pictured = pages.flatMap(({ kind }, index) => (picturedKinds.has(kind) ? [index] : []));
+
+    const pictured = pages.flatMap(({ kind }, index) =>
+      picturedKinds.has(kind) ? [index] : []
+    );
 
     return yield* document.pageImages({ pages: pictured });
   });
 
-const documentRaster = (width: number, height: number, bitDepth: 1 | 8): Raster => {
+const documentRaster = (
+  width: number,
+  height: number,
+  bitDepth: 1 | 8
+): Raster => {
   const channels = bitDepth === 1 ? 1 : 3;
   const rowBytes = bitDepth === 1 ? Math.ceil(width / 8) : width * channels;
 
   const data = Uint8Array.from({ length: rowBytes * height }, (_, index) =>
-    Math.floor(index / rowBytes) % 40 < 14 && (index % rowBytes) % 9 < 6 ? 0x81 : 0xff,
+    Math.floor(index / rowBytes) % 40 < 14 && (index % rowBytes) % 9 < 6
+      ? 0x81
+      : 0xff
   );
 
   return { bitDepth, channels, data, height, rowBytes, width };
@@ -43,9 +62,10 @@ const pdf = (label: string, bytes: Uint8Array) => ({
   label,
 });
 
-const onBaseline = (effect: Effect.Effect<unknown, BenchmarkError>) => async () => {
-  await Effect.runPromise(effect);
-};
+const onBaseline =
+  (effect: Effect.Effect<unknown, BenchmarkError>) => async () => {
+    await Effect.runPromise(effect);
+  };
 
 const program = Effect.gen(function* effectPdfBenchmark() {
   const fs = yield* FileSystem.FileSystem;
@@ -54,13 +74,20 @@ const program = Effect.gen(function* effectPdfBenchmark() {
   const baseline = yield* makeBaseline;
 
   const onDocument =
-    <A, E>(bytes: Uint8Array, work: (document: PdfDocument) => Effect.Effect<A, E>) =>
+    <A, E>(
+      bytes: Uint8Array,
+      work: (document: PdfDocument) => Effect.Effect<A, E>
+    ) =>
     async () => {
-      await Effect.runPromiseWith(services)(Effect.scoped(Effect.flatMap(open(bytes), work)));
+      await Effect.runPromiseWith(services)(
+        Effect.scoped(Effect.flatMap(open(bytes), work))
+      );
     };
 
   const jpeg = yield* fs.readFile(
-    yield* path.fromFileUrl(new URL("../tests/fixtures/scan.jpg", import.meta.url)),
+    yield* path.fromFileUrl(
+      new URL("../tests/fixtures/scan.jpg", import.meta.url)
+    )
   );
 
   const [invoice1, invoice8, scan1, scan5, jpegScan] = yield* attempt(
@@ -71,12 +98,15 @@ const program = Effect.gen(function* effectPdfBenchmark() {
         bilevelScanPdf(1),
         bilevelScanPdf(5),
         jpegScanPdf(jpeg),
-      ]),
+      ])
   );
 
   const rasters = [
     { label: "render RGB 900×1273", raster: documentRaster(900, 1273, 8) },
-    { label: "scansione 1 bit 1654×2339", raster: documentRaster(1654, 2339, 1) },
+    {
+      label: "scansione 1 bit 1654×2339",
+      raster: documentRaster(1654, 2339, 1),
+    },
   ];
 
   const sections: readonly {
@@ -96,51 +126,59 @@ const program = Effect.gen(function* effectPdfBenchmark() {
       comparisons: [pdf("1 pagina", invoice1), pdf("8 pagine", invoice8)].map(
         ({ bytes, kilobytes, label }) => ({
           candidate: onDocument(bytes, (document) =>
-            Effect.andThen(document.classify, document.text()),
+            Effect.andThen(document.classify, document.text())
           ),
           kilobytes,
           label,
           reference: onBaseline(baseline.importText(bytes)),
-        }),
+        })
       ),
       referenceName: PDFJS,
       title: "Import fattura da PDF testuale: classificazione + testo",
     },
     {
       candidateName: EFFECT_PDF,
-      comparisons: [pdf("1 pagina A4 a 200 dpi", scan1), pdf("5 pagine A4 a 200 dpi", scan5)].map(
-        ({ bytes, kilobytes, label }) => ({
-          candidate: onDocument(bytes, picturedImages),
-          kilobytes,
-          label,
-          reference: onBaseline(baseline.importScan(bytes)),
-        }),
-      ),
-      note: "PDFium decodifica un'immagine a 1 bit espandendola a 8 bit per pixel, ed effect-pdf la reimpacchetta a 1 bit prima del PNG; pdf.js la decodifica direttamente a 1 bit. Per questo qui effect-pdf è più lento, mentre classificazione e testo della stessa pagina sono molto più veloci.",
-      referenceName: PDFJS,
-      title: "Import fattura da scansione 1-bit: classificazione + immagini per il modello (PNG)",
-    },
-    {
-      candidateName: EFFECT_PDF,
-      comparisons: [pdf("1 pagina", jpegScan)].map(({ bytes, kilobytes, label }) => ({
+      comparisons: [
+        pdf("1 pagina A4 a 200 dpi", scan1),
+        pdf("5 pagine A4 a 200 dpi", scan5),
+      ].map(({ bytes, kilobytes, label }) => ({
         candidate: onDocument(bytes, picturedImages),
         kilobytes,
         label,
         reference: onBaseline(baseline.importScan(bytes)),
       })),
+      note: "PDFium decodifica un'immagine a 1 bit espandendola a 8 bit per pixel, ed effect-pdf la reimpacchetta a 1 bit prima del PNG; pdf.js la decodifica direttamente a 1 bit. Per questo qui effect-pdf è più lento, mentre classificazione e testo della stessa pagina sono molto più veloci.",
       referenceName: PDFJS,
-      title: "Import fattura da scansione JPEG: classificazione + immagini per il modello",
+      title:
+        "Import fattura da scansione 1-bit: classificazione + immagini per il modello (PNG)",
     },
     {
       candidateName: EFFECT_PDF,
-      comparisons: [pdf("fattura, 1 pagina", invoice1), pdf("scansione 1-bit", scan1)].map(
+      comparisons: [pdf("1 pagina", jpegScan)].map(
         ({ bytes, kilobytes, label }) => ({
-          candidate: onDocument(bytes, (document) => document.render(0, { width: RENDER_WIDTH })),
+          candidate: onDocument(bytes, picturedImages),
           kilobytes,
           label,
-          reference: onBaseline(baseline.render(bytes, RENDER_WIDTH)),
-        }),
+          reference: onBaseline(baseline.importScan(bytes)),
+        })
       ),
+      referenceName: PDFJS,
+      title:
+        "Import fattura da scansione JPEG: classificazione + immagini per il modello",
+    },
+    {
+      candidateName: EFFECT_PDF,
+      comparisons: [
+        pdf("fattura, 1 pagina", invoice1),
+        pdf("scansione 1-bit", scan1),
+      ].map(({ bytes, kilobytes, label }) => ({
+        candidate: onDocument(bytes, (document) =>
+          document.render(0, { width: RENDER_WIDTH })
+        ),
+        kilobytes,
+        label,
+        reference: onBaseline(baseline.render(bytes, RENDER_WIDTH)),
+      })),
       referenceName: PDFJS,
       title: `Render della pagina 1 a ${RENDER_WIDTH.toString()} px (PNG)`,
     },
@@ -160,7 +198,7 @@ const program = Effect.gen(function* effectPdfBenchmark() {
               depth: raster.bitDepth,
               height: raster.height,
               width: raster.width,
-            }),
+            })
           );
         },
       })),
@@ -186,10 +224,12 @@ const program = Effect.gen(function* effectPdfBenchmark() {
               const latencies = bench.tasks.flatMap((task) =>
                 task.result.state === "completed"
                   ? [{ latency: task.result.latency, name: task.name }]
-                  : [],
+                  : []
               );
 
-              const failed = bench.tasks.find((task) => task.result.state !== "completed");
+              const failed = bench.tasks.find(
+                (task) => task.result.state !== "completed"
+              );
 
               if (failed !== undefined) {
                 return yield* new BenchmarkError({ cause: failed.result });
@@ -199,10 +239,10 @@ const program = Effect.gen(function* effectPdfBenchmark() {
 
               return latencies.map(
                 ({ latency, name }) =>
-                  `| ${label} | ${formatNumber(kilobytes, 1)} | ${name} | ${formatNumber(latency.mean, 2)} | ${formatNumber(latency.p99, 2)} | ${formatNumber(referenceMean / latency.mean, 1)}× |`,
+                  `| ${label} | ${formatNumber(kilobytes, 1)} | ${name} | ${formatNumber(latency.mean, 2)} | ${formatNumber(latency.p99, 2)} | ${formatNumber(referenceMean / latency.mean, 1)}× |`
               );
-            }),
-          ),
+            })
+          )
         );
 
         return [
@@ -216,8 +256,8 @@ const program = Effect.gen(function* effectPdfBenchmark() {
           ...rows.flat(),
           "",
         ].join("\n");
-      }),
-    ),
+      })
+    )
   );
 
   const report = [
@@ -236,4 +276,6 @@ const program = Effect.gen(function* effectPdfBenchmark() {
   yield* Console.log(report);
 });
 
-NodeRuntime.runMain(program.pipe(Effect.provide(Layer.merge(nodePdfEngine(), NodeServices.layer))));
+NodeRuntime.runMain(
+  program.pipe(Effect.provide(Layer.merge(nodePdfEngine(), NodeServices.layer)))
+);

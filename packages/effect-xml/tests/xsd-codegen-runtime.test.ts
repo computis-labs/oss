@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
+
 import {
   xsdBase64Binary,
   xsdDateRange,
@@ -10,13 +11,19 @@ import {
 const isBase64 = Schema.is(Schema.String.check(xsdBase64Binary));
 
 const isAmount = Schema.is(
-  Schema.String.check(xsdDecimalRange({ maximum: "9999999999999999.99", minimum: "-1.50" })),
+  Schema.String.check(
+    xsdDecimalRange({ maximum: "9999999999999999.99", minimum: "-1.50" })
+  )
 );
 
-const isNonNegative = Schema.is(Schema.String.check(xsdDecimalRange({ minimum: "-0.0" })));
+const isNonNegative = Schema.is(
+  Schema.String.check(xsdDecimalRange({ minimum: "-0.0" }))
+);
 
 const isInvoiceDate = Schema.is(
-  Schema.String.check(xsdDateRange({ maximum: "2099-12-31", minimum: "1970-01-01" })),
+  Schema.String.check(
+    xsdDateRange({ maximum: "2099-12-31", minimum: "1970-01-01" })
+  )
 );
 
 describe("xsdBase64Binary", () => {
@@ -69,11 +76,11 @@ describe("xsdBase64Binary", () => {
 });
 
 const hasTwoCharacters = Schema.is(
-  Schema.String.check(xsdLength({ collapse: false, maximum: 2, minimum: 2 })),
+  Schema.String.check(xsdLength({ collapse: false, maximum: 2, minimum: 2 }))
 );
 
 const hasTwoCollapsedCharacters = Schema.is(
-  Schema.String.check(xsdLength({ collapse: true, maximum: 2, minimum: 2 })),
+  Schema.String.check(xsdLength({ collapse: true, maximum: 2, minimum: 2 }))
 );
 
 describe("xsdLength", () => {
@@ -158,11 +165,16 @@ describe("xsdDecimalRange", () => {
     ["100.0000000000001", false],
     ["-100.01", true],
     ["1e2", false],
-  ])("checks %j against a maximum of 100.00 on either side of 15 characters", (value, expected) => {
-    const isRate = Schema.is(Schema.String.check(xsdDecimalRange({ maximum: "100.00" })));
+  ])(
+    "checks %j against a maximum of 100.00 on either side of 15 characters",
+    (value, expected) => {
+      const isRate = Schema.is(
+        Schema.String.check(xsdDecimalRange({ maximum: "100.00" }))
+      );
 
-    expect(isRate(value)).toBe(expected);
-  });
+      expect(isRate(value)).toBe(expected);
+    }
+  );
 
   it.each([
     ["1.0000000000001", true],
@@ -176,8 +188,11 @@ describe("xsdDecimalRange", () => {
   ])("checks %j against 15-character bounds", (value, expected) => {
     const isInRange = Schema.is(
       Schema.String.check(
-        xsdDecimalRange({ maximum: "999999999999999", minimum: "1.0000000000001" }),
-      ),
+        xsdDecimalRange({
+          maximum: "999999999999999",
+          minimum: "1.0000000000001",
+        })
+      )
     );
 
     expect(isInRange(value)).toBe(expected);
@@ -190,16 +205,23 @@ describe("xsdDecimalRange", () => {
     ["12.49999999999", false],
     ["12.50000000001", false],
     ["12.5000000000000000001", false],
-  ])("checks %j against equal bounds written differently", (value, expected) => {
-    const isExactly = Schema.is(
-      Schema.String.check(xsdDecimalRange({ maximum: "12.5", minimum: "12.50" })),
-    );
+  ])(
+    "checks %j against equal bounds written differently",
+    (value, expected) => {
+      const isExactly = Schema.is(
+        Schema.String.check(
+          xsdDecimalRange({ maximum: "12.5", minimum: "12.50" })
+        )
+      );
 
-    expect(isExactly(value)).toBe(expected);
-  });
+      expect(isExactly(value)).toBe(expected);
+    }
+  );
 
   it("rejects every value when a bound is not a decimal", () => {
-    const isInBrokenRange = Schema.is(Schema.String.check(xsdDecimalRange({ minimum: "one" })));
+    const isInBrokenRange = Schema.is(
+      Schema.String.check(xsdDecimalRange({ minimum: "one" }))
+    );
 
     expect(isInBrokenRange("1")).toBe(false);
   });
@@ -224,7 +246,9 @@ describe("xsdDateRange", () => {
   });
 
   it("rejects every value when a bound is not a date", () => {
-    const isInBrokenRange = Schema.is(Schema.String.check(xsdDateRange({ maximum: "2024-02-30" })));
+    const isInBrokenRange = Schema.is(
+      Schema.String.check(xsdDateRange({ maximum: "2024-02-30" }))
+    );
 
     expect(isInBrokenRange("2024-01-01")).toBe(false);
   });

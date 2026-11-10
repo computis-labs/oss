@@ -1,7 +1,15 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect, FileSystem, Layer, Option, PlatformError } from "effect";
+import {
+  ConfigProvider,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  PlatformError,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
 import * as Git from "../src/git.ts";
 
 describe("Git.Git", () => {
@@ -10,7 +18,7 @@ describe("Git.Git", () => {
       const git = yield* Git.Git;
 
       expect(yield* git.current).toEqual(Git.unknownInfo);
-    }),
+    })
   );
 });
 
@@ -26,16 +34,23 @@ describe("Git.layerStatic", () => {
       });
     }).pipe(
       Effect.provide(
-        Git.layerStatic({ branch: Option.some("main"), dirty: false, sha: Option.some("abc1234") }),
-      ),
-    ),
+        Git.layerStatic({
+          branch: Option.some("main"),
+          dirty: false,
+          sha: Option.some("abc1234"),
+        })
+      )
+    )
   );
 });
 
-const fromEnvironment = (env: Record<string, string>, layer = Git.layerProcess) =>
+const fromEnvironment = (
+  env: Record<string, string>,
+  layer = Git.layerProcess
+) =>
   Layer.merge(
     layer.pipe(Layer.provide(NodeServices.layer)),
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env })),
+    ConfigProvider.layer(ConfigProvider.fromEnv({ env }))
   );
 
 const runIn = (directory: string, args: readonly string[]) =>
@@ -54,7 +69,7 @@ const runIn = (directory: string, args: readonly string[]) =>
           GIT_CONFIG_NOSYSTEM: "1",
         },
         extendEnv: true,
-      }),
+      })
     );
   });
 
@@ -79,9 +94,9 @@ const noGit = Layer.succeed(
         description: "spawn git ENOENT",
         method: "spawn",
         module: "ChildProcess",
-      }),
-    ),
-  ),
+      })
+    )
+  )
 );
 
 describe("Git.layerProcess", () => {
@@ -95,8 +110,13 @@ describe("Git.layerProcess", () => {
         Option.some("release/1.2"),
       ]);
     }).pipe(
-      Effect.provide(fromEnvironment({ GITHUB_REF_NAME: "release/1.2", GITHUB_SHA: "deadbeef" })),
-    ),
+      Effect.provide(
+        fromEnvironment({
+          GITHUB_REF_NAME: "release/1.2",
+          GITHUB_SHA: "deadbeef",
+        })
+      )
+    )
   );
 
   it.effect("asks git for the sha, branch and state of the working copy", () =>
@@ -106,7 +126,7 @@ describe("Git.layerProcess", () => {
 
       const read = Effect.service(Git.Git).pipe(
         Effect.flatMap((git) => git.current),
-        Effect.provide(fromEnvironment({}, Git.layerProcessAt(directory))),
+        Effect.provide(fromEnvironment({}, Git.layerProcessAt(directory)))
       );
 
       const clean = yield* read;
@@ -120,7 +140,7 @@ describe("Git.layerProcess", () => {
         sha: Option.some(sha),
       });
       expect(dirty.dirty).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 
   it.effect("knows nothing when git cannot run", () =>
@@ -132,9 +152,9 @@ describe("Git.layerProcess", () => {
       Effect.provide(
         Layer.merge(
           Git.layerProcess.pipe(Layer.provide(noGit)),
-          ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })),
-        ),
-      ),
-    ),
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))
+        )
+      )
+    )
   );
 });

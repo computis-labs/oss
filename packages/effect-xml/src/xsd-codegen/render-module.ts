@@ -24,7 +24,8 @@ const LINE_BREAKING = /[\p{Cc}\u2028\u2029]/gu;
 
 const commentText = (text: string) => text.replaceAll(LINE_BREAKING, " ");
 
-const renderStrings = (values: readonly string[]) => `[${values.map(quote).join(", ")}]`;
+const renderStrings = (values: readonly string[]) =>
+  `[${values.map(quote).join(", ")}]`;
 
 export const renderModule = (parts: {
   readonly declarations: Iterable<Declaration>;
@@ -37,18 +38,36 @@ export const renderModule = (parts: {
   readonly targetNamespace: string;
   readonly usage: ReadonlyMap<string, number>;
 }) => {
-  const { domainImport, notes, options, rootIdentifier, rootType, targetNamespace, usage } = parts;
+  const {
+    domainImport,
+    notes,
+    options,
+    rootIdentifier,
+    rootType,
+    targetNamespace,
+    usage,
+  } = parts;
+
   const imports = new Set(parts.imports);
-  const rootAttributes = (usage.get(rootType.identifier) ?? 0) === 0 ? rootType.attributes : [];
+
+  const rootAttributes =
+    (usage.get(rootType.identifier) ?? 0) === 0 ? rootType.attributes : [];
 
   const rootOptions = [
-    ...(rootAttributes.length === 0 ? [] : [`attributes: ${renderStrings(rootAttributes)}`]),
+    ...(rootAttributes.length === 0
+      ? []
+      : [`attributes: ${renderStrings(rootAttributes)}`]),
     ...(targetNamespace === "" ? [] : [`namespace: ${quote(targetNamespace)}`]),
-    ...(options.prefix === undefined ? [] : [`prefix: ${quote(options.prefix)}`]),
+    ...(options.prefix === undefined
+      ? []
+      : [`prefix: ${quote(options.prefix)}`]),
   ];
 
   const body = [...parts.declarations].map((declaration) => {
-    if (declaration.attributes.length === 0 || (usage.get(declaration.identifier) ?? 0) === 0) {
+    if (
+      declaration.attributes.length === 0 ||
+      (usage.get(declaration.identifier) ?? 0) === 0
+    ) {
       return `export const ${declaration.identifier} = ${declaration.code};`;
     }
 
@@ -63,7 +82,7 @@ export const renderModule = (parts: {
   ];
 
   body.push(
-    `export const ${rootIdentifier} = ${rootType.identifier}.pipe(root(${rootArguments.join(", ")}));`,
+    `export const ${rootIdentifier} = ${rootType.identifier}.pipe(root(${rootArguments.join(", ")}));`
   );
 
   const header = [

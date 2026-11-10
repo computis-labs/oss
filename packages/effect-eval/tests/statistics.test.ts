@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Option } from "effect";
+
 import * as Statistics from "../src/statistics.ts";
 
 const bounds = (interval: Option.Option<readonly [number, number]>) =>
@@ -26,7 +27,10 @@ describe("Statistics.wilson", () => {
 
   it("takes the confidence it receives", () => {
     const [low, high] = bounds(Statistics.wilson(5, 10, { confidence: 0.99 }));
-    const [lowest, highest] = bounds(Statistics.wilson(5, 10, { confidence: 0.8 }));
+
+    const [lowest, highest] = bounds(
+      Statistics.wilson(5, 10, { confidence: 0.8 })
+    );
 
     expect(low).toBeCloseTo(0.1842255182, 8);
     expect(high).toBeCloseTo(0.8157744818, 8);
@@ -40,25 +44,29 @@ describe("Statistics.bootstrap", () => {
 
   it("gives the same interval for the same seed", () => {
     expect(Statistics.bootstrap(credits, { seed: "golden-set" })).toEqual(
-      Statistics.bootstrap(credits, { seed: "golden-set" }),
+      Statistics.bootstrap(credits, { seed: "golden-set" })
     );
   });
 
   it("gives another interval for another seed", () => {
-    expect(Statistics.bootstrap(credits, { resamples: 200, seed: "a" })).not.toEqual(
-      Statistics.bootstrap(credits, { resamples: 200, seed: "b" }),
-    );
+    expect(
+      Statistics.bootstrap(credits, { resamples: 200, seed: "a" })
+    ).not.toEqual(Statistics.bootstrap(credits, { resamples: 200, seed: "b" }));
   });
 
   it("brackets the mean of the values", () => {
-    const [low, high] = bounds(Statistics.bootstrap(credits, { seed: "golden-set" }));
+    const [low, high] = bounds(
+      Statistics.bootstrap(credits, { seed: "golden-set" })
+    );
 
     expect(low).toBeLessThan(0.53125);
     expect(high).toBeGreaterThan(0.53125);
   });
 
   it("has no interval without values", () => {
-    expect(Statistics.bootstrap([], { seed: "golden-set" })).toEqual(Option.none());
+    expect(Statistics.bootstrap([], { seed: "golden-set" })).toEqual(
+      Option.none()
+    );
   });
 });
 
@@ -98,11 +106,16 @@ describe("Statistics.passAtK and passHatK", () => {
 describe("Statistics.mean and standardDeviation", () => {
   it("computes the sample standard deviation", () => {
     expect(Statistics.mean([2, 4, 4, 4, 5, 5, 7, 9])).toBe(5);
-    expect(Statistics.standardDeviation([2, 4, 4, 4, 5, 5, 7, 9])).toBeCloseTo(2.138, 3);
+    expect(Statistics.standardDeviation([2, 4, 4, 4, 5, 5, 7, 9])).toBeCloseTo(
+      2.138,
+      3
+    );
   });
 
   it("gives zero for fewer than two values", () => {
-    expect([Statistics.mean([]), Statistics.standardDeviation([0.7])]).toEqual([0, 0]);
+    expect([Statistics.mean([]), Statistics.standardDeviation([0.7])]).toEqual([
+      0, 0,
+    ]);
   });
 });
 

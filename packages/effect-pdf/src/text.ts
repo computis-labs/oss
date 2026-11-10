@@ -1,11 +1,12 @@
 import * as Result from "effect/Result";
-import type { Pdfium } from "./pdfium.ts";
+
 import { PdfPageError } from "./errors/pdf-page-error.ts";
 import { withPage } from "./handle.ts";
 import type { PdfHandle } from "./handle.ts";
 import { BYTES_PER_UTF16_UNIT, readDoubles, withAllocation } from "./memory.ts";
-import { charOrigin, layoutText } from "./text-layout.ts";
 import { rectBetween } from "./objects.ts";
+import type { Pdfium } from "./pdfium.ts";
+import { charOrigin, layoutText } from "./text-layout.ts";
 import type { PdfPageText, PdfTextMatch } from "./types.ts";
 
 const CARRIAGE_RETURNS = /\r\n?/gu;
@@ -18,8 +19,8 @@ const withTextPage = <A>(
   read: (
     lib: Pdfium,
     textPage: number,
-    page: { readonly count: number; readonly characters: string },
-  ) => Result.Result<A, PdfPageError>,
+    page: { readonly count: number; readonly characters: string }
+  ) => Result.Result<A, PdfPageError>
 ) =>
   withPage(handle, page, (pagePointer) => {
     const { lib } = handle;
@@ -31,11 +32,15 @@ const withTextPage = <A>(
       const characters =
         count === 0
           ? ""
-          : withAllocation(lib, (count + 1) * BYTES_PER_UTF16_UNIT, (buffer) => {
-              lib.FPDFText_GetText(textPage, 0, count, buffer);
+          : withAllocation(
+              lib,
+              (count + 1) * BYTES_PER_UTF16_UNIT,
+              (buffer) => {
+                lib.FPDFText_GetText(textPage, 0, count, buffer);
 
-              return lib.pdfium.UTF16ToString(buffer);
-            });
+                return lib.pdfium.UTF16ToString(buffer);
+              }
+            );
 
       return read(lib, textPage, { characters, count });
     } finally {
@@ -49,57 +54,71 @@ export const pageText = (handle: PdfHandle, page: number, layout: boolean) =>
       page,
       text,
       unicodeMapErrors: Array.from({ length: count }, (_, index) =>
-        lib.FPDFText_HasUnicodeMapError(textPage, index),
+        lib.FPDFText_HasUnicodeMapError(textPage, index)
       ).filter((flag) => flag === UNMAPPED).length,
     }))(
       layout
         ? layoutText(lib, textPage, { count, page, stream: characters })
-        : Result.succeed(characters.replaceAll(CARRIAGE_RETURNS, "\n")),
-    ),
+        : Result.succeed(characters.replaceAll(CARRIAGE_RETURNS, "\n"))
+    )
   );
 
 export const pageMatches = (handle: PdfHandle, page: number, pattern: RegExp) =>
   withTextPage(handle, page, (lib, textPage, { characters }) => {
     const global = new RegExp(
       pattern.source,
-      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`
     );
 
-    const matches = Array.from(characters.matchAll(global), (match): PdfTextMatch | null => {
-      const glyphs = Array.from({ length: match[0].length }, (_, offset) =>
-        lib.FPDFText_GetCharIndexFromTextIndex(textPage, match.index + offset),
-      ).filter(
-        (index, position, all) =>
-          index >= 0 &&
-          all.indexOf(index) === position &&
-          lib.FPDFText_IsGenerated(textPage, index) !== GENERATED,
-      );
+    const matches = Array.from(
+      characters.matchAll(global),
+      (match): PdfTextMatch | null => {
+        const glyphs = Array.from({ length: match[0].length }, (_, offset) =>
+          lib.FPDFText_GetCharIndexFromTextIndex(textPage, match.index + offset)
+        ).filter(
+          (index, position, all) =>
+            index >= 0 &&
+            all.indexOf(index) === position &&
+            lib.FPDFText_IsGenerated(textPage, index) !== GENERATED
+        );
 
-      const boxes = glyphs.map((index) =>
-        readDoubles(lib, 4, (box) =>
-          lib.FPDFText_GetCharBox(textPage, index, box, box + 8, box + 16, box + 24),
-        ),
-      );
+        const boxes = glyphs.map((index) =>
+          readDoubles(lib, 4, (box) =>
+            lib.FPDFText_GetCharBox(
+              textPage,
+              index,
+              box,
+              box + 8,
+              box + 16,
+              box + 24
+            )
+          )
+        );
 
-      const measured = boxes.flatMap((box) => (box === null ? [] : [box]));
-      const [first] = glyphs;
-      const origin = first === undefined ? null : charOrigin(lib, textPage, first);
+        const measured = boxes.flatMap((box) => (box === null ? [] : [box]));
+        const [first] = glyphs;
 
-      return origin === null || measured.length === 0 || measured.length < boxes.length
-        ? null
-        : {
-            box: rectBetween(
-              Math.min(...measured.map((edges) => edges[0] ?? 0)),
-              Math.min(...measured.map((edges) => edges[2] ?? 0)),
-              Math.max(...measured.map((edges) => edges[1] ?? 0)),
-              Math.max(...measured.map((edges) => edges[3] ?? 0)),
-            ),
-            groups: { ...match.groups },
-            origin: { x: origin[0] ?? 0, y: origin[1] ?? 0 },
-            page,
-            text: match[0],
-          };
-    });
+        const origin =
+          first === undefined ? null : charOrigin(lib, textPage, first);
+
+        return origin === null ||
+          measured.length === 0 ||
+          measured.length < boxes.length
+          ? null
+          : {
+              box: rectBetween(
+                Math.min(...measured.map((edges) => edges[0] ?? 0)),
+                Math.min(...measured.map((edges) => edges[2] ?? 0)),
+                Math.max(...measured.map((edges) => edges[1] ?? 0)),
+                Math.max(...measured.map((edges) => edges[3] ?? 0))
+              ),
+              groups: { ...match.groups },
+              origin: { x: origin[0] ?? 0, y: origin[1] ?? 0 },
+              page,
+              text: match[0],
+            };
+      }
+    );
 
     const placed = matches.flatMap((match) => (match === null ? [] : [match]));
 

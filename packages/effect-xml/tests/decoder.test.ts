@@ -1,29 +1,37 @@
 /* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Result, Schema, SchemaGetter } from "effect";
-import { FatturaXml, fatturaFixtures } from "./fixtures/fattura.ts";
-import { startsWith } from "./fixtures/messages.ts";
+
+import type { Encodable } from "../src/encoder.ts";
 import { XmlParseError } from "../src/errors/xml-parse-error.ts";
 import { codec, element, root } from "../src/index.ts";
-import type { Encodable } from "../src/encoder.ts";
+import { FatturaXml, fatturaFixtures } from "./fixtures/fattura.ts";
+import { startsWith } from "./fixtures/messages.ts";
 
-const NAMESPACE = "http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2";
+const NAMESPACE =
+  "http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2";
 
 const encodeFattura = (fattura: typeof FatturaXml.Type) =>
   Result.getOrThrow(Schema.encodeResult(FatturaXml)(fattura));
 
-const codecFor = <S extends Encodable>(schema: S, options?: Parameters<typeof codec>[1]) =>
-  Effect.fromResult(codec(schema, options));
+const codecFor = <S extends Encodable>(
+  schema: S,
+  options?: Parameters<typeof codec>[1]
+) => Effect.fromResult(codec(schema, options));
 
 const fixtureXml = (slug: string) =>
-  readFileSync(new URL(`fixtures/fattura-${slug}.xml`, import.meta.url), "utf-8");
+  readFileSync(
+    new URL(`fixtures/fattura-${slug}.xml`, import.meta.url),
+    "utf-8"
+  );
 
 const singleLine = fixtureXml("1-linea");
 
 const singleLineWithXsi = singleLine.replace(
   "xmlns:p=",
-  'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p=',
+  'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p='
 );
 
 const fatturaNamed = (name: string) => {
@@ -43,13 +51,13 @@ describe("decode union content", () => {
     ([jit, unknownElements]) =>
       Effect.gen(function* test() {
         const { decode } = yield* Effect.fromResult(
-          codec(FatturaXml, { jit, decoder: { unknownElements } }),
+          codec(FatturaXml, { jit, decoder: { unknownElements } })
         );
 
         // Fonte: Schema_VFPR12_v1.2.3.xsd, AnagraficaType (riga 680), xs:choice (righe 685-693): Denominazione è in alternativa a Nome e Cognome
         const xml = singleLine.replace(
           "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
-          "<Denominazione>Cliente Esempio S.p.A.</Denominazione><Nome>Mario</Nome><Cognome>Rossi</Cognome>",
+          "<Denominazione>Cliente Esempio S.p.A.</Denominazione><Nome>Mario</Nome><Cognome>Rossi</Cognome>"
         );
 
         const error = yield* Effect.flip(decode(xml));
@@ -59,7 +67,7 @@ describe("decode union content", () => {
           path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
           position: { column: 9, line: 37 },
         });
-      }),
+      })
   );
 
   it.effect.each([false, true])(
@@ -75,15 +83,20 @@ describe("decode union content", () => {
 
         const { decode } = yield* codecFor(schema, { jit });
 
-        const order = yield* decode("<Order><Item><Code>A1</Code></Item></Order>");
+        const order = yield* decode(
+          "<Order><Item><Code>A1</Code></Item></Order>"
+        );
 
         const error = yield* Effect.flip(
-          decode("<Order><Item><Note>x</Note><Code>A1</Code></Item></Order>"),
+          decode("<Order><Item><Note>x</Note><Code>A1</Code></Item></Order>")
         );
 
         expect(order).toStrictEqual({ Item: { Code: "A1" } });
-        expect(error).toMatchObject({ _tag: "XmlDecodeError", path: "Order.Item.Code" });
-      }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          path: "Order.Item.Code",
+        });
+      })
   );
 });
 
@@ -100,22 +113,32 @@ describe("decode transformed content", () => {
     ([jit, unknownElements]) =>
       Effect.gen(function* test() {
         const schema = Schema.Struct({
-          Payload: Schema.fromJsonString(Schema.Struct({ Name: Schema.String })),
+          Payload: Schema.fromJsonString(
+            Schema.Struct({ Name: Schema.String })
+          ),
         }).pipe(root("Order"));
 
-        const { decode } = yield* codecFor(schema, { jit, decoder: { unknownElements } });
+        const { decode } = yield* codecFor(schema, {
+          jit,
+          decoder: { unknownElements },
+        });
 
-        const order = yield* decode('<Order><Payload>{"Name":"Ada","Extra":"x"}</Payload></Order>');
+        const order = yield* decode(
+          '<Order><Payload>{"Name":"Ada","Extra":"x"}</Payload></Order>'
+        );
 
         expect(order).toStrictEqual({ Payload: { Name: "Ada" } });
-      }),
+      })
   );
 
   it.effect.each(modes)(
     "keeps the extra keys of a transformed Struct out of the XML check with jit=%s and unknownElements=%s",
     ([jit, unknownElements]) =>
       Effect.gen(function* test() {
-        const schema = Schema.Struct({ FirstName: Schema.String, LastName: Schema.String }).pipe(
+        const schema = Schema.Struct({
+          FirstName: Schema.String,
+          LastName: Schema.String,
+        }).pipe(
           Schema.decodeTo(Schema.Struct({ Name: Schema.String }), {
             decode: SchemaGetter.transform((names) => ({
               ...names,
@@ -127,17 +150,20 @@ describe("decode transformed content", () => {
               return { FirstName, LastName };
             }),
           }),
-          root("Order"),
+          root("Order")
         );
 
-        const { decode } = yield* codecFor(schema, { jit, decoder: { unknownElements } });
+        const { decode } = yield* codecFor(schema, {
+          jit,
+          decoder: { unknownElements },
+        });
 
         const order = yield* decode(
-          "<Order><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Order>",
+          "<Order><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Order>"
         );
 
         expect(order).toStrictEqual({ Name: "Ada Lovelace" });
-      }),
+      })
   );
 
   it.effect.each([false, true])(
@@ -147,7 +173,9 @@ describe("decode transformed content", () => {
         const schema = Schema.Struct({
           Item: Schema.Union([
             Schema.Struct({
-              Payload: Schema.fromJsonString(Schema.Struct({ Name: Schema.String })),
+              Payload: Schema.fromJsonString(
+                Schema.Struct({ Name: Schema.String })
+              ),
             }),
             Schema.Struct({ Code: Schema.String }),
           ]),
@@ -156,11 +184,11 @@ describe("decode transformed content", () => {
         const { decode } = yield* codecFor(schema, { jit });
 
         const order = yield* decode(
-          '<Order><Item><Payload>{"Name":"Ada","Extra":"x"}</Payload></Item></Order>',
+          '<Order><Item><Payload>{"Name":"Ada","Extra":"x"}</Payload></Item></Order>'
         );
 
         expect(order).toStrictEqual({ Item: { Payload: { Name: "Ada" } } });
-      }),
+      })
   );
 });
 
@@ -168,26 +196,30 @@ describe("decode on FatturaPA", () => {
   it.effect.each([
     ["1 linea", "1-linea"],
     ["20 linee", "20-linee"],
-  ] as const)("decodes the indented %s document into the source invoice", ([name, slug]) =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  ] as const)(
+    "decodes the indented %s document into the source invoice",
+    ([name, slug]) =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const fattura = yield* decode(fixtureXml(slug));
+        const fattura = yield* decode(fixtureXml(slug));
 
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed(name)));
-    }),
+        expect(encodeFattura(fattura)).toStrictEqual(
+          encodeFattura(fatturaNamed(name))
+        );
+      })
   );
 
-  it.effect.each(fatturaFixtures.map((fixture) => [fixture.name, fixture.fattura] as const))(
-    "round-trips the %s invoice through encode and decode",
-    ([, source]) =>
-      Effect.gen(function* test() {
-        const { decode, encode } = yield* codecFor(FatturaXml);
+  it.effect.each(
+    fatturaFixtures.map((fixture) => [fixture.name, fixture.fattura] as const)
+  )("round-trips the %s invoice through encode and decode", ([, source]) =>
+    Effect.gen(function* test() {
+      const { decode, encode } = yield* codecFor(FatturaXml);
 
-        const fattura = yield* decode(yield* encode(source));
+      const fattura = yield* decode(yield* encode(source));
 
-        expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(source));
-      }),
+      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(source));
+    })
   );
 
   it.effect("accepts any prefix bound to the FatturaPA namespace", () =>
@@ -201,7 +233,7 @@ describe("decode on FatturaPA", () => {
       const fattura = yield* decode(xml);
 
       expect(fattura.versione).toBe("FPR12");
-    }),
+    })
   );
 
   it.effect("rejects a root bound to another namespace", () =>
@@ -209,65 +241,81 @@ describe("decode on FatturaPA", () => {
       const { decode } = yield* codecFor(FatturaXml);
 
       const error = yield* Effect.flip(
-        decode(singleLine.replace(NAMESPACE, "http://example.com/other")),
+        decode(singleLine.replace(NAMESPACE, "http://example.com/other"))
       );
 
       expect(error).toMatchObject({
         _tag: "XmlDecodeError",
         message: startsWith(
-          `Invalid document namespace: expected ${NAMESPACE}, found http://example.com/other.`,
+          `Invalid document namespace: expected ${NAMESPACE}, found http://example.com/other.`
         ),
         path: "FatturaElettronica",
         position: { column: 39, line: 1 },
       });
-    }),
+    })
   );
 
-  it.effect("reports a field the Schema rejects with its path and position", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "reports a field the Schema rejects with its path and position",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(
-        decode(singleLine.replace("<CAP>00100</CAP>", "<CAP>ABC</CAP>")),
-      );
+        const error = yield* Effect.flip(
+          decode(singleLine.replace("<CAP>00100</CAP>", "<CAP>ABC</CAP>"))
+        );
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.CAP",
-        position: { column: 9, line: 25 },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.CAP",
+          position: { column: 9, line: 25 },
+        });
+      })
   );
 
-  it.effect("describes the reason, the path and the position in the message", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "describes the reason, the path and the position in the message",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(
-        decode(singleLine.replace("<Provincia>RM</Provincia>", "<Provincia>RMA</Provincia>")),
-      );
+        const error = yield* Effect.flip(
+          decode(
+            singleLine.replace(
+              "<Provincia>RM</Provincia>",
+              "<Provincia>RMA</Provincia>"
+            )
+          )
+        );
 
-      expect(error.message).toBe(
-        "Expected a string matching the XSD pattern [A-Z]{2} at FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Provincia (line 27, column 9)",
-      );
-    }),
+        expect(error.message).toBe(
+          "Expected a string matching the XSD pattern [A-Z]{2} at FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Provincia (line 27, column 9)"
+        );
+      })
   );
 
-  it.effect("reports a field the Schema rejects inside a list with its index and position", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "reports a field the Schema rejects inside a list with its index and position",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(
-        decode(singleLine.replace("<Data>2026-04-30</Data>", "<Data>30/04/2026</Data>")),
-      );
+        const error = yield* Effect.flip(
+          decode(
+            singleLine.replace(
+              "<Data>2026-04-30</Data>",
+              "<Data>30/04/2026</Data>"
+            )
+          )
+        );
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith("Expected a valid xs:date value"),
-        path: "FatturaElettronica.FatturaElettronicaBody[0].DatiGenerali.DatiGeneraliDocumento.Data",
-        position: { column: 9, line: 55 },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith("Expected a valid xs:date value"),
+          path: "FatturaElettronica.FatturaElettronicaBody[0].DatiGenerali.DatiGeneraliDocumento.Data",
+          position: { column: 9, line: 55 },
+        });
+      })
   );
 
   it.effect("reports the position of the list item the Schema rejects", () =>
@@ -278,16 +326,16 @@ describe("decode on FatturaPA", () => {
         decode(
           fixtureXml("20-linee").replace(
             "<NumeroLinea>2</NumeroLinea>",
-            "<NumeroLinea>due</NumeroLinea>",
-          ),
-        ),
+            "<NumeroLinea>due</NumeroLinea>"
+          )
+        )
       );
 
       expect(error).toMatchObject({
         path: "FatturaElettronica.FatturaElettronicaBody[0].DatiBeniServizi.DettaglioLinee[1].NumeroLinea",
         position: { column: 9, line: 80 },
       });
-    }),
+    })
   );
 
   it.effect("reports the position of a root attribute the Schema rejects", () =>
@@ -295,59 +343,72 @@ describe("decode on FatturaPA", () => {
       const { decode } = yield* codecFor(FatturaXml);
 
       const error = yield* Effect.flip(
-        decode(singleLine.replace('versione="FPR12"', 'versione="X"')),
+        decode(singleLine.replace('versione="FPR12"', 'versione="X"'))
       );
 
       expect(error).toMatchObject({
         path: "FatturaElettronica.versione",
         position: { column: 61, line: 1 },
       });
-    }),
+    })
   );
 
-  it.effect("names the expected alternatives of a choice that matches none of them", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "names the expected alternatives of a choice that matches none of them",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(
-        decode(singleLine.replace("<Denominazione>Cliente Esempio S.p.A.</Denominazione>", "")),
-      );
+        const error = yield* Effect.flip(
+          decode(
+            singleLine.replace(
+              "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
+              ""
+            )
+          )
+        );
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith("Expected one of Denominazione | Nome+Cognome."),
-        path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
-        position: { column: 9, line: 37 },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith("Expected one of Denominazione | Nome+Cognome."),
+          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
+          position: { column: 9, line: 37 },
+        });
+      })
   );
 
-  it.effect("reports the missing field of the choice the document started", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "reports the missing field of the choice the document started",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(
-        decode(
-          singleLine.replace(
-            "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
-            "<Nome>Mario</Nome>",
-          ),
-        ),
-      );
+        const error = yield* Effect.flip(
+          decode(
+            singleLine.replace(
+              "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
+              "<Nome>Mario</Nome>"
+            )
+          )
+        );
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith("Missing key"),
-        path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica.Cognome",
-        position: { column: 9, line: 37 },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith("Missing key"),
+          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica.Cognome",
+          position: { column: 9, line: 37 },
+        });
+      })
   );
 
   it.effect("reports an unexpected element with its path and position", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
-      const xml = singleLine.replace("<CAP>00100</CAP>", "<CAP>00100</CAP><Scala>B</Scala>");
+
+      const xml = singleLine.replace(
+        "<CAP>00100</CAP>",
+        "<CAP>00100</CAP><Scala>B</Scala>"
+      );
 
       const error = yield* Effect.flip(decode(xml));
 
@@ -357,22 +418,26 @@ describe("decode on FatturaPA", () => {
         path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede",
         position: { line: 25 },
       });
-    }),
+    })
   );
 
   it.effect("skips unknown elements such as a signature when asked to", () =>
     Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+      const { decode } = yield* codecFor(FatturaXml, {
+        decoder: { unknownElements: "skip" },
+      });
 
       const xml = singleLine.replace(
         "</p:FatturaElettronica>",
-        '<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:X>1</ds:X></ds:SignedInfo></ds:Signature></p:FatturaElettronica>',
+        '<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:X>1</ds:X></ds:SignedInfo></ds:Signature></p:FatturaElettronica>'
       );
 
       const fattura = yield* decode(xml);
 
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
+      expect(encodeFattura(fattura)).toStrictEqual(
+        encodeFattura(fatturaNamed("1 linea"))
+      );
+    })
   );
 
   it.effect("rejects an undeclared attribute on a leaf", () =>
@@ -380,7 +445,12 @@ describe("decode on FatturaPA", () => {
       const { decode } = yield* codecFor(FatturaXml);
 
       const error = yield* Effect.flip(
-        decode(singleLine.replace("<Comune>Roma</Comune>", '<Comune foo="1">Roma</Comune>')),
+        decode(
+          singleLine.replace(
+            "<Comune>Roma</Comune>",
+            '<Comune foo="1">Roma</Comune>'
+          )
+        )
       );
 
       expect(error).toMatchObject({
@@ -388,7 +458,7 @@ describe("decode on FatturaPA", () => {
         path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune",
         position: { column: 17, line: 26 },
       });
-    }),
+    })
   );
 
   it.effect("rejects xsi:nil on a leaf", () =>
@@ -399,16 +469,16 @@ describe("decode on FatturaPA", () => {
         decode(
           singleLineWithXsi.replace(
             "<Comune>Roma</Comune>",
-            '<Comune xsi:nil="true">Roma</Comune>',
-          ),
-        ),
+            '<Comune xsi:nil="true">Roma</Comune>'
+          )
+        )
       );
 
       expect(error).toMatchObject({
         message: startsWith("Unexpected attribute: xsi:nil."),
         path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune",
       });
-    }),
+    })
   );
 
   it.effect("rejects xsi:schemaLocation below the root", () =>
@@ -419,16 +489,16 @@ describe("decode on FatturaPA", () => {
         decode(
           singleLineWithXsi.replace(
             "<DatiTrasmissione>",
-            '<DatiTrasmissione xsi:schemaLocation="urn:x x.xsd">',
-          ),
-        ),
+            '<DatiTrasmissione xsi:schemaLocation="urn:x x.xsd">'
+          )
+        )
       );
 
       expect(error).toMatchObject({
         message: startsWith("Unexpected attribute: xsi:schemaLocation."),
         path: "FatturaElettronica.FatturaElettronicaHeader.DatiTrasmissione",
       });
-    }),
+    })
   );
 
   it.effect("accepts xml: attributes on a leaf", () =>
@@ -436,26 +506,40 @@ describe("decode on FatturaPA", () => {
       const { decode } = yield* codecFor(FatturaXml);
 
       const fattura = yield* decode(
-        singleLine.replace("<Comune>Roma</Comune>", '<Comune xml:lang="it">Roma</Comune>'),
+        singleLine.replace(
+          "<Comune>Roma</Comune>",
+          '<Comune xml:lang="it">Roma</Comune>'
+        )
       );
 
-      expect(fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune).toBe("Roma");
-    }),
+      expect(
+        fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune
+      ).toBe("Roma");
+    })
   );
 
   it.effect("drops undeclared and prefixed attributes when asked to skip", () =>
     Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+      const { decode } = yield* codecFor(FatturaXml, {
+        decoder: { unknownElements: "skip" },
+      });
 
       const fattura = yield* decode(
         singleLineWithXsi
-          .replace("<Comune>Roma</Comune>", '<Comune foo="1" xsi:nil="true">Roma</Comune>')
-          .replace("<DatiTrasmissione>", '<DatiTrasmissione bar="2">'),
+          .replace(
+            "<Comune>Roma</Comune>",
+            '<Comune foo="1" xsi:nil="true">Roma</Comune>'
+          )
+          .replace("<DatiTrasmissione>", '<DatiTrasmissione bar="2">')
       );
 
-      expect(fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune).toBe("Roma");
-      expect(fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio).toBe("00001");
-    }),
+      expect(
+        fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune
+      ).toBe("Roma");
+      expect(
+        fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio
+      ).toBe("00001");
+    })
   );
 
   it.effect("accepts a child that resets the default namespace", () =>
@@ -463,25 +547,34 @@ describe("decode on FatturaPA", () => {
       const { decode } = yield* codecFor(FatturaXml);
 
       const fattura = yield* decode(
-        singleLine.replace("<DatiTrasmissione>", '<DatiTrasmissione xmlns="">'),
+        singleLine.replace("<DatiTrasmissione>", '<DatiTrasmissione xmlns="">')
       );
 
-      expect(fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio).toBe("00001");
-    }),
+      expect(
+        fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio
+      ).toBe("00001");
+    })
   );
 
-  it.effect("accepts a child whose own prefix is bound to the document namespace", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "accepts a child whose own prefix is bound to the document namespace",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const fattura = yield* decode(
-        singleLine
-          .replace("<DatiTrasmissione>", `<q:DatiTrasmissione xmlns:q="${NAMESPACE}">`)
-          .replace("</DatiTrasmissione>", "</q:DatiTrasmissione>"),
-      );
+        const fattura = yield* decode(
+          singleLine
+            .replace(
+              "<DatiTrasmissione>",
+              `<q:DatiTrasmissione xmlns:q="${NAMESPACE}">`
+            )
+            .replace("</DatiTrasmissione>", "</q:DatiTrasmissione>")
+        );
 
-      expect(fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio).toBe("00001");
-    }),
+        expect(
+          fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio
+        ).toBe("00001");
+      })
   );
 
   it.effect("rejects a child whose prefix is bound to another namespace", () =>
@@ -491,84 +584,112 @@ describe("decode on FatturaPA", () => {
       const error = yield* Effect.flip(
         decode(
           singleLine
-            .replace("<DatiTrasmissione>", '<x:DatiTrasmissione xmlns:x="urn:other">')
-            .replace("</DatiTrasmissione>", "</x:DatiTrasmissione>"),
-        ),
+            .replace(
+              "<DatiTrasmissione>",
+              '<x:DatiTrasmissione xmlns:x="urn:other">'
+            )
+            .replace("</DatiTrasmissione>", "</x:DatiTrasmissione>")
+        )
       );
 
       expect(error).toMatchObject({
         message: startsWith(
-          `Element x:DatiTrasmissione is not in the document namespace ${NAMESPACE}.`,
+          `Element x:DatiTrasmissione is not in the document namespace ${NAMESPACE}.`
         ),
         path: "FatturaElettronica.FatturaElettronicaHeader.DatiTrasmissione",
         position: { column: 5, line: 3 },
       });
-    }),
+    })
   );
 
-  it.effect("skips a child whose prefix is bound to another namespace when asked to", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+  it.effect(
+    "skips a child whose prefix is bound to another namespace when asked to",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml, {
+          decoder: { unknownElements: "skip" },
+        });
 
-      const foreign =
-        '<x:DatiTrasmissione xmlns:x="urn:other"><x:Nota>1</x:Nota></x:DatiTrasmissione>';
+        const foreign =
+          '<x:DatiTrasmissione xmlns:x="urn:other"><x:Nota>1</x:Nota></x:DatiTrasmissione>';
 
-      const fattura = yield* decode(
-        singleLine.replace("<DatiTrasmissione>", `${foreign}<DatiTrasmissione>`),
-      );
+        const fattura = yield* decode(
+          singleLine.replace(
+            "<DatiTrasmissione>",
+            `${foreign}<DatiTrasmissione>`
+          )
+        );
 
-      expect(fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio).toBe("00001");
-    }),
+        expect(
+          fattura.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio
+        ).toBe("00001");
+      })
   );
 
-  it.effect("checks the children of an element against the prefix it rebinds", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "checks the children of an element against the prefix it rebinds",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(
-        decode(
+        const error = yield* Effect.flip(
+          decode(
+            singleLine
+              .replace(
+                "<DatiTrasmissione>",
+                '<DatiTrasmissione xmlns:p="urn:other">'
+              )
+              .replace(
+                "<ProgressivoInvio>00001</ProgressivoInvio>",
+                "<p:ProgressivoInvio>00001</p:ProgressivoInvio>"
+              )
+          )
+        );
+
+        expect(error).toMatchObject({
+          message: startsWith(
+            `Element p:ProgressivoInvio is not in the document namespace ${NAMESPACE}.`
+          ),
+          path: "FatturaElettronica.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio",
+          position: { column: 7, line: 8 },
+        });
+      })
+  );
+
+  it.effect(
+    "restores the namespace bindings when the rebinding element closes",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
+
+        const fattura = yield* decode(
           singleLine
-            .replace("<DatiTrasmissione>", '<DatiTrasmissione xmlns:p="urn:other">')
             .replace(
-              "<ProgressivoInvio>00001</ProgressivoInvio>",
-              "<p:ProgressivoInvio>00001</p:ProgressivoInvio>",
-            ),
-        ),
-      );
+              "<DatiTrasmissione>",
+              '<DatiTrasmissione xmlns:p="urn:other">'
+            )
+            .replace("<Comune>Roma</Comune>", "<p:Comune>Roma</p:Comune>")
+        );
 
-      expect(error).toMatchObject({
-        message: startsWith(
-          `Element p:ProgressivoInvio is not in the document namespace ${NAMESPACE}.`,
-        ),
-        path: "FatturaElettronica.FatturaElettronicaHeader.DatiTrasmissione.ProgressivoInvio",
-        position: { column: 7, line: 8 },
-      });
-    }),
-  );
-
-  it.effect("restores the namespace bindings when the rebinding element closes", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
-
-      const fattura = yield* decode(
-        singleLine
-          .replace("<DatiTrasmissione>", '<DatiTrasmissione xmlns:p="urn:other">')
-          .replace("<Comune>Roma</Comune>", "<p:Comune>Roma</p:Comune>"),
-      );
-
-      expect(fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune).toBe("Roma");
-    }),
+        expect(
+          fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune
+        ).toBe("Roma");
+      })
   );
 
   it.effect("reports a malformed document as an XmlParseError", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
 
-      const error = yield* Effect.flip(decode(singleLine.replace("</Sede>", "</Sedi>")));
+      const error = yield* Effect.flip(
+        decode(singleLine.replace("</Sede>", "</Sedi>"))
+      );
 
       expect(error).toBeInstanceOf(XmlParseError);
-      expect(error.message).toBe("Closing tag </Sedi> does not match <Sede> (line 29, column 7)");
-    }),
+      expect(error.message).toBe(
+        "Closing tag </Sedi> does not match <Sede> (line 29, column 7)"
+      );
+    })
   );
 });
 
@@ -582,48 +703,54 @@ describe("decode on FatturaPA documents from other senders", () => {
       const fattura = yield* decode(
         singleLine.replace(
           "<Denominazione>Cliente Esempio S.p.A.</Denominazione>",
-          "<Nome>Mario</Nome><Cognome>Rossi</Cognome>",
-        ),
+          "<Nome>Mario</Nome><Cognome>Rossi</Cognome>"
+        )
       );
 
       expect(
-        fattura.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica,
+        fattura.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici
+          .Anagrafica
       ).toStrictEqual({
         Nome: "Mario",
         Cognome: "Rossi",
       });
-    }),
+    })
   );
 
-  it.effect("decodes the RappresentanteFiscale of the header and of the buyer", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "decodes the RappresentanteFiscale of the header and of the buyer",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const fattura = yield* decode(
-        singleLine
-          .replace(
-            "</CedentePrestatore>",
-            "</CedentePrestatore><RappresentanteFiscale><DatiAnagrafici><IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>11122233344</IdCodice></IdFiscaleIVA><Anagrafica><Nome>Anna</Nome><Cognome>Bianchi</Cognome></Anagrafica></DatiAnagrafici></RappresentanteFiscale>",
-          )
-          .replace(
-            "</CessionarioCommittente>",
-            "<RappresentanteFiscale><IdFiscaleIVA><IdPaese>FR</IdPaese><IdCodice>12345678901</IdCodice></IdFiscaleIVA><Denominazione>Rappresentanze S.r.l.</Denominazione></RappresentanteFiscale></CessionarioCommittente>",
-          ),
-      );
+        const fattura = yield* decode(
+          singleLine
+            .replace(
+              "</CedentePrestatore>",
+              "</CedentePrestatore><RappresentanteFiscale><DatiAnagrafici><IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>11122233344</IdCodice></IdFiscaleIVA><Anagrafica><Nome>Anna</Nome><Cognome>Bianchi</Cognome></Anagrafica></DatiAnagrafici></RappresentanteFiscale>"
+            )
+            .replace(
+              "</CessionarioCommittente>",
+              "<RappresentanteFiscale><IdFiscaleIVA><IdPaese>FR</IdPaese><IdCodice>12345678901</IdCodice></IdFiscaleIVA><Denominazione>Rappresentanze S.r.l.</Denominazione></RappresentanteFiscale></CessionarioCommittente>"
+            )
+        );
 
-      expect(fattura.FatturaElettronicaHeader.RappresentanteFiscale).toStrictEqual({
-        DatiAnagrafici: {
-          IdFiscaleIVA: { IdPaese: "IT", IdCodice: "11122233344" },
-          Anagrafica: { Nome: "Anna", Cognome: "Bianchi" },
-        },
-      });
-      expect(
-        fattura.FatturaElettronicaHeader.CessionarioCommittente.RappresentanteFiscale,
-      ).toStrictEqual({
-        IdFiscaleIVA: { IdPaese: "FR", IdCodice: "12345678901" },
-        Denominazione: "Rappresentanze S.r.l.",
-      });
-    }),
+        expect(
+          fattura.FatturaElettronicaHeader.RappresentanteFiscale
+        ).toStrictEqual({
+          DatiAnagrafici: {
+            IdFiscaleIVA: { IdPaese: "IT", IdCodice: "11122233344" },
+            Anagrafica: { Nome: "Anna", Cognome: "Bianchi" },
+          },
+        });
+        expect(
+          fattura.FatturaElettronicaHeader.CessionarioCommittente
+            .RappresentanteFiscale
+        ).toStrictEqual({
+          IdFiscaleIVA: { IdPaese: "FR", IdCodice: "12345678901" },
+          Denominazione: "Rappresentanze S.r.l.",
+        });
+      })
   );
 
   it.effect("decodes the SistemaEmittente attribute of the root", () =>
@@ -631,11 +758,14 @@ describe("decode on FatturaPA documents from other senders", () => {
       const { decode } = yield* codecFor(FatturaXml);
 
       const fattura = yield* decode(
-        singleLine.replace('versione="FPR12"', 'versione="FPR12" SistemaEmittente="ERP-1"'),
+        singleLine.replace(
+          'versione="FPR12"',
+          'versione="FPR12" SistemaEmittente="ERP-1"'
+        )
       );
 
       expect(fattura.SistemaEmittente).toBe("ERP-1");
-    }),
+    })
   );
 
   it.effect("decodes a root bound to the default namespace", () =>
@@ -648,55 +778,81 @@ describe("decode on FatturaPA documents from other senders", () => {
 
       const fattura = yield* decode(xml);
 
-      expect(xml).toContain(`<FatturaElettronica versione="FPR12" xmlns="${NAMESPACE}">`);
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
+      expect(xml).toContain(
+        `<FatturaElettronica versione="FPR12" xmlns="${NAMESPACE}">`
+      );
+      expect(encodeFattura(fattura)).toStrictEqual(
+        encodeFattura(fatturaNamed("1 linea"))
+      );
+    })
   );
 
   it.effect("decodes a document that puts the root prefix on every child", () =>
     Effect.gen(function* test() {
       const { decode } = yield* codecFor(FatturaXml);
-      const xml = singleLine.replaceAll(/<(?<slash>\/?)(?=[A-Z])/gu, "<$<slash>p:");
 
-      const fattura = yield* decode(xml);
-
-      expect(xml).toContain("<p:Denominazione>Cliente Esempio S.p.A.</p:Denominazione>");
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
-  );
-
-  it.effect("decodes a root with signature and schema declarations after a stylesheet", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
-
-      const xml = singleLine
-        .replace(
-          "?><p:FatturaElettronica",
-          '?><?xml-stylesheet type="text/xsl" href="fatturaordinaria_v1.2.2.xsl"?><p:FatturaElettronica',
-        )
-        .replace(
-          'versione="FPR12"',
-          `versione="FPR12" xmlns:ds="${DSIG}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="${NAMESPACE} Schema_VFPR12.xsd"`,
-        );
-
-      const fattura = yield* decode(xml);
-
-      expect(xml).toContain("<?xml-stylesheet");
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
-  );
-
-  it.effect("skips a signature whose elements carry attributes when asked to", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
-      const signature = `<ds:Signature xmlns:ds="${DSIG}" Id="Signature1"><ds:SignedInfo Id="SignedInfo1"><ds:Reference URI="" Id="Reference1"><ds:DigestValue>AbC=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue Id="SignatureValue1">XyZ=</ds:SignatureValue></ds:Signature>`;
-
-      const fattura = yield* decode(
-        singleLine.replace("</p:FatturaElettronica>", `${signature}</p:FatturaElettronica>`),
+      const xml = singleLine.replaceAll(
+        /<(?<slash>\/?)(?=[A-Z])/gu,
+        "<$<slash>p:"
       );
 
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
+      const fattura = yield* decode(xml);
+
+      expect(xml).toContain(
+        "<p:Denominazione>Cliente Esempio S.p.A.</p:Denominazione>"
+      );
+      expect(encodeFattura(fattura)).toStrictEqual(
+        encodeFattura(fatturaNamed("1 linea"))
+      );
+    })
+  );
+
+  it.effect(
+    "decodes a root with signature and schema declarations after a stylesheet",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
+
+        const xml = singleLine
+          .replace(
+            "?><p:FatturaElettronica",
+            '?><?xml-stylesheet type="text/xsl" href="fatturaordinaria_v1.2.2.xsl"?><p:FatturaElettronica'
+          )
+          .replace(
+            'versione="FPR12"',
+            `versione="FPR12" xmlns:ds="${DSIG}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="${NAMESPACE} Schema_VFPR12.xsd"`
+          );
+
+        const fattura = yield* decode(xml);
+
+        expect(xml).toContain("<?xml-stylesheet");
+        expect(encodeFattura(fattura)).toStrictEqual(
+          encodeFattura(fatturaNamed("1 linea"))
+        );
+      })
+  );
+
+  it.effect(
+    "skips a signature whose elements carry attributes when asked to",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml, {
+          decoder: { unknownElements: "skip" },
+        });
+
+        const signature = `<ds:Signature xmlns:ds="${DSIG}" Id="Signature1"><ds:SignedInfo Id="SignedInfo1"><ds:Reference URI="" Id="Reference1"><ds:DigestValue>AbC=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue Id="SignatureValue1">XyZ=</ds:SignatureValue></ds:Signature>`;
+
+        const fattura = yield* decode(
+          singleLine.replace(
+            "</p:FatturaElettronica>",
+            `${signature}</p:FatturaElettronica>`
+          )
+        );
+
+        expect(encodeFattura(fattura)).toStrictEqual(
+          encodeFattura(fatturaNamed("1 linea"))
+        );
+      })
   );
 
   it.effect("decodes a whole invoice with a BOM and CRLF line endings", () =>
@@ -707,9 +863,13 @@ describe("decode on FatturaPA documents from other senders", () => {
       const fattura = yield* decode(xml);
 
       expect(xml).toContain("<CAP>00100</CAP>\r\n");
-      expect(fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.CAP).toBe("00100");
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
+      expect(fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.CAP).toBe(
+        "00100"
+      );
+      expect(encodeFattura(fattura)).toStrictEqual(
+        encodeFattura(fatturaNamed("1 linea"))
+      );
+    })
   );
 });
 
@@ -718,58 +878,85 @@ describe("decode with namespace prefixes", () => {
   const modes = ["error", "skip"] as const;
 
   const beforeRootEnd = (content: string) =>
-    singleLine.replace("</p:FatturaElettronica>", `${content}</p:FatturaElettronica>`);
+    singleLine.replace(
+      "</p:FatturaElettronica>",
+      `${content}</p:FatturaElettronica>`
+    );
 
-  it.effect.each(modes)("rejects an element with an unbound prefix in %s mode", (mode) =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: mode } });
-      const xml = beforeRootEnd("<ds:Signature>x</ds:Signature>");
+  it.effect.each(modes)(
+    "rejects an element with an unbound prefix in %s mode",
+    (mode) =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml, {
+          decoder: { unknownElements: mode },
+        });
 
-      const error = yield* Effect.flip(decode(xml));
+        const xml = beforeRootEnd("<ds:Signature>x</ds:Signature>");
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith('Unbound namespace prefix "ds".'),
-        path: "FatturaElettronica",
-        position: { offset: xml.indexOf("<ds:Signature>") },
-      });
-    }),
+        const error = yield* Effect.flip(decode(xml));
+
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith('Unbound namespace prefix "ds".'),
+          path: "FatturaElettronica",
+          position: { offset: xml.indexOf("<ds:Signature>") },
+        });
+      })
   );
 
-  it.effect.each(modes)("rejects an attribute with an unbound prefix in %s mode", (mode) =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: mode } });
-      const xml = singleLine.replace("<Comune>Roma</Comune>", '<Comune ds:Id="c1">Roma</Comune>');
+  it.effect.each(modes)(
+    "rejects an attribute with an unbound prefix in %s mode",
+    (mode) =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml, {
+          decoder: { unknownElements: mode },
+        });
 
-      const error = yield* Effect.flip(decode(xml));
+        const xml = singleLine.replace(
+          "<Comune>Roma</Comune>",
+          '<Comune ds:Id="c1">Roma</Comune>'
+        );
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith('Unbound namespace prefix "ds".'),
-        path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune",
-        position: { offset: xml.indexOf("ds:Id") },
-      });
-    }),
+        const error = yield* Effect.flip(decode(xml));
+
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith('Unbound namespace prefix "ds".'),
+          path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune",
+          position: { offset: xml.indexOf("ds:Id") },
+        });
+      })
   );
 
-  it.effect("accepts a prefix declared on an ancestor of a skipped element", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
+  it.effect(
+    "accepts a prefix declared on an ancestor of a skipped element",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml, {
+          decoder: { unknownElements: "skip" },
+        });
 
-      const xml = beforeRootEnd(
-        '<ds:Signature><ds:SignedInfo ds:Id="s1"><ds:X>1</ds:X></ds:SignedInfo></ds:Signature>',
-      ).replace("xmlns:p=", `xmlns:ds="${DSIG}" xmlns:p=`);
+        const xml = beforeRootEnd(
+          '<ds:Signature><ds:SignedInfo ds:Id="s1"><ds:X>1</ds:X></ds:SignedInfo></ds:Signature>'
+        ).replace("xmlns:p=", `xmlns:ds="${DSIG}" xmlns:p=`);
 
-      const fattura = yield* decode(xml);
+        const fattura = yield* decode(xml);
 
-      expect(encodeFattura(fattura)).toStrictEqual(encodeFattura(fatturaNamed("1 linea")));
-    }),
+        expect(encodeFattura(fattura)).toStrictEqual(
+          encodeFattura(fatturaNamed("1 linea"))
+        );
+      })
   );
 
   it.effect("rejects a prefix declared only on a sibling", () =>
     Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: "skip" } });
-      const xml = beforeRootEnd(`<ds:Object xmlns:ds="${DSIG}">1</ds:Object><ds:Signature/>`);
+      const { decode } = yield* codecFor(FatturaXml, {
+        decoder: { unknownElements: "skip" },
+      });
+
+      const xml = beforeRootEnd(
+        `<ds:Object xmlns:ds="${DSIG}">1</ds:Object><ds:Signature/>`
+      );
 
       const error = yield* Effect.flip(decode(xml));
 
@@ -777,40 +964,48 @@ describe("decode with namespace prefixes", () => {
         message: startsWith('Unbound namespace prefix "ds".'),
         position: { offset: xml.indexOf("<ds:Signature/>") },
       });
-    }),
+    })
   );
 
-  it.effect.each(modes)("accepts xml:lang without a declaration in %s mode", (mode) =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml, { decoder: { unknownElements: mode } });
+  it.effect.each(modes)(
+    "accepts xml:lang without a declaration in %s mode",
+    (mode) =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml, {
+          decoder: { unknownElements: mode },
+        });
 
-      const xml = singleLine.replace(
-        "<Comune>Roma</Comune>",
-        '<Comune xml:lang="it">Roma</Comune>',
-      );
+        const xml = singleLine.replace(
+          "<Comune>Roma</Comune>",
+          '<Comune xml:lang="it">Roma</Comune>'
+        );
 
-      const fattura = yield* decode(xml);
+        const fattura = yield* decode(xml);
 
-      expect(fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune).toBe("Roma");
-    }),
+        expect(
+          fattura.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune
+        ).toBe("Roma");
+      })
   );
 
-  it.effect("checks a prefixed attribute against a declaration later in the same tag", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(FatturaXml);
+  it.effect(
+    "checks a prefixed attribute against a declaration later in the same tag",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(FatturaXml);
 
-      const xml = singleLine.replace(
-        "<Comune>Roma</Comune>",
-        `<Comune ds:Id="c1" xmlns:ds="${DSIG}">Roma</Comune>`,
-      );
+        const xml = singleLine.replace(
+          "<Comune>Roma</Comune>",
+          `<Comune ds:Id="c1" xmlns:ds="${DSIG}">Roma</Comune>`
+        );
 
-      const error = yield* Effect.flip(decode(xml));
+        const error = yield* Effect.flip(decode(xml));
 
-      expect(error).toMatchObject({
-        message: startsWith("Unexpected attribute: ds:Id."),
-        position: { offset: xml.indexOf("ds:Id") },
-      });
-    }),
+        expect(error).toMatchObject({
+          message: startsWith("Unexpected attribute: ds:Id."),
+          position: { offset: xml.indexOf("ds:Id") },
+        });
+      })
   );
 });
 
@@ -822,28 +1017,36 @@ describe("decode on small schemas", () => {
     Quantita: Schema.NumberFromString,
   }).pipe(root("Documento"));
 
-  it.effect("decodes a missing required array as empty and omits a missing optional one", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento);
+  it.effect(
+    "decodes a missing required array as empty and omits a missing optional one",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento);
 
-      const documento = yield* decode(
-        "<Documento><Titolo>Offerta</Titolo><Quantita>2</Quantita></Documento>",
-      );
+        const documento = yield* decode(
+          "<Documento><Titolo>Offerta</Titolo><Quantita>2</Quantita></Documento>"
+        );
 
-      expect(documento).toStrictEqual({ Titolo: "Offerta", Righe: [], Quantita: 2 });
-    }),
+        expect(documento).toStrictEqual({
+          Titolo: "Offerta",
+          Righe: [],
+          Quantita: 2,
+        });
+      })
   );
 
-  it.effect("decodes entities and CDATA and keeps the leaf text as written", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento);
+  it.effect(
+    "decodes entities and CDATA and keeps the leaf text as written",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento);
 
-      const documento = yield* decode(
-        "<Documento>\n  <Titolo>  a &amp; <![CDATA[<b>]]>  </Titolo>\n  <Quantita>1</Quantita>\n</Documento>",
-      );
+        const documento = yield* decode(
+          "<Documento>\n  <Titolo>  a &amp; <![CDATA[<b>]]>  </Titolo>\n  <Quantita>1</Quantita>\n</Documento>"
+        );
 
-      expect(documento.Titolo).toBe("  a & <b>  ");
-    }),
+        expect(documento.Titolo).toBe("  a & <b>  ");
+      })
   );
 
   it.effect("keeps a leaf made only of whitespace", () =>
@@ -851,49 +1054,63 @@ describe("decode on small schemas", () => {
       const { decode } = yield* codecFor(Documento);
 
       const documento = yield* decode(
-        "<Documento><Titolo> </Titolo><Quantita>1</Quantita></Documento>",
+        "<Documento><Titolo> </Titolo><Quantita>1</Quantita></Documento>"
       );
 
       expect(documento.Titolo).toBe(" ");
-    }),
+    })
   );
 
   it.effect("trims the leaf text when trimText is true", () =>
     Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento, { decoder: { trimText: true } });
-
-      const documento = yield* decode(
-        "<Documento>\n  <Titolo>  a &amp; <![CDATA[<b>]]>  </Titolo>\n  <Quantita>1</Quantita>\n</Documento>",
-      );
-
-      expect(documento.Titolo).toBe("a & <b>");
-    }),
-  );
-
-  it.effect("drops a leaf made only of whitespace when blankLeaves is drop", () =>
-    Effect.gen(function* test() {
       const { decode } = yield* codecFor(Documento, {
-        decoder: { blankLeaves: "drop", trimText: true },
+        decoder: { trimText: true },
       });
 
       const documento = yield* decode(
-        "<Documento><Titolo>Offerta</Titolo><Righe>A</Righe><Righe>\r\n  </Righe><Note> </Note><Quantita>1</Quantita></Documento>",
+        "<Documento>\n  <Titolo>  a &amp; <![CDATA[<b>]]>  </Titolo>\n  <Quantita>1</Quantita>\n</Documento>"
       );
 
-      expect(documento).toStrictEqual({ Titolo: "Offerta", Righe: ["A"], Quantita: 1 });
-    }),
+      expect(documento.Titolo).toBe("a & <b>");
+    })
   );
 
-  it.effect("fails on a required leaf made only of whitespace when blankLeaves is drop", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento, { decoder: { blankLeaves: "drop" } });
+  it.effect(
+    "drops a leaf made only of whitespace when blankLeaves is drop",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento, {
+          decoder: { blankLeaves: "drop", trimText: true },
+        });
 
-      const error = yield* Effect.flip(
-        decode("<Documento><Titolo>  </Titolo><Quantita>1</Quantita></Documento>"),
-      );
+        const documento = yield* decode(
+          "<Documento><Titolo>Offerta</Titolo><Righe>A</Righe><Righe>\r\n  </Righe><Note> </Note><Quantita>1</Quantita></Documento>"
+        );
 
-      expect(error).toMatchObject({ path: "Documento.Titolo" });
-    }),
+        expect(documento).toStrictEqual({
+          Titolo: "Offerta",
+          Righe: ["A"],
+          Quantita: 1,
+        });
+      })
+  );
+
+  it.effect(
+    "fails on a required leaf made only of whitespace when blankLeaves is drop",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento, {
+          decoder: { blankLeaves: "drop" },
+        });
+
+        const error = yield* Effect.flip(
+          decode(
+            "<Documento><Titolo>  </Titolo><Quantita>1</Quantita></Documento>"
+          )
+        );
+
+        expect(error).toMatchObject({ path: "Documento.Titolo" });
+      })
   );
 
   it.effect("rejects an element out of the Schema sequence", () =>
@@ -901,14 +1118,16 @@ describe("decode on small schemas", () => {
       const { decode } = yield* codecFor(Documento);
 
       const error = yield* Effect.flip(
-        decode("<Documento><Quantita>1</Quantita><Titolo>Offerta</Titolo></Documento>"),
+        decode(
+          "<Documento><Quantita>1</Quantita><Titolo>Offerta</Titolo></Documento>"
+        )
       );
 
       expect(error).toMatchObject({
         message: startsWith("Element out of sequence: Titolo."),
         path: "Documento",
       });
-    }),
+    })
   );
 
   it.effect("rejects a repeated element that is not an array", () =>
@@ -916,14 +1135,16 @@ describe("decode on small schemas", () => {
       const { decode } = yield* codecFor(Documento);
 
       const error = yield* Effect.flip(
-        decode("<Documento><Titolo>A</Titolo><Titolo>B</Titolo><Quantita>1</Quantita></Documento>"),
+        decode(
+          "<Documento><Titolo>A</Titolo><Titolo>B</Titolo><Quantita>1</Quantita></Documento>"
+        )
       );
 
       expect(error).toMatchObject({
         message: startsWith("Repeated element: Titolo."),
         path: "Documento",
       });
-    }),
+    })
   );
 
   it.effect("names the array item in the path of a nested failure", () =>
@@ -932,12 +1153,12 @@ describe("decode on small schemas", () => {
 
       const error = yield* Effect.flip(
         decode(
-          "<Documento><Titolo>A</Titolo><Righe>x</Righe><Righe><Sotto/></Righe><Quantita>1</Quantita></Documento>",
-        ),
+          "<Documento><Titolo>A</Titolo><Righe>x</Righe><Righe><Sotto/></Righe><Quantita>1</Quantita></Documento>"
+        )
       );
 
       expect(error).toMatchObject({ path: "Documento.Righe[1]" });
-    }),
+    })
   );
 
   it.effect("decodes the attributes of nested elements", () =>
@@ -958,7 +1179,7 @@ describe("decode on small schemas", () => {
       const { decode } = yield* codecFor(Ordine);
 
       const ordine = yield* decode(
-        '<Ordine><Testata data="2026-04-30"><Numero>7</Numero><Riga tipo="merce"><Codice>A1</Codice></Riga><Riga><Codice>B2</Codice></Riga></Testata></Ordine>',
+        '<Ordine><Testata data="2026-04-30"><Numero>7</Numero><Riga tipo="merce"><Codice>A1</Codice></Riga><Riga><Codice>B2</Codice></Riga></Testata></Ordine>'
       );
 
       expect(ordine).toStrictEqual({
@@ -968,7 +1189,7 @@ describe("decode on small schemas", () => {
           Riga: [{ tipo: "merce", Codice: "A1" }, { Codice: "B2" }],
         },
       });
-    }),
+    })
   );
 
   it.effect("decodes children that carry a prefix", () =>
@@ -976,11 +1197,15 @@ describe("decode on small schemas", () => {
       const { decode } = yield* codecFor(Documento);
 
       const documento = yield* decode(
-        '<x:Documento xmlns:x="urn:x"><x:Titolo>A</x:Titolo><x:Righe>1</x:Righe><x:Righe>2</x:Righe><x:Quantita>1</x:Quantita></x:Documento>',
+        '<x:Documento xmlns:x="urn:x"><x:Titolo>A</x:Titolo><x:Righe>1</x:Righe><x:Righe>2</x:Righe><x:Quantita>1</x:Quantita></x:Documento>'
       );
 
-      expect(documento).toStrictEqual({ Titolo: "A", Righe: ["1", "2"], Quantita: 1 });
-    }),
+      expect(documento).toStrictEqual({
+        Titolo: "A",
+        Righe: ["1", "2"],
+        Quantita: 1,
+      });
+    })
   );
 
   it.effect("reports an element inside a leaf with the leaf in the path", () =>
@@ -988,7 +1213,9 @@ describe("decode on small schemas", () => {
       const { decode } = yield* codecFor(Documento);
 
       const error = yield* Effect.flip(
-        decode("<Documento><Titolo>A<b/></Titolo><Quantita>1</Quantita></Documento>"),
+        decode(
+          "<Documento><Titolo>A<b/></Titolo><Quantita>1</Quantita></Documento>"
+        )
       );
 
       expect(error).toMatchObject({
@@ -996,19 +1223,27 @@ describe("decode on small schemas", () => {
         path: "Documento.Titolo",
         position: { column: 21, line: 1 },
       });
-    }),
+    })
   );
 
-  it.effect("skips an unknown element inside a leaf and keeps the text around it", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento, { decoder: { unknownElements: "skip" } });
+  it.effect(
+    "skips an unknown element inside a leaf and keeps the text around it",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento, {
+          decoder: { unknownElements: "skip" },
+        });
 
-      const documento = yield* decode(
-        "<Documento><Titolo>a<x><y>q</y></x>b</Titolo><Righe>1<z/></Righe><Righe>2</Righe><Quantita>1</Quantita></Documento>",
-      );
+        const documento = yield* decode(
+          "<Documento><Titolo>a<x><y>q</y></x>b</Titolo><Righe>1<z/></Righe><Righe>2</Righe><Quantita>1</Quantita></Documento>"
+        );
 
-      expect(documento).toStrictEqual({ Titolo: "ab", Righe: ["1", "2"], Quantita: 1 });
-    }),
+        expect(documento).toStrictEqual({
+          Titolo: "ab",
+          Righe: ["1", "2"],
+          Quantita: 1,
+        });
+      })
   );
 
   it.effect("rejects a document nested deeper than maxDepth", () =>
@@ -1018,7 +1253,9 @@ describe("decode on small schemas", () => {
       });
 
       const error = yield* Effect.flip(
-        decode("<Documento><Titolo>a<x><y>q</y></x></Titolo><Quantita>1</Quantita></Documento>"),
+        decode(
+          "<Documento><Titolo>a<x><y>q</y></x></Titolo><Quantita>1</Quantita></Documento>"
+        )
       );
 
       expect(error).toMatchObject({
@@ -1026,44 +1263,56 @@ describe("decode on small schemas", () => {
         message: startsWith("Maximum element depth of 3 exceeded"),
         position: { column: 24, line: 1 },
       });
-    }),
+    })
   );
 
-  it.effect("rejects a lone surrogate in a leaf as it rejects a control character", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento);
+  it.effect(
+    "rejects a lone surrogate in a leaf as it rejects a control character",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento);
 
-      const surrogate = yield* Effect.flip(
-        decode("<Documento>\n<Titolo>a\uD83D</Titolo><Quantita>1</Quantita></Documento>"),
-      );
+        const surrogate = yield* Effect.flip(
+          decode(
+            "<Documento>\n<Titolo>a\uD83D</Titolo><Quantita>1</Quantita></Documento>"
+          )
+        );
 
-      const control = yield* Effect.flip(
-        decode("<Documento>\n<Titolo>a\u0001</Titolo><Quantita>1</Quantita></Documento>"),
-      );
+        const control = yield* Effect.flip(
+          decode(
+            "<Documento>\n<Titolo>a\u0001</Titolo><Quantita>1</Quantita></Documento>"
+          )
+        );
 
-      expect(surrogate).toStrictEqual(control);
-      expect(surrogate).toMatchObject({
-        _tag: "XmlParseError",
-        message: startsWith("Character not allowed in XML 1.0"),
-        position: { column: 10, line: 2, offset: 21 },
-      });
-    }),
+        expect(surrogate).toStrictEqual(control);
+        expect(surrogate).toMatchObject({
+          _tag: "XmlParseError",
+          message: startsWith("Character not allowed in XML 1.0"),
+          position: { column: 10, line: 2, offset: 21 },
+        });
+      })
   );
 
-  it.effect("rejects an unknown element with a lone surrogate in its name in skip mode", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Documento, { decoder: { unknownElements: "skip" } });
+  it.effect(
+    "rejects an unknown element with a lone surrogate in its name in skip mode",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Documento, {
+          decoder: { unknownElements: "skip" },
+        });
 
-      const error = yield* Effect.flip(
-        decode("<Documento><Titolo>A</Titolo><Bad\uD800/><Quantita>1</Quantita></Documento>"),
-      );
+        const error = yield* Effect.flip(
+          decode(
+            "<Documento><Titolo>A</Titolo><Bad\uD800/><Quantita>1</Quantita></Documento>"
+          )
+        );
 
-      expect(error).toMatchObject({
-        _tag: "XmlParseError",
-        message: startsWith("Character not allowed in XML 1.0"),
-        position: { offset: 33 },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlParseError",
+          message: startsWith("Character not allowed in XML 1.0"),
+          position: { offset: 33 },
+        });
+      })
   );
 });
 
@@ -1075,98 +1324,126 @@ describe("decode with a default namespace", () => {
     Note: Schema.optionalKey(Schema.String),
   }).pipe(root("Invoice", { namespace: EXPECTED }));
 
-  it.effect("rejects an unprefixed child that declares another default namespace", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice);
-      const xml = `<Invoice xmlns="${EXPECTED}"><Header><Number xmlns="urn:other">7</Number></Header></Invoice>`;
+  it.effect(
+    "rejects an unprefixed child that declares another default namespace",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice);
+        const xml = `<Invoice xmlns="${EXPECTED}"><Header><Number xmlns="urn:other">7</Number></Header></Invoice>`;
 
-      const error = yield* Effect.flip(decode(xml));
+        const error = yield* Effect.flip(decode(xml));
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith(`Element Number is not in the document namespace ${EXPECTED}.`),
-        path: "Invoice.Header.Number",
-        position: { offset: xml.indexOf("<Number") },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith(
+            `Element Number is not in the document namespace ${EXPECTED}.`
+          ),
+          path: "Invoice.Header.Number",
+          position: { offset: xml.indexOf("<Number") },
+        });
+      })
   );
 
-  it.effect("skips an unprefixed child that declares another default namespace when asked to", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice, { decoder: { unknownElements: "skip" } });
+  it.effect(
+    "skips an unprefixed child that declares another default namespace when asked to",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice, {
+          decoder: { unknownElements: "skip" },
+        });
 
-      const invoice = yield* decode(
-        `<Invoice xmlns="${EXPECTED}"><Header><Number xmlns="urn:other">7</Number><Number>8</Number></Header></Invoice>`,
-      );
+        const invoice = yield* decode(
+          `<Invoice xmlns="${EXPECTED}"><Header><Number xmlns="urn:other">7</Number><Number>8</Number></Header></Invoice>`
+        );
 
-      expect(invoice).toStrictEqual({ Header: { Number: "8" } });
-    }),
+        expect(invoice).toStrictEqual({ Header: { Number: "8" } });
+      })
   );
 
-  it.effect("rejects a child that undeclares the default namespace of the root", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice);
-      const xml = `<Invoice xmlns="${EXPECTED}"><Header xmlns=""><Number>7</Number></Header></Invoice>`;
+  it.effect(
+    "rejects a child that undeclares the default namespace of the root",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice);
+        const xml = `<Invoice xmlns="${EXPECTED}"><Header xmlns=""><Number>7</Number></Header></Invoice>`;
 
-      const error = yield* Effect.flip(decode(xml));
+        const error = yield* Effect.flip(decode(xml));
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith(`Element Header is not in the document namespace ${EXPECTED}.`),
-        path: "Invoice.Header",
-        position: { offset: xml.indexOf("<Header") },
-      });
-    }),
+        expect(error).toMatchObject({
+          _tag: "XmlDecodeError",
+          message: startsWith(
+            `Element Header is not in the document namespace ${EXPECTED}.`
+          ),
+          path: "Invoice.Header",
+          position: { offset: xml.indexOf("<Header") },
+        });
+      })
   );
 
-  it.effect("skips a child that undeclares the default namespace of the root when asked to", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice, { decoder: { unknownElements: "skip" } });
+  it.effect(
+    "skips a child that undeclares the default namespace of the root when asked to",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice, {
+          decoder: { unknownElements: "skip" },
+        });
 
-      const invoice = yield* decode(
-        `<Invoice xmlns="${EXPECTED}"><Header xmlns=""><Number>7</Number></Header><Header><Number>8</Number></Header></Invoice>`,
-      );
+        const invoice = yield* decode(
+          `<Invoice xmlns="${EXPECTED}"><Header xmlns=""><Number>7</Number></Header><Header><Number>8</Number></Header></Invoice>`
+        );
 
-      expect(invoice).toStrictEqual({ Header: { Number: "8" } });
-    }),
+        expect(invoice).toStrictEqual({ Header: { Number: "8" } });
+      })
   );
 
-  it.effect("rejects the unprefixed children of a prefixed element that changes the default", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice);
-      const xml = `<p:Invoice xmlns:p="${EXPECTED}"><p:Header xmlns="urn:other"><Number>7</Number></p:Header></p:Invoice>`;
+  it.effect(
+    "rejects the unprefixed children of a prefixed element that changes the default",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice);
+        const xml = `<p:Invoice xmlns:p="${EXPECTED}"><p:Header xmlns="urn:other"><Number>7</Number></p:Header></p:Invoice>`;
 
-      const error = yield* Effect.flip(decode(xml));
+        const error = yield* Effect.flip(decode(xml));
 
-      expect(error).toMatchObject({
-        message: startsWith(`Element Number is not in the document namespace ${EXPECTED}.`),
-        path: "Invoice.Header.Number",
-        position: { offset: xml.indexOf("<Number") },
-      });
-    }),
+        expect(error).toMatchObject({
+          message: startsWith(
+            `Element Number is not in the document namespace ${EXPECTED}.`
+          ),
+          path: "Invoice.Header.Number",
+          position: { offset: xml.indexOf("<Number") },
+        });
+      })
   );
 
-  it.effect("accepts children that declare the document namespace and restores the default", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice);
+  it.effect(
+    "accepts children that declare the document namespace and restores the default",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice);
 
-      const invoice = yield* decode(
-        `<p:Invoice xmlns:p="${EXPECTED}"><Header xmlns="${EXPECTED}"><Number>7</Number></Header><Note>n</Note></p:Invoice>`,
-      );
+        const invoice = yield* decode(
+          `<p:Invoice xmlns:p="${EXPECTED}"><Header xmlns="${EXPECTED}"><Number>7</Number></Header><Note>n</Note></p:Invoice>`
+        );
 
-      expect(invoice).toStrictEqual({ Header: { Number: "7" }, Note: "n" });
-    }),
+        expect(invoice).toStrictEqual({ Header: { Number: "7" }, Note: "n" });
+      })
   );
 
-  it.effect("reports a root that undeclares the default namespace as in no namespace", () =>
-    Effect.gen(function* test() {
-      const { decode } = yield* codecFor(Invoice);
+  it.effect(
+    "reports a root that undeclares the default namespace as in no namespace",
+    () =>
+      Effect.gen(function* test() {
+        const { decode } = yield* codecFor(Invoice);
 
-      const error = yield* Effect.flip(decode('<Invoice xmlns=""><Header/></Invoice>'));
+        const error = yield* Effect.flip(
+          decode('<Invoice xmlns=""><Header/></Invoice>')
+        );
 
-      expect(error).toMatchObject({
-        message: startsWith(`Invalid document namespace: expected ${EXPECTED}, found none.`),
-      });
-    }),
+        expect(error).toMatchObject({
+          message: startsWith(
+            `Invalid document namespace: expected ${EXPECTED}, found none.`
+          ),
+        });
+      })
   );
 });

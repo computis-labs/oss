@@ -1,7 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Logger, Option, Schema, Stdio, pipe } from "effect";
-import * as Charts from "../src/chart.ts";
+import {
+  ConfigProvider,
+  Effect,
+  Logger,
+  Option,
+  Schema,
+  Stdio,
+  pipe,
+} from "effect";
+
 import * as ChartVega from "../src/chart-vega.ts";
+import * as Charts from "../src/chart.ts";
 import * as Dataset from "../src/dataset.ts";
 import * as Eval from "../src/eval.ts";
 import * as Run from "../src/run.ts";
@@ -33,24 +42,32 @@ describe("ChartVega.toSvg", () => {
 
       const drawn = yield* pipe(
         charts,
-        Effect.forEach((chart) => ChartVega.toSvg(Charts.toVegaLite(chart, Theme.computis))),
+        Effect.forEach((chart) =>
+          ChartVega.toSvg(Charts.toVegaLite(chart, Theme.computis))
+        )
       );
 
-      expect(drawn.map((svg) => svg.startsWith("<svg"))).toEqual(charts.map(() => true));
-      expect(drawn.map((svg, index) => svg.includes(charts[index]?.title ?? "missing"))).toEqual(
-        charts.map(() => true),
+      expect(drawn.map((svg) => svg.startsWith("<svg"))).toEqual(
+        charts.map(() => true)
       );
-    }),
+      expect(
+        drawn.map((svg, index) =>
+          svg.includes(charts[index]?.title ?? "missing")
+        )
+      ).toEqual(charts.map(() => true));
+    })
   );
 
   it.effect("draws several charts side by side in one SVG", () =>
     Effect.gen(function* () {
       const charts = yield* everyChart;
 
-      const svg = yield* ChartVega.toSvg(ChartVega.specOf(charts, Theme.computis));
+      const svg = yield* ChartVega.toSvg(
+        ChartVega.specOf(charts, Theme.computis)
+      );
 
       expect(svg.match(/<svg/gu)).toHaveLength(1);
-    }),
+    })
   );
 });
 
@@ -68,7 +85,11 @@ const ColorScaleSchema = Schema.Struct({
 const everyVerdict = Object.values(verdicts);
 
 const verdictMap = Charts.CaseMap({
-  cells: everyVerdict.map((verdict) => ({ column: "r1", row: verdict, verdict })),
+  cells: everyVerdict.map((verdict) => ({
+    column: "r1",
+    row: verdict,
+    verdict,
+  })),
   columns: [{ id: "r1", label: "run" }],
   rows: everyVerdict,
   title: "every verdict",
@@ -76,21 +97,29 @@ const verdictMap = Charts.CaseMap({
 });
 
 describe("ChartVega case map colours", () => {
-  it.effect("gives every verdict a colour of the theme and fills every cell with it", () =>
-    Effect.gen(function* () {
-      const spec = Charts.toVegaLite(verdictMap, Theme.computis);
-      const { scale } = (yield* Schema.decodeUnknownEffect(ColorScaleSchema)(spec)).encoding.color;
+  it.effect(
+    "gives every verdict a colour of the theme and fills every cell with it",
+    () =>
+      Effect.gen(function* () {
+        const spec = Charts.toVegaLite(verdictMap, Theme.computis);
 
-      const svg = yield* ChartVega.toSvg(spec);
+        const { scale } = (yield* Schema.decodeUnknownEffect(ColorScaleSchema)(
+          spec
+        )).encoding.color;
 
-      expect(everyVerdict.filter((verdict) => !scale.domain.includes(verdict))).toEqual([]);
-      expect(scale.range).toHaveLength(scale.domain.length);
-      expect(
-        scale.range.filter(
-          (colour) => !svg.toLowerCase().includes(`fill="${colour.toLowerCase()}"`),
-        ),
-      ).toEqual([]);
-    }),
+        const svg = yield* ChartVega.toSvg(spec);
+
+        expect(
+          everyVerdict.filter((verdict) => !scale.domain.includes(verdict))
+        ).toEqual([]);
+        expect(scale.range).toHaveLength(scale.domain.length);
+        expect(
+          scale.range.filter(
+            (colour) =>
+              !svg.toLowerCase().includes(`fill="${colour.toLowerCase()}"`)
+          )
+        ).toEqual([]);
+      })
   );
 });
 
@@ -102,59 +131,71 @@ describe("ChartVega.svg", () => {
       const drawn = yield* ChartVega.svg()(charts.slice(0, 2), render);
 
       expect(drawn.pipe(Option.map((svg) => svg.kind))).toEqual(
-        Option.some(View.drawingKinds.html),
+        Option.some(View.drawingKinds.html)
       );
       expect(contentOf(drawn).startsWith("<svg")).toBe(true);
-    }),
+    })
   );
 });
 
 describe("ChartVega warnings of a sensitive run", () => {
-  it.effect("draw from charts that hold no output, detail or failure of the run", () =>
-    Effect.gen(function* () {
-      const secret = "CUSTOMER-SECRET-123";
+  it.effect(
+    "draw from charts that hold no output, detail or failure of the run",
+    () =>
+      Effect.gen(function* () {
+        const secret = "CUSTOMER-SECRET-123";
 
-      const run = yield* Runner.run(
-        Eval.make({
-          dataset: Dataset.fromIterable(["a", "b"], { id: (id: string) => id }),
-          name: "secret",
-          output: Schema.String,
-          score: Scorer.label<string, string>({
-            actual: Option.some,
-            expected: () => Scorer.present("x"),
-          }),
-          sensitive: true,
-          task: (input) =>
-            input.id === "a" ? Effect.succeed(secret) : Effect.fail(`failed on ${secret}`),
-        }),
-      );
+        const run = yield* Runner.run(
+          Eval.make({
+            dataset: Dataset.fromIterable(["a", "b"], {
+              id: (id: string) => id,
+            }),
+            name: "secret",
+            output: Schema.String,
+            score: Scorer.label<string, string>({
+              actual: Option.some,
+              expected: () => Scorer.present("x"),
+            }),
+            sensitive: true,
+            task: (input) =>
+              input.id === "a"
+                ? Effect.succeed(secret)
+                : Effect.fail(`failed on ${secret}`),
+          })
+        );
 
-      const comparison = Run.compare(run, run);
-      const logged: string[] = [];
+        const comparison = Run.compare(run, run);
+        const logged: string[] = [];
 
-      const charts = [
-        Charts.trend([run, run]),
-        Charts.variants(run),
-        Charts.delta(comparison, "small"),
-        Charts.transitions(comparison, "small"),
-        ...Charts.caseMap([run, run]),
-        Charts.costVsAccuracy(run),
-      ];
+        const charts = [
+          Charts.trend([run, run]),
+          Charts.variants(run),
+          Charts.delta(comparison, "small"),
+          Charts.transitions(comparison, "small"),
+          ...Charts.caseMap([run, run]),
+          Charts.costVsAccuracy(run),
+        ];
 
-      yield* ChartVega.svg()(charts, render).pipe(
-        Effect.provide(
-          Logger.layer([Logger.formatLogFmt.pipe(Logger.map((line) => logged.push(line)))]),
-        ),
-      );
+        yield* ChartVega.svg()(charts, render).pipe(
+          Effect.provide(
+            Logger.layer([
+              Logger.formatLogFmt.pipe(Logger.map((line) => logged.push(line))),
+            ])
+          )
+        );
 
-      expect(
-        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(run.outputs),
-      ).toContain(secret);
-      expect(
-        yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(charts),
-      ).not.toContain(secret);
-      expect(logged.join("\n")).not.toContain(secret);
-    }),
+        expect(
+          yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+            run.outputs
+          )
+        ).toContain(secret);
+        expect(
+          yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+            charts
+          )
+        ).not.toContain(secret);
+        expect(logged.join("\n")).not.toContain(secret);
+      })
   );
 });
 
@@ -164,38 +205,41 @@ describe("ChartVega.terminal", () => {
       const charts = yield* everyChart;
 
       expect(
-        yield* ChartVega.terminal({ protocol: ChartVega.protocols.none })(charts, render),
+        yield* ChartVega.terminal({ protocol: ChartVega.protocols.none })(
+          charts,
+          render
+        )
       ).toEqual(Option.none());
-    }),
+    })
   );
 
   it.effect("sends the PNG in kitty graphics chunks", () =>
     Effect.gen(function* () {
       const charts = yield* everyChart;
 
-      const drawn = yield* ChartVega.terminal({ protocol: ChartVega.protocols.kitty })(
-        charts.slice(1, 2),
-        render,
-      );
+      const drawn = yield* ChartVega.terminal({
+        protocol: ChartVega.protocols.kitty,
+      })(charts.slice(1, 2), render);
 
       const text = contentOf(drawn);
 
       expect(text.startsWith("\u001B_Gf=100,a=T,c=40,")).toBe(true);
       expect(text.endsWith("\u001B\\")).toBe(true);
-    }),
+    })
   );
 
   it.effect("sends the PNG inline with the iTerm protocol", () =>
     Effect.gen(function* () {
       const charts = yield* everyChart;
 
-      const drawn = yield* ChartVega.terminal({ protocol: ChartVega.protocols.iterm })(
-        charts.slice(1, 2),
-        render,
-      );
+      const drawn = yield* ChartVega.terminal({
+        protocol: ChartVega.protocols.iterm,
+      })(charts.slice(1, 2), render);
 
-      expect(contentOf(drawn).startsWith("\u001B]1337;File=inline=1;width=40;")).toBe(true);
-    }),
+      expect(
+        contentOf(drawn).startsWith("\u001B]1337;File=inline=1;width=40;")
+      ).toBe(true);
+    })
   );
 });
 
@@ -203,36 +247,43 @@ describe("ChartVega.detectProtocol", () => {
   it.effect("draws no image on CI", () =>
     Effect.gen(function* () {
       expect(yield* ChartVega.detectProtocol).toBe(ChartVega.protocols.none);
-    }).pipe(withEnvironment({ CI: "true", TERM: "xterm-kitty" })),
+    }).pipe(withEnvironment({ CI: "true", TERM: "xterm-kitty" }))
   );
 
-  it.effect("draws no image when stdout is not a terminal, even in a graphics terminal", () =>
-    Effect.gen(function* () {
-      const redirected = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ TERM: "xterm-kitty" }),
-        Effect.provide(Stdio.layerTest({ stdoutIsTerminal: Effect.succeed(false) })),
-      );
+  it.effect(
+    "draws no image when stdout is not a terminal, even in a graphics terminal",
+    () =>
+      Effect.gen(function* () {
+        const redirected = yield* ChartVega.detectProtocol.pipe(
+          withEnvironment({ TERM: "xterm-kitty" }),
+          Effect.provide(
+            Stdio.layerTest({ stdoutIsTerminal: Effect.succeed(false) })
+          )
+        );
 
-      const unknown = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ TERM: "xterm-kitty" }),
-      );
+        const unknown = yield* ChartVega.detectProtocol.pipe(
+          withEnvironment({ TERM: "xterm-kitty" })
+        );
 
-      expect([redirected, unknown]).toEqual([ChartVega.protocols.none, ChartVega.protocols.none]);
-    }),
+        expect([redirected, unknown]).toEqual([
+          ChartVega.protocols.none,
+          ChartVega.protocols.none,
+        ]);
+      })
   );
 
   it.effect("uses kitty graphics in Ghostty and iTerm images in iTerm", () =>
     Effect.gen(function* () {
       const ghostty = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ TERM_PROGRAM: "ghostty" }),
+        withEnvironment({ TERM_PROGRAM: "ghostty" })
       );
 
       const iterm = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ TERM_PROGRAM: "iTerm.app" }),
+        withEnvironment({ TERM_PROGRAM: "iTerm.app" })
       );
 
       const other = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ TERM: "xterm-256color" }),
+        withEnvironment({ TERM: "xterm-256color" })
       );
 
       expect([ghostty, iterm, other]).toEqual([
@@ -240,20 +291,29 @@ describe("ChartVega.detectProtocol", () => {
         ChartVega.protocols.iterm,
         ChartVega.protocols.terminalImage,
       ]);
-    }).pipe(Effect.provide(Stdio.layerTest({ stdoutIsTerminal: Effect.succeed(true) }))),
+    }).pipe(
+      Effect.provide(
+        Stdio.layerTest({ stdoutIsTerminal: Effect.succeed(true) })
+      )
+    )
   );
 
-  it.effect("follows EVAL_IMAGE_PROTOCOL and treats an unknown value as none", () =>
-    Effect.gen(function* () {
-      const forced = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ CI: "true", EVAL_IMAGE_PROTOCOL: "iterm" }),
-      );
+  it.effect(
+    "follows EVAL_IMAGE_PROTOCOL and treats an unknown value as none",
+    () =>
+      Effect.gen(function* () {
+        const forced = yield* ChartVega.detectProtocol.pipe(
+          withEnvironment({ CI: "true", EVAL_IMAGE_PROTOCOL: "iterm" })
+        );
 
-      const unknown = yield* ChartVega.detectProtocol.pipe(
-        withEnvironment({ EVAL_IMAGE_PROTOCOL: "sixel" }),
-      );
+        const unknown = yield* ChartVega.detectProtocol.pipe(
+          withEnvironment({ EVAL_IMAGE_PROTOCOL: "sixel" })
+        );
 
-      expect([forced, unknown]).toEqual([ChartVega.protocols.iterm, ChartVega.protocols.none]);
-    }),
+        expect([forced, unknown]).toEqual([
+          ChartVega.protocols.iterm,
+          ChartVega.protocols.none,
+        ]);
+      })
   );
 });

@@ -1,4 +1,5 @@
 import type { Result } from "effect";
+
 import type { XmlParseError } from "./errors/xml-parse-error.ts";
 
 export interface TokenHandler {
@@ -17,7 +18,7 @@ export interface TokenizeOptions {
 export type Tokenize = (
   xml: string,
   handler: TokenHandler,
-  options?: Partial<TokenizeOptions>,
+  options?: Partial<TokenizeOptions>
 ) => Result.Result<boolean, XmlParseError>;
 
 export interface LeafPlan {

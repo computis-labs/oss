@@ -4,12 +4,16 @@ import * as Layer from "effect/Layer";
 import type * as Runtime from "effect/Runtime";
 import * as Schema from "effect/Schema";
 import type * as WorkerRunner from "effect/workers/WorkerRunner";
+
 import { PdfWorkerServer } from "./server.ts";
 
 const onBun = process.versions["bun"] !== undefined;
 
 const isModuleNotFound = Schema.is(
-  Schema.Struct({ code: Schema.Literal("ERR_MODULE_NOT_FOUND"), message: Schema.String }),
+  Schema.Struct({
+    code: Schema.Literal("ERR_MODULE_NOT_FOUND"),
+    message: Schema.String,
+  })
 );
 
 class PlatformUnavailable extends Schema.TaggedError<
@@ -30,7 +34,7 @@ interface LoadedPlatform {
 
 const loadPlatform = (
   platform: string,
-  load: () => Promise<LoadedPlatform>,
+  load: () => Promise<LoadedPlatform>
 ): Effect.Effect<LoadedPlatform, PlatformUnavailable> =>
   Effect.tryPromise({
     catch: (cause) =>
@@ -38,7 +42,9 @@ const loadPlatform = (
         cause,
         platform,
         reason:
-          isModuleNotFound(cause) && cause.message.includes(`'${platform}'`) ? "missing" : "load",
+          isModuleNotFound(cause) && cause.message.includes(`'${platform}'`)
+            ? "missing"
+            : "load",
       }),
     try: load,
   });
@@ -48,8 +54,8 @@ const failWorker = (message: string, ...details: readonly unknown[]) =>
     Effect.andThen(
       Effect.sync(() => {
         process.exitCode = 1;
-      }),
-    ),
+      })
+    )
   );
 
 const hostPlatform = onBun
@@ -75,14 +81,14 @@ Effect.runFork(
     Effect.flatMap(({ runMain, runner }) =>
       Effect.sync(() => {
         runMain(Layer.launch(PdfWorkerServer.pipe(Layer.provide(runner))));
-      }),
+      })
     ),
     Effect.catchTag("PlatformUnavailable", ({ cause, platform, reason }) =>
       reason === "missing"
         ? failWorker(
-            `The effect-pdf worker runs on an Effect platform package: install ${platform} next to @computis/effect-pdf.`,
+            `The effect-pdf worker runs on an Effect platform package: install ${platform} next to @computis/effect-pdf.`
           )
-        : failWorker(`The effect-pdf worker could not load ${platform}:`, cause),
-    ),
-  ),
+        : failWorker(`The effect-pdf worker could not load ${platform}:`, cause)
+    )
+  )
 );

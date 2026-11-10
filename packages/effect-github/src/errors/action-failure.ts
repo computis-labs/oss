@@ -14,9 +14,13 @@ type NarrowedMember<Member, Target> = Member extends Target
     ? Member & Target
     : Extract<Target, Member>;
 
-export type Narrowed<E, Target> = E extends unknown ? NarrowedMember<E, Target> : never;
+export type Narrowed<E, Target> = E extends unknown
+  ? NarrowedMember<E, Target>
+  : never;
 
-export const isActionFailure = <E>(error: E): error is Narrowed<E, ActionFailure> =>
+export const isActionFailure = <E>(
+  error: E
+): error is Narrowed<E, ActionFailure> =>
   error instanceof InputValidationFailure || error instanceof ActionFailed;
 
 export type ActionError =

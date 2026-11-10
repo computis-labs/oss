@@ -6,12 +6,15 @@ export const ActionInputErrorReason = {
   ParseError: "ParseError",
 } as const;
 
-export class ActionInputError extends Schema.TaggedError<ActionInputError>()("ActionInputError", {
-  cause: Schema.optionalKey(Schema.Defect()),
-  name: Schema.String,
-  reason: Schema.Literals(Object.values(ActionInputErrorReason)),
-  value: Schema.optionalKey(Schema.Unknown),
-}) {
+export class ActionInputError extends Schema.TaggedError<ActionInputError>()(
+  "ActionInputError",
+  {
+    cause: Schema.optionalKey(Schema.Defect()),
+    name: Schema.String,
+    reason: Schema.Literals(Object.values(ActionInputErrorReason)),
+    value: Schema.optionalKey(Schema.Unknown),
+  }
+) {
   readonly code = "ACTION_INPUT";
 
   override get message() {

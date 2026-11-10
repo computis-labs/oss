@@ -1,4 +1,5 @@
 import { Array, Data, Option, Schema } from "effect";
+
 import { credit } from "./agreement.ts";
 import { actualStates, expectedStates } from "./observation.ts";
 import type { Observation } from "./observation.ts";
@@ -22,10 +23,14 @@ export const intervalMethods = {
   wilsonUnlessPartial: "wilsonUnlessPartial",
 } as const;
 
-export type IntervalMethod = (typeof intervalMethods)[keyof typeof intervalMethods];
+export type IntervalMethod =
+  (typeof intervalMethods)[keyof typeof intervalMethods];
 
 export type Metric = Data.TaggedEnum<{
-  Count: { readonly name: string; readonly counts: (judged: Judged) => boolean };
+  Count: {
+    readonly name: string;
+    readonly counts: (judged: Judged) => boolean;
+  };
   Ratio: {
     readonly name: string;
     readonly admits: (judged: Judged) => boolean;
@@ -44,7 +49,9 @@ export const isCount = $is("Count");
 
 export const EstimateSchema = Schema.Struct({
   hits: Schema.Finite,
-  interval: Schema.OptionFromNullOr(Schema.Tuple([Schema.Finite, Schema.Finite])),
+  interval: Schema.OptionFromNullOr(
+    Schema.Tuple([Schema.Finite, Schema.Finite])
+  ),
   n: Schema.Finite,
   value: Schema.OptionFromNullOr(Schema.Finite),
 });
@@ -58,10 +65,14 @@ const isEvaluated = (judged: Judged) =>
   judged.verdict !== verdicts.excluded && judged.verdict !== verdicts.unscored;
 
 const answeredBy = (judged: Judged) =>
-  judged.observation.actual === actualStates.present && judged.verdict !== verdicts.errored;
+  judged.observation.actual === actualStates.present &&
+  judged.verdict !== verdicts.errored;
 
 const rightAnswer = (judged: Judged) =>
-  judged.verdict === verdicts.right && judged.observation.actual === actualStates.present ? 1 : 0;
+  judged.verdict === verdicts.right &&
+  judged.observation.actual === actualStates.present
+    ? 1
+    : 0;
 
 export const right = verdictCount(verdicts.right);
 export const partial = verdictCount(verdicts.partial);
@@ -75,13 +86,18 @@ export const excluded = (reason?: string) =>
   Count({
     counts: (judged) =>
       judged.verdict === verdicts.excluded &&
-      (reason === undefined || Option.contains(judged.observation.excluded, reason)),
-    name: reason === undefined ? verdicts.excluded : `${verdicts.excluded}(${reason})`,
+      (reason === undefined ||
+        Option.contains(judged.observation.excluded, reason)),
+    name:
+      reason === undefined
+        ? verdicts.excluded
+        : `${verdicts.excluded}(${reason})`,
   });
 
 export const falsePositives = Count({
   counts: (judged) =>
-    judged.verdict === verdicts.wrong && judged.observation.expected === expectedStates.absent,
+    judged.verdict === verdicts.wrong &&
+    judged.observation.expected === expectedStates.absent,
   name: "falsePositives",
 });
 
@@ -100,19 +116,26 @@ export const precision = Ratio({
 });
 
 export const recall = Ratio({
-  admits: (judged) => isEvaluated(judged) && judged.observation.expected === expectedStates.present,
+  admits: (judged) =>
+    isEvaluated(judged) &&
+    judged.observation.expected === expectedStates.present,
   interval: intervalMethods.wilsonUnlessPartial,
   name: "recall",
   weight: rightAnswer,
 });
 
 export const accuracy = Ratio({
-  admits: (judged) => isEvaluated(judged) && judged.observation.expected !== expectedStates.unknown,
+  admits: (judged) =>
+    isEvaluated(judged) &&
+    judged.observation.expected !== expectedStates.unknown,
   interval: intervalMethods.wilsonUnlessPartial,
   name: "accuracy",
   weight: (judged) =>
     judged.verdict === verdicts.right || judged.verdict === verdicts.partial
-      ? Option.match(judged.observation.agreement, { onNone: () => 1, onSome: credit })
+      ? Option.match(judged.observation.agreement, {
+          onNone: () => 1,
+          onSome: credit,
+        })
       : 0,
 });
 
@@ -125,20 +148,44 @@ export const meanAgreement = Ratio({
   interval: intervalMethods.bootstrap,
   name: "meanAgreement",
   weight: (judged) =>
-    Option.match(judged.observation.agreement, { onNone: () => 0, onSome: credit }),
+    Option.match(judged.observation.agreement, {
+      onNone: () => 0,
+      onSome: credit,
+    }),
 });
 
-export const counts = [right, partial, wrong, missed, gaps, unscored, errored, falsePositives];
+export const counts = [
+  right,
+  partial,
+  wrong,
+  missed,
+  gaps,
+  unscored,
+  errored,
+  falsePositives,
+];
+
 export const ratios = [answered, precision, recall, accuracy, meanAgreement];
 
-export const judge = (observations: readonly Observation[]): readonly Judged[] =>
-  observations.map((observation) => ({ observation, verdict: Verdicts.of(observation) }));
+export const judge = (
+  observations: readonly Observation[]
+): readonly Judged[] =>
+  observations.map((observation) => ({
+    observation,
+    verdict: Verdicts.of(observation),
+  }));
 
 export const count = (metric: CountMetric, judged: readonly Judged[]) =>
   judged.filter((item) => metric.counts(item)).length;
 
-export const estimate = (metric: RatioMetric, judged: readonly Judged[]): Estimate => {
-  const weights = judged.flatMap((item) => (metric.admits(item) ? [metric.weight(item)] : []));
+export const estimate = (
+  metric: RatioMetric,
+  judged: readonly Judged[]
+): Estimate => {
+  const weights = judged.flatMap((item) =>
+    metric.admits(item) ? [metric.weight(item)] : []
+  );
+
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   const binary = weights.every((weight) => weight === 0 || weight === 1);
 
@@ -149,11 +196,17 @@ export const estimate = (metric: RatioMetric, judged: readonly Judged[]): Estima
         ? wilson(total, weights.length)
         : bootstrap(weights, { seed: BOOTSTRAP_SEED }),
     n: weights.length,
-    value: weights.length === 0 ? Option.none() : Option.some(total / weights.length),
+    value:
+      weights.length === 0
+        ? Option.none()
+        : Option.some(total / weights.length),
   };
 };
 
-export const value = (metric: Metric, judged: readonly Judged[]): Option.Option<number> =>
+export const value = (
+  metric: Metric,
+  judged: readonly Judged[]
+): Option.Option<number> =>
   $match(metric, {
     Count: (counted) => Option.some(count(counted, judged)),
     Ratio: (ratio) => estimate(ratio, judged).value,
@@ -165,7 +218,8 @@ export const formatEstimate = (given: Estimate) =>
     onSome: (measured) =>
       `${measured.toFixed(DIGITS)}${Option.match(given.interval, {
         onNone: () => "",
-        onSome: ([low, high]) => ` [${low.toFixed(DIGITS)}, ${high.toFixed(DIGITS)}]`,
+        onSome: ([low, high]) =>
+          ` [${low.toFixed(DIGITS)}, ${high.toFixed(DIGITS)}]`,
       })} (n=${String(given.n)})`,
   });
 
@@ -181,7 +235,11 @@ export const summary = (observations: readonly Observation[]): Summary => {
   const judged = judge(observations);
 
   const reasons = [
-    ...new Set(observations.flatMap((observation) => Option.toArray(observation.excluded))),
+    ...new Set(
+      observations.flatMap((observation) =>
+        Option.toArray(observation.excluded)
+      )
+    ),
   ].toSorted();
 
   return {
@@ -195,11 +253,18 @@ export const summary = (observations: readonly Observation[]): Summary => {
       }),
     ]),
     observations: observations.length,
-    ratios: Object.fromEntries(ratios.map((metric) => [metric.name, estimate(metric, judged)])),
+    ratios: Object.fromEntries(
+      ratios.map((metric) => [metric.name, estimate(metric, judged)])
+    ),
   };
 };
 
-const unmeasured: Estimate = { hits: 0, interval: Option.none(), n: 0, value: Option.none() };
+const unmeasured: Estimate = {
+  hits: 0,
+  interval: Option.none(),
+  n: 0,
+  value: Option.none(),
+};
 
 export function read(summarized: Summary, metric: CountMetric): number;
 export function read(summarized: Summary, metric: RatioMetric): Estimate;
@@ -221,17 +286,17 @@ export const by =
           ...new Set(
             observation.tags
               .filter((tag) => tag.startsWith(head))
-              .map((tag) => tag.slice(head.length)),
+              .map((tag) => tag.slice(head.length))
           ),
-        ].map((group) => [group, observation] as const),
+        ].map((group) => [group, observation] as const)
       ),
-      ([group]) => group,
+      ([group]) => group
     );
 
     return Object.fromEntries(
       Object.entries(groups).map(([group, entries]) => [
         group,
         summary(entries.map(([, observation]) => observation)),
-      ]),
+      ])
     );
   };

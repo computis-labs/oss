@@ -1,5 +1,6 @@
 import { Config, Context, Effect, Layer, Option, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
 import type { GitInfo } from "./events.ts";
 
 export const unknownInfo: GitInfo = {
@@ -8,15 +9,19 @@ export const unknownInfo: GitInfo = {
   sha: Option.none(),
 };
 
-export const Git = Context.Reference<{ readonly current: Effect.Effect<GitInfo> }>(
-  "effect-eval/Git",
-  { defaultValue: () => ({ current: Effect.succeed(unknownInfo) }) },
-);
+export const Git = Context.Reference<{
+  readonly current: Effect.Effect<GitInfo>;
+}>("effect-eval/Git", {
+  defaultValue: () => ({ current: Effect.succeed(unknownInfo) }),
+});
 
-export const layerStatic = (info: GitInfo) => Layer.succeed(Git, { current: Effect.succeed(info) });
+export const layerStatic = (info: GitInfo) =>
+  Layer.succeed(Git, { current: Effect.succeed(info) });
 
 const fromEnvironment = (name: string) =>
-  Config.option(Config.String(name)).pipe(Effect.orElseSucceed(() => Option.none<string>()));
+  Config.option(Config.String(name)).pipe(
+    Effect.orElseSucceed(() => Option.none<string>())
+  );
 
 const processLayer = (cwd: Option.Option<string>) =>
   Layer.effect(
@@ -35,16 +40,21 @@ const processLayer = (cwd: Option.Option<string>) =>
                 }),
                 stderr: "ignore",
                 stdin: "ignore",
-              }),
+              })
             );
 
             const [output, code] = yield* Effect.all(
-              [handle.stdout.pipe(Stream.decodeText, Stream.mkString), handle.exitCode],
-              { concurrency: 2 },
+              [
+                handle.stdout.pipe(Stream.decodeText, Stream.mkString),
+                handle.exitCode,
+              ],
+              { concurrency: 2 }
             );
 
-            return code === 0 ? Option.some(output.trim()) : Option.none<string>();
-          }),
+            return code === 0
+              ? Option.some(output.trim())
+              : Option.none<string>();
+          })
         ).pipe(Effect.orElseSucceed(() => Option.none<string>()));
 
       return {
@@ -62,9 +72,10 @@ const processLayer = (cwd: Option.Option<string>) =>
           };
         }),
       };
-    }),
+    })
   );
 
 export const layerProcess = processLayer(Option.none());
 
-export const layerProcessAt = (directory: string) => processLayer(Option.some(directory));
+export const layerProcessAt = (directory: string) =>
+  processLayer(Option.some(directory));

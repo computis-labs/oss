@@ -1,6 +1,15 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, pipe } from "effect";
+import {
+  ConfigProvider,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  pipe,
+} from "effect";
+
 import * as EvalConfig from "../src/config.ts";
 import * as Dataset from "../src/dataset.ts";
 import { EvalConfigError } from "../src/errors/eval-config-error.ts";
@@ -16,13 +25,16 @@ import { runOf } from "./fixtures.ts";
 const categorizer = Eval.make({
   dataset: Dataset.fromIterable(["rent"], { id: (id: string) => id }),
   name: "categorizer",
-  score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
+  score: Scorer.label<string, string>({
+    actual: Option.some,
+    expected: Scorer.present,
+  }),
   task: (input) => Effect.succeed(input.input),
 });
 
 const inTempFolder = <A, E, R>(
   use: (folder: string) => Effect.Effect<A, E, R>,
-  options: { readonly directory?: string } = {},
+  options: { readonly directory?: string } = {}
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -41,11 +53,16 @@ const writeFile = (path: string, text: string) =>
 
 const reporterNamesFrom = (cwd: string) =>
   Effect.gen(function* () {
-    const config = Option.getOrElse(yield* EvalConfig.load(cwd), (): EvalConfig.EvalConfig => ({}));
+    const config = Option.getOrElse(
+      yield* EvalConfig.load(cwd),
+      (): EvalConfig.EvalConfig => ({})
+    );
 
     const reporters = yield* pipe(
       config.reporters ?? [],
-      Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { config, cwd })),
+      Effect.forEach((entry) =>
+        EvalConfig.resolveReporter(entry, { config, cwd })
+      )
     );
 
     return reporters.map((reporter) => reporter.name);
@@ -75,47 +92,58 @@ const comparingReporter = `{
 }`;
 
 describe("EvalConfig keeps every field of a custom reporter", () => {
-  it.effect("delivers comparisons to a reporter from a module and from the config", () =>
-    inTempFolder(
-      (folder) =>
-        Effect.gen(function* () {
-          yield* writeFile(
-            `${folder}/reporters/custom.mjs`,
-            `import { Effect } from "effect";\nexport default ${comparingReporter};\n`,
-          );
-          yield* writeFile(
-            `${folder}/eval.config.mjs`,
-            `import { Effect } from "effect";\nexport default { reporters: [${comparingReporter}] };\n`,
-          );
-          const run = yield* Runner.run(categorizer);
+  it.effect(
+    "delivers comparisons to a reporter from a module and from the config",
+    () =>
+      inTempFolder(
+        (folder) =>
+          Effect.gen(function* () {
+            yield* writeFile(
+              `${folder}/reporters/custom.mjs`,
+              `import { Effect } from "effect";\nexport default ${comparingReporter};\n`
+            );
+            yield* writeFile(
+              `${folder}/eval.config.mjs`,
+              `import { Effect } from "effect";\nexport default { reporters: [${comparingReporter}] };\n`
+            );
+            const run = yield* Runner.run(categorizer);
 
-          const fromModule = yield* EvalConfig.resolveReporter("reporters/custom.mjs", {
-            cwd: folder,
-          });
+            const fromModule = yield* EvalConfig.resolveReporter(
+              "reporters/custom.mjs",
+              {
+                cwd: folder,
+              }
+            );
 
-          const config = yield* EvalConfig.load(folder);
+            const config = yield* EvalConfig.load(folder);
 
-          const fromConfig = yield* pipe(
-            Option.getOrElse(config, (): EvalConfig.EvalConfig => ({})).reporters ?? [],
-            Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { cwd: folder })),
-          );
+            const fromConfig = yield* pipe(
+              Option.getOrElse(config, (): EvalConfig.EvalConfig => ({}))
+                .reporters ?? [],
+              Effect.forEach((entry) =>
+                EvalConfig.resolveReporter(entry, { cwd: folder })
+              )
+            );
 
-          const failures = yield* pipe(
-            [[fromModule], fromConfig],
-            Effect.forEach((reporters) =>
-              Effect.flip(
-                Reporter.compare(run, run).pipe(
-                  Effect.provide(Reporter.layer(reporters)),
-                  Effect.provide(History.layerMemory),
-                ),
-              ),
-            ),
-          );
+            const failures = yield* pipe(
+              [[fromModule], fromConfig],
+              Effect.forEach((reporters) =>
+                Effect.flip(
+                  Reporter.compare(run, run).pipe(
+                    Effect.provide(Reporter.layer(reporters)),
+                    Effect.provide(History.layerMemory)
+                  )
+                )
+              )
+            );
 
-          expect(failures).toMatchObject([{ reporter: "custom" }, { reporter: "custom" }]);
-        }),
-      { directory: import.meta.dirname },
-    ),
+            expect(failures).toMatchObject([
+              { reporter: "custom" },
+              { reporter: "custom" },
+            ]);
+          }),
+        { directory: import.meta.dirname }
+      )
   );
 });
 
@@ -123,8 +151,8 @@ describe("EvalConfig.builtin", () => {
   it("knows every built-in reporter by name", () => {
     expect(
       Object.values(EvalConfig.builtinNames).map((name) =>
-        Option.map(EvalConfig.builtin(name), (reporter) => reporter.name),
-      ),
+        Option.map(EvalConfig.builtin(name), (reporter) => reporter.name)
+      )
     ).toEqual(Object.values(EvalConfig.builtinNames).map(Option.some));
   });
 
@@ -140,7 +168,9 @@ describe("EvalConfig.resolveReporter", () => {
       inTempFolder((folder) =>
         Effect.gen(function* () {
           const config = EvalConfig.define({
-            view: () => [View.Text({ text: "the view of the config", tone: "neutral" })],
+            view: () => [
+              View.Text({ text: "the view of the config", tone: "neutral" }),
+            ],
           });
 
           const reporters = yield* pipe(
@@ -148,21 +178,25 @@ describe("EvalConfig.resolveReporter", () => {
               ["markdown", { file: `${folder}/report.md` }],
               ["json", { file: `${folder}/run.jsonl` }],
             ] as const,
-            Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { config, cwd: folder })),
+            Effect.forEach((entry) =>
+              EvalConfig.resolveReporter(entry, { config, cwd: folder })
+            )
           );
 
           yield* Runner.run(categorizer).pipe(
             Effect.provide(Reporter.layer(reporters)),
-            Effect.provide(History.layerMemory),
+            Effect.provide(History.layerMemory)
           );
           const fs = yield* FileSystem.FileSystem;
 
           expect(yield* fs.readFileString(`${folder}/report.md`)).toContain(
-            "the view of the config",
+            "the view of the config"
           );
-          expect(yield* fs.readFileString(`${folder}/run.jsonl`)).toContain('"RunFinished"');
-        }),
-      ),
+          expect(yield* fs.readFileString(`${folder}/run.jsonl`)).toContain(
+            '"RunFinished"'
+          );
+        })
+      )
   );
 
   it.effect(
@@ -171,86 +205,123 @@ describe("EvalConfig.resolveReporter", () => {
       inTempFolder((folder) =>
         Effect.gen(function* () {
           const reporter = yield* EvalConfig.resolveReporter(
-            ["html", { compareFile: `${folder}/diff.html`, file: `${folder}/report.html` }],
-            { cwd: folder },
+            [
+              "html",
+              {
+                compareFile: `${folder}/diff.html`,
+                file: `${folder}/report.html`,
+              },
+            ],
+            { cwd: folder }
           );
 
           const layer = Reporter.layer([reporter]);
 
-          const base = yield* Runner.run(categorizer).pipe(Effect.provide(layer));
+          const base = yield* Runner.run(categorizer).pipe(
+            Effect.provide(layer)
+          );
+
           yield* Reporter.compare(base, base).pipe(Effect.provide(layer));
           const fs = yield* FileSystem.FileSystem;
 
-          expect(yield* fs.readFileString(`${folder}/report.html`)).toContain("Summary");
-          expect(yield* fs.readFileString(`${folder}/diff.html`)).toContain("0 regressions");
-        }).pipe(Effect.provide(History.layerMemory)),
-      ),
+          expect(yield* fs.readFileString(`${folder}/report.html`)).toContain(
+            "Summary"
+          );
+          expect(yield* fs.readFileString(`${folder}/diff.html`)).toContain(
+            "0 regressions"
+          );
+        }).pipe(Effect.provide(History.layerMemory))
+      )
   );
 
-  it.effect("runs a process reporter given as a value and as a process tuple", () =>
-    inTempFolder((folder) =>
-      Effect.gen(function* () {
-        const config = EvalConfig.define({
-          reporters: [
-            Reporter.process("value", "node", sink(`${folder}/value.jsonl`)),
-            ["process", { args: sink(`${folder}/tuple.jsonl`), command: "node", name: "tuple" }],
-          ],
-        });
+  it.effect(
+    "runs a process reporter given as a value and as a process tuple",
+    () =>
+      inTempFolder((folder) =>
+        Effect.gen(function* () {
+          const config = EvalConfig.define({
+            reporters: [
+              Reporter.process("value", "node", sink(`${folder}/value.jsonl`)),
+              [
+                "process",
+                {
+                  args: sink(`${folder}/tuple.jsonl`),
+                  command: "node",
+                  name: "tuple",
+                },
+              ],
+            ],
+          });
 
-        const reporters = yield* pipe(
-          config.reporters ?? [],
-          Effect.forEach((entry) => EvalConfig.resolveReporter(entry, { config, cwd: folder })),
-        );
+          const reporters = yield* pipe(
+            config.reporters ?? [],
+            Effect.forEach((entry) =>
+              EvalConfig.resolveReporter(entry, { config, cwd: folder })
+            )
+          );
 
-        yield* Runner.run(categorizer).pipe(
-          Effect.provide(Reporter.layer(reporters)),
-          Effect.provide(History.layerMemory),
-        );
-        const fs = yield* FileSystem.FileSystem;
+          yield* Runner.run(categorizer).pipe(
+            Effect.provide(Reporter.layer(reporters)),
+            Effect.provide(History.layerMemory)
+          );
+          const fs = yield* FileSystem.FileSystem;
 
-        expect(reporters.map((reporter) => reporter.name)).toEqual(["value", "tuple"]);
-        expect(yield* fs.readFileString(`${folder}/value.jsonl`)).toContain('"RunFinished"');
-        expect(yield* fs.readFileString(`${folder}/tuple.jsonl`)).toContain('"RunFinished"');
-      }),
-    ),
+          expect(reporters.map((reporter) => reporter.name)).toEqual([
+            "value",
+            "tuple",
+          ]);
+          expect(yield* fs.readFileString(`${folder}/value.jsonl`)).toContain(
+            '"RunFinished"'
+          );
+          expect(yield* fs.readFileString(`${folder}/tuple.jsonl`)).toContain(
+            '"RunFinished"'
+          );
+        })
+      )
   );
 
   it.effect("refuses a process tuple without a command", () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        EvalConfig.resolveReporter(["process", { file: "x" }], { cwd: "." }),
+        EvalConfig.resolveReporter(["process", { file: "x" }], { cwd: "." })
       );
 
       expect(failure).toBeInstanceOf(EvalConfigError);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NodeServices.layer))
   );
 
   it.effect("refuses options for a reporter that is not built in", () =>
     Effect.gen(function* () {
-      const failure = yield* Effect.flip(EvalConfig.resolveReporter(["slack", {}], { cwd: "." }));
+      const failure = yield* Effect.flip(
+        EvalConfig.resolveReporter(["slack", {}], { cwd: "." })
+      );
 
       expect(failure).toBeInstanceOf(EvalConfigError);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NodeServices.layer))
   );
 
   it.effect("returns a reporter value as it is", () =>
     Effect.gen(function* () {
-      expect(yield* EvalConfig.resolveReporter(Reporter.silent, { cwd: "." })).toBe(
-        Reporter.silent,
-      );
-    }).pipe(Effect.provide(NodeServices.layer)),
+      expect(
+        yield* EvalConfig.resolveReporter(Reporter.silent, { cwd: "." })
+      ).toBe(Reporter.silent);
+    }).pipe(Effect.provide(NodeServices.layer))
   );
 
-  it.effect("fails with EvalConfigError on a name that is neither built in nor a module", () =>
-    Effect.gen(function* () {
-      const failure = yield* Effect.flip(EvalConfig.resolveReporter("slack", { cwd: "/nowhere" }));
+  it.effect(
+    "fails with EvalConfigError on a name that is neither built in nor a module",
+    () =>
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(
+          EvalConfig.resolveReporter("slack", { cwd: "/nowhere" })
+        );
 
-      expect(failure).toMatchObject({
-        message: "The module cannot be imported.",
-        path: "/nowhere/slack",
-      });
-      expect(failure).toBeInstanceOf(EvalConfigError);
-    }).pipe(Effect.provide(NodeServices.layer)),
+        expect(failure).toMatchObject({
+          message: "The module cannot be imported.",
+          path: "/nowhere/slack",
+        });
+        expect(failure).toBeInstanceOf(EvalConfigError);
+      }).pipe(Effect.provide(NodeServices.layer))
   );
 
   it.effect("imports a reporter module relative to the folder", () =>
@@ -258,63 +329,77 @@ describe("EvalConfig.resolveReporter", () => {
       Effect.gen(function* () {
         yield* writeFile(`${folder}/reporters/slack.mjs`, reporterModule);
 
-        const reporter = yield* EvalConfig.resolveReporter("reporters/slack.mjs", { cwd: folder });
+        const reporter = yield* EvalConfig.resolveReporter(
+          "reporters/slack.mjs",
+          { cwd: folder }
+        );
 
         expect(reporter).toMatchObject({ name: "slack", required: true });
-      }),
-    ),
+      })
+    )
   );
 
   it.effect("fails when the module does not export a reporter", () =>
     inTempFolder((folder) =>
       Effect.gen(function* () {
-        yield* writeFile(`${folder}/slack.mjs`, "export default { name: 'slack' };\n");
-
-        const failure = yield* Effect.flip(
-          EvalConfig.resolveReporter("slack.mjs", { cwd: folder }),
+        yield* writeFile(
+          `${folder}/slack.mjs`,
+          "export default { name: 'slack' };\n"
         );
 
-        expect(failure.message).toContain("slack.mjs is not a built-in reporter");
-      }),
-    ),
+        const failure = yield* Effect.flip(
+          EvalConfig.resolveReporter("slack.mjs", { cwd: folder })
+        );
+
+        expect(failure.message).toContain(
+          "slack.mjs is not a built-in reporter"
+        );
+      })
+    )
   );
 });
 
 describe("EvalConfig.load", () => {
-  it.effect("loads the approved shape: a View callback and reporters with options", () =>
-    inTempFolder((folder) =>
-      Effect.gen(function* () {
-        yield* writeFile(
-          `${folder}/eval.config.mjs`,
-          `export default {
+  it.effect(
+    "loads the approved shape: a View callback and reporters with options",
+    () =>
+      inTempFolder((folder) =>
+        Effect.gen(function* () {
+          yield* writeFile(
+            `${folder}/eval.config.mjs`,
+            `export default {
   reporters: ["terminal", ["html", { file: ".eval/report.html" }], ["json", { file: ".eval/last-run.jsonl" }]],
   history: { directory: ".eval/history", baseBranch: "main" },
   view: () => [],
-};\n`,
-        );
+};\n`
+          );
 
-        const config = yield* EvalConfig.load(folder);
+          const config = yield* EvalConfig.load(folder);
 
-        expect(config.pipe(Option.map((loaded) => loaded.reporters))).toEqual(
-          Option.some([
-            "terminal",
-            ["html", { file: ".eval/report.html" }],
-            ["json", { file: ".eval/last-run.jsonl" }],
-          ]),
-        );
-        expect(
-          config.pipe(Option.map((loaded) => loaded.view?.(runOf("r1", []), View.emptyHistory))),
-        ).toEqual(Option.some([]));
-      }),
-    ),
+          expect(config.pipe(Option.map((loaded) => loaded.reporters))).toEqual(
+            Option.some([
+              "terminal",
+              ["html", { file: ".eval/report.html" }],
+              ["json", { file: ".eval/last-run.jsonl" }],
+            ])
+          );
+          expect(
+            config.pipe(
+              Option.map((loaded) =>
+                loaded.view?.(runOf("r1", []), View.emptyHistory)
+              )
+            )
+          ).toEqual(Option.some([]));
+        })
+      )
   );
 
   it.effect("finds no config in a folder without one", () =>
     inTempFolder((folder) =>
       Effect.gen(function* () {
         expect(yield* EvalConfig.load(folder)).toEqual(Option.none());
-      }),
-    ),
+      })
+    )
   );
 
   it.effect("loads eval.config.ts from a parent folder", () =>
@@ -322,7 +407,7 @@ describe("EvalConfig.load", () => {
       Effect.gen(function* () {
         yield* writeFile(
           `${folder}/eval.config.ts`,
-          `export default { history: { enabled: false, baseBranch: "develop" }, reporters: ["terminal", "json"] };\n`,
+          `export default { history: { enabled: false, baseBranch: "develop" }, reporters: ["terminal", "json"] };\n`
         );
         yield* writeFile(`${folder}/apps/backend/.keep`, "");
 
@@ -332,44 +417,56 @@ describe("EvalConfig.load", () => {
           Option.some({
             history: { baseBranch: "develop", enabled: false },
             reporters: ["terminal", "json"],
-          }),
+          })
         );
-        expect(config.pipe(Option.map(EvalConfig.historyEnabled))).toEqual(Option.some(false));
-      }),
-    ),
+        expect(config.pipe(Option.map(EvalConfig.historyEnabled))).toEqual(
+          Option.some(false)
+        );
+      })
+    )
   );
 
-  it.effect("resolves the reporter modules of a parent config from the folder of that config", () =>
-    inTempFolder((folder) =>
-      Effect.gen(function* () {
-        yield* writeFile(`${folder}/reporters/slack.mjs`, reporterModule);
-        yield* writeFile(
-          `${folder}/eval.config.mjs`,
-          `export default { reporters: ["terminal", "./reporters/slack.mjs"] };\n`,
-        );
-        yield* writeFile(`${folder}/apps/backend/.keep`, "");
-        const child = `${folder}/apps/backend`;
+  it.effect(
+    "resolves the reporter modules of a parent config from the folder of that config",
+    () =>
+      inTempFolder((folder) =>
+        Effect.gen(function* () {
+          yield* writeFile(`${folder}/reporters/slack.mjs`, reporterModule);
+          yield* writeFile(
+            `${folder}/eval.config.mjs`,
+            `export default { reporters: ["terminal", "./reporters/slack.mjs"] };\n`
+          );
+          yield* writeFile(`${folder}/apps/backend/.keep`, "");
+          const child = `${folder}/apps/backend`;
 
-        expect([yield* reporterNamesFrom(folder), yield* reporterNamesFrom(child)]).toEqual([
-          ["terminal", "slack"],
-          ["terminal", "slack"],
-        ]);
-      }),
-    ),
+          expect([
+            yield* reporterNamesFrom(folder),
+            yield* reporterNamesFrom(child),
+          ]).toEqual([
+            ["terminal", "slack"],
+            ["terminal", "slack"],
+          ]);
+        })
+      )
   );
 
-  it.effect("fails with EvalConfigError when the default export is not a config", () =>
-    inTempFolder((folder) =>
-      Effect.gen(function* () {
-        yield* writeFile(`${folder}/eval.config.mjs`, "export default { reporters: 42 };\n");
+  it.effect(
+    "fails with EvalConfigError when the default export is not a config",
+    () =>
+      inTempFolder((folder) =>
+        Effect.gen(function* () {
+          yield* writeFile(
+            `${folder}/eval.config.mjs`,
+            "export default { reporters: 42 };\n"
+          );
 
-        const failure = yield* Effect.flip(EvalConfig.load(folder));
+          const failure = yield* Effect.flip(EvalConfig.load(folder));
 
-        expect(failure.message).toBe(
-          "The default export is not an EvalConfig: export default EvalConfig.define({ … }).",
-        );
-      }),
-    ),
+          expect(failure.message).toBe(
+            "The default export is not an EvalConfig: export default EvalConfig.define({ … })."
+          );
+        })
+      )
   );
 });
 
@@ -377,16 +474,21 @@ describe("EvalConfig.historyEnabled", () => {
   it("keeps the history unless the config turns it off", () => {
     expect([
       EvalConfig.historyEnabled({}),
-      EvalConfig.historyEnabled(EvalConfig.define({ history: { enabled: false } })),
+      EvalConfig.historyEnabled(
+        EvalConfig.define({ history: { enabled: false } })
+      ),
     ]).toEqual([true, false]);
   });
 });
 
-const baseBranchWith = (config: EvalConfig.EvalConfig, env: Record<string, string>) =>
+const baseBranchWith = (
+  config: EvalConfig.EvalConfig,
+  env: Record<string, string>
+) =>
   History.baseBranch.pipe(
     Effect.provide(EvalConfig.historyLayer(config)),
     Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
-    Effect.provide(NodeServices.layer),
+    Effect.provide(NodeServices.layer)
   );
 
 const savedOn = (branch: string) =>
@@ -394,16 +496,23 @@ const savedOn = (branch: string) =>
     Eval.make({
       dataset: Dataset.fromIterable(["rent"], { id: (id: string) => id }),
       name: "categorizer",
-      score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
+      score: Scorer.label<string, string>({
+        actual: Option.some,
+        expected: Scorer.present,
+      }),
       task: (input) => Effect.succeed(input.input),
-    }),
+    })
   ).pipe(
     Effect.provide(
       Layer.merge(
         Reporter.layer([History.reporter]),
-        Git.layerStatic({ branch: Option.some(branch), dirty: false, sha: Option.none() }),
-      ),
-    ),
+        Git.layerStatic({
+          branch: Option.some(branch),
+          dirty: false,
+          sha: Option.none(),
+        })
+      )
+    )
   );
 
 describe("EvalConfig.historyLayer base branch", () => {
@@ -416,27 +525,34 @@ describe("EvalConfig.historyLayer base branch", () => {
           baseBranchWith(develop, { EVAL_BASE_BRANCH: "release" }),
           baseBranchWith(develop, {}),
           baseBranchWith({}, {}),
-        ]),
+        ])
       ).toEqual(["release", "develop", "main"]);
-    }),
+    })
   );
 
-  it.effect("picks the baseline of the history snapshot on the configured branch", () =>
-    Effect.gen(function* () {
-      const onDevelop = yield* savedOn("develop");
-      yield* savedOn("main");
-      const current = yield* savedOn("feature/x");
+  it.effect(
+    "picks the baseline of the history snapshot on the configured branch",
+    () =>
+      Effect.gen(function* () {
+        const onDevelop = yield* savedOn("develop");
+        yield* savedOn("main");
+        const current = yield* savedOn("feature/x");
 
-      const snapshot = yield* History.snapshot(current).pipe(
-        Effect.provideService(History.ConfiguredBaseBranch, Option.some("develop")),
-      );
+        const snapshot = yield* History.snapshot(current).pipe(
+          Effect.provideService(
+            History.ConfiguredBaseBranch,
+            Option.some("develop")
+          )
+        );
 
-      expect(snapshot.baseline.pipe(Option.map((run) => run.id))).toEqual(
-        Option.some(onDevelop.id),
-      );
-    }).pipe(
-      Effect.provide(History.layerMemory),
-      Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))),
-    ),
+        expect(snapshot.baseline.pipe(Option.map((run) => run.id))).toEqual(
+          Option.some(onDevelop.id)
+        );
+      }).pipe(
+        Effect.provide(History.layerMemory),
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))
+        )
+      )
   );
 });

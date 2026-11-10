@@ -1,4 +1,5 @@
 import { Array, Effect, Match, Option, Result, pipe } from "effect";
+
 import { different, exact } from "./agreement.ts";
 import * as Compare from "./compare.ts";
 import type { Case } from "./dataset.ts";
@@ -13,7 +14,7 @@ export type Outcome<O> = Result.Result<O, string>;
 
 export type Scorer<A, O, R = never> = (
   input: Case<A>,
-  outcome: Outcome<O>,
+  outcome: Outcome<O>
 ) => Effect.Effect<readonly Observation[], never, R>;
 
 export type Expectation<T> =
@@ -21,7 +22,10 @@ export type Expectation<T> =
   | { readonly _tag: "Absent" }
   | { readonly _tag: "Unknown" };
 
-export const present = <T>(value: T): Expectation<T> => ({ _tag: "Present", value });
+export const present = <T>(value: T): Expectation<T> => ({
+  _tag: "Present",
+  value,
+});
 
 export const absent: Expectation<never> = { _tag: "Absent" };
 
@@ -106,7 +110,8 @@ const observe = <T>(options: {
   });
 };
 
-export const make = <A, O, R>(scorer: Scorer<A, O, R>): Scorer<A, O, R> => scorer;
+export const make = <A, O, R>(scorer: Scorer<A, O, R>): Scorer<A, O, R> =>
+  scorer;
 
 const withGap =
   (gap: Option.Option<string> | undefined) =>
@@ -167,7 +172,7 @@ export const set =
             const items = options.actual(output);
 
             return items.length === 0 ? Option.none() : Option.some(items);
-          }),
+          })
         ),
         show: (items) => items.map(options.show).join(SET_SEPARATOR),
         tags: input.tags,
@@ -197,7 +202,8 @@ export const onlyActualPolicies = {
   falsePositive: "falsePositive",
 } as const;
 
-export type OnlyActual = (typeof onlyActualPolicies)[keyof typeof onlyActualPolicies];
+export type OnlyActual =
+  (typeof onlyActualPolicies)[keyof typeof onlyActualPolicies];
 
 export interface Leaves<T> {
   readonly of: (record: T) => ReadonlyMap<string, readonly string[]>;
@@ -226,28 +232,35 @@ export const fields =
 
       const compared = observe({
         compare: field.compare,
-        expected: Option.match(expectedValue, { onNone: () => absent, onSome: present }),
+        expected: Option.match(expectedValue, {
+          onNone: () => absent,
+          onSome: present,
+        }),
         key: Observations.keyOf(field.key),
         outcome: pipe(
           outcome,
-          Result.map(() => actualValue),
+          Result.map(() => actualValue)
         ),
         show: (value) => value,
         tags: [...input.tags, `${GROUP_TAG}:${field.group}`],
       });
 
-      const observation = withGap(options.gap?.(input.input, field.key))(compared);
+      const observation = withGap(options.gap?.(input.input, field.key))(
+        compared
+      );
 
       const known = Option.all({ actual, expectedValue }).pipe(
         Option.flatMap((values) =>
           Verdicts.of(observation) === verdicts.right
             ? Option.none()
-            : (field.exclude?.({ ...values, actualValue, expected }) ?? Option.none()),
-        ),
+            : (field.exclude?.({ ...values, actualValue, expected }) ??
+              Option.none())
+        )
       );
 
       const reason = Option.firstSomeOf([
-        Option.isNone(expectedValue) && options.onlyActual === onlyActualPolicies.exclude
+        Option.isNone(expectedValue) &&
+        options.onlyActual === onlyActualPolicies.exclude
           ? Option.some(extra)
           : Option.none(),
         Option.fromNullishOr(field.excluded),
@@ -269,7 +282,10 @@ export const fields =
       return Effect.succeed(fieldObservations);
     }
 
-    const covered = new Set(options.fields.flatMap((field) => field.covers ?? []));
+    const covered = new Set(
+      options.fields.flatMap((field) => field.covers ?? [])
+    );
+
     const expectedLeaves = leaves.of(expected);
     const actualLeaves = leaves.of(actual.value);
 
@@ -282,7 +298,11 @@ export const fields =
         expected: wanted.join(LEAF_SEPARATOR),
       };
 
-      const shared = { detail, key: Observations.pathKey(path), tags: input.tags };
+      const shared = {
+        detail,
+        key: Observations.pathKey(path),
+        tags: input.tags,
+      };
 
       const observation = () => {
         if (wanted.length > 0 && given.length > 0) {
@@ -307,9 +327,9 @@ export const fields =
         });
       };
 
-      return Observations.exclude(Option.getOrElse(leaves.rule(path), () => unclassified))(
-        observation(),
-      );
+      return Observations.exclude(
+        Option.getOrElse(leaves.rule(path), () => unclassified)
+      )(observation());
     };
 
     return Effect.succeed([
@@ -328,7 +348,7 @@ export const each =
       readonly actual: (output: O) => ReadonlyMap<string, P>;
       readonly gap?: (input: B, id: string) => Option.Option<string>;
     },
-    scorer: Scorer<B, Option.Option<P>, R>,
+    scorer: Scorer<B, Option.Option<P>, R>
   ): Scorer<A, O, R> =>
   (input, outcome) =>
     pipe(
@@ -341,10 +361,10 @@ export const each =
             Result.map((output) =>
               Option.map(
                 Array.findFirst(split.actual(output), ([id]) => id === item.id),
-                ([, value]) => value,
-              ),
-            ),
-          ),
+                ([, value]) => value
+              )
+            )
+          )
         ).pipe(
           Effect.updateService(Judgements, scopedTo(item.id)),
           Effect.map((observations) =>
@@ -352,12 +372,12 @@ export const each =
               withGap(split.gap?.(item.input, item.id))({
                 ...observation,
                 key: Observations.within(item.id, observation.key),
-              }),
-            ),
-          ),
-        ),
+              })
+            )
+          )
+        )
       ),
-      Effect.map((groups) => groups.flat()),
+      Effect.map((groups) => groups.flat())
     );
 
 export const all =
@@ -366,5 +386,5 @@ export const all =
     pipe(
       scorers,
       Effect.forEach((scorer) => scorer(input, outcome)),
-      Effect.map((groups) => groups.flat()),
+      Effect.map((groups) => groups.flat())
     );

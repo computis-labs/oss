@@ -5,14 +5,15 @@ import { parse as parseEksml } from "@eksml/xml/parser";
 import { Console, Effect, FileSystem, Path, Schema } from "effect";
 import { Bench } from "tinybench";
 import { parse as parseTxml } from "txml/txml";
-import { makeBaseline } from "./baseline.ts";
-import { makeFixtures } from "./fixtures.ts";
-// oxlint-disable-next-line test-boundary/no-test-imports -- the benchmarks are removed before the merge and share the test invoices until then
-import { FatturaXml } from "../tests/fixtures/fattura.ts";
+
 import { makeWriter } from "../src/encoder.ts";
 import { codec } from "../src/index.ts";
 import { tokenize } from "../src/tokenizer.ts";
 import * as Xsd from "../src/xsd.ts";
+// oxlint-disable-next-line test-boundary/no-test-imports -- the benchmarks are removed before the merge and share the test invoices until then
+import { FatturaXml } from "../tests/fixtures/fattura.ts";
+import { makeBaseline } from "./baseline.ts";
+import { makeFixtures } from "./fixtures.ts";
 
 const XSD_DIRECTORY = "../tests/fixtures/xsd/";
 const STRING_SUBCLASS_FLAG = "--string-subclass";
@@ -26,35 +27,63 @@ const phases = {
     reference: "attuale (Schema + fast-xml-builder)",
     title: "Encode: fattura tipizzata → XML",
   },
-  tokenize: { reference: "fast-xml-parser", title: "Parsing XML (senza Schema)" },
+  tokenize: {
+    reference: "fast-xml-parser",
+    title: "Parsing XML (senza Schema)",
+  },
   validate: { reference: "xmllint-wasm", title: "Validazione XSD" },
-  writer: { reference: "fast-xml-builder", title: "Scrittura XML (senza Schema)" },
+  writer: {
+    reference: "fast-xml-builder",
+    title: "Scrittura XML (senza Schema)",
+  },
 } as const;
 
 type Phase = keyof typeof phases;
 
 const noop = () => true;
-const noopHandler = { attribute: noop, close: noop, openEnd: noop, openStart: noop, text: noop };
+
+const noopHandler = {
+  attribute: noop,
+  close: noop,
+  openEnd: noop,
+  openStart: noop,
+  text: noop,
+};
 
 const formatNumber = (value: number, digits: number) =>
-  value.toLocaleString("it-IT", { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  value.toLocaleString("it-IT", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
 
 const program = Effect.gen(function* effectXmlBenchmark() {
   const stringSubclass = process.argv.includes(STRING_SUBCLASS_FLAG);
 
   if (stringSubclass) {
-    Reflect.defineProperty(globalThis, "BenchString", { value: class extends String {} });
+    Reflect.defineProperty(globalThis, "BenchString", {
+      value: class extends String {},
+    });
   }
 
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const directory = yield* path.fromFileUrl(new URL(XSD_DIRECTORY, import.meta.url));
+
+  const directory = yield* path.fromFileUrl(
+    new URL(XSD_DIRECTORY, import.meta.url)
+  );
+
   const mainPath = path.join(directory, "Schema_VFPR12_v1.2.3.xsd");
   const dsigPath = path.join(directory, "xmldsig-core-schema.xsd");
 
   const baseline = makeBaseline({
-    dsig: { contents: yield* fs.readFileString(dsigPath), fileName: "xmldsig-core-schema.xsd" },
-    main: { contents: yield* fs.readFileString(mainPath), fileName: "Schema_VFPR12_v1.2.3.xsd" },
+    dsig: {
+      contents: yield* fs.readFileString(dsigPath),
+      fileName: "xmldsig-core-schema.xsd",
+    },
+    main: {
+      contents: yield* fs.readFileString(mainPath),
+      fileName: "Schema_VFPR12_v1.2.3.xsd",
+    },
   });
 
   const fixtures = makeFixtures(baseline);
@@ -64,14 +93,19 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   const validator = yield* Xsd.make({ schema: { path: mainPath } });
 
   const encodeFatturaJson = (fattura: typeof FatturaXml.Type) =>
-    Schema.encodeEffect(Schema.fromJsonString(FatturaXml))(fattura).pipe(Effect.orDie);
+    Schema.encodeEffect(Schema.fromJsonString(FatturaXml))(fattura).pipe(
+      Effect.orDie
+    );
 
   for (const fixture of fixtures) {
     const decoded = yield* xml.decode(fixture.xml);
     const encoded = yield* xml.encode(fixture.fattura);
     yield* validator.validate(encoded);
 
-    if ((yield* encodeFatturaJson(decoded)) !== (yield* encodeFatturaJson(fixture.fattura))) {
+    if (
+      (yield* encodeFatturaJson(decoded)) !==
+      (yield* encodeFatturaJson(fixture.fattura))
+    ) {
       yield* Effect.die(`decode diverso per ${fixture.name}`);
     }
   }
@@ -87,10 +121,16 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   }[] = [];
 
   for (const fixture of fixtures) {
-    yield* Console.log(`▶ ${fixture.name} (${formatNumber(fixture.bytes / 1024, 1)} KB)`);
+    yield* Console.log(
+      `▶ ${fixture.name} (${formatNumber(fixture.bytes / 1024, 1)} KB)`
+    );
     const encoded = baseline.encodeFattura(fixture.fattura);
 
-    const tasks: readonly (readonly [Phase, string, () => void | Promise<void>])[] = [
+    const tasks: readonly (readonly [
+      Phase,
+      string,
+      () => void | Promise<void>,
+    ])[] = [
       [
         "tokenize",
         phases.tokenize.reference,
@@ -191,7 +231,12 @@ const program = Effect.gen(function* effectXmlBenchmark() {
       ],
     ];
 
-    const bench = new Bench({ name: fixture.name, time: 1000, warmupTime: 300 });
+    const bench = new Bench({
+      name: fixture.name,
+      time: 1000,
+      warmupTime: 300,
+    });
+
     const labels = new Map<string, readonly [Phase, string]>();
 
     for (const [phase, implementation, run] of tasks) {
@@ -219,33 +264,38 @@ const program = Effect.gen(function* effectXmlBenchmark() {
     }
   }
 
-  const sections = Object.entries(phases).flatMap(([phase, { reference, title }]) => [
-    `## ${title}`,
-    "",
-    `Riferimento: ${reference}. La colonna × è la velocità rispetto al riferimento, sulla stessa fixture.`,
-    "",
-    "| Fixture | KB | Implementazione | media (ms) | p99 (ms) | ops/s | × |",
-    "|---|---:|---|---:|---:|---:|---:|",
-    ...rows.flatMap((row) => {
-      if (row.phase !== phase) {
-        return [];
-      }
+  const sections = Object.entries(phases).flatMap(
+    ([phase, { reference, title }]) => [
+      `## ${title}`,
+      "",
+      `Riferimento: ${reference}. La colonna × è la velocità rispetto al riferimento, sulla stessa fixture.`,
+      "",
+      "| Fixture | KB | Implementazione | media (ms) | p99 (ms) | ops/s | × |",
+      "|---|---:|---|---:|---:|---:|---:|",
+      ...rows.flatMap((row) => {
+        if (row.phase !== phase) {
+          return [];
+        }
 
-      const base = rows.find(
-        (candidate) =>
-          candidate.phase === row.phase &&
-          candidate.fixture === row.fixture &&
-          candidate.implementation === reference,
-      );
+        const base = rows.find(
+          (candidate) =>
+            candidate.phase === row.phase &&
+            candidate.fixture === row.fixture &&
+            candidate.implementation === reference
+        );
 
-      const speedup = base === undefined ? "" : `${formatNumber(base.meanMs / row.meanMs, 2)}×`;
+        const speedup =
+          base === undefined
+            ? ""
+            : `${formatNumber(base.meanMs / row.meanMs, 2)}×`;
 
-      return [
-        `| ${row.fixture} | ${formatNumber(row.kb, 1)} | ${row.implementation} | ${formatNumber(row.meanMs, 3)} | ${formatNumber(row.p99Ms, 3)} | ${formatNumber(row.opsPerSecond, 0)} | ${speedup} |`,
-      ];
-    }),
-    "",
-  ]);
+        return [
+          `| ${row.fixture} | ${formatNumber(row.kb, 1)} | ${row.implementation} | ${formatNumber(row.meanMs, 3)} | ${formatNumber(row.p99Ms, 3)} | ${formatNumber(row.opsPerSecond, 0)} | ${speedup} |`,
+        ];
+      }),
+      "",
+    ]
+  );
 
   const report = [
     `# Benchmark effect-xml${stringSubclass ? " (con sottoclasse di String, come nel backend)" : ""}`,
@@ -259,7 +309,10 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   ].join("\n");
 
   const output = yield* path.fromFileUrl(
-    new URL(`results/benchmark${stringSubclass ? "-string-subclass" : ""}.md`, import.meta.url),
+    new URL(
+      `results/benchmark${stringSubclass ? "-string-subclass" : ""}.md`,
+      import.meta.url
+    )
   );
 
   yield* fs.makeDirectory(path.dirname(output), { recursive: true });
@@ -267,4 +320,6 @@ const program = Effect.gen(function* effectXmlBenchmark() {
   yield* Console.log(report);
 });
 
-NodeRuntime.runMain(program.pipe(Effect.scoped, Effect.provide(NodeServices.layer)));
+NodeRuntime.runMain(
+  program.pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);

@@ -1,4 +1,5 @@
-const digitClass = (low: string, high: string) => (low === high ? low : `[${low}-${high}]`);
+const digitClass = (low: string, high: string) =>
+  low === high ? low : `[${low}-${high}]`;
 
 const fixedWidthRange = (low: string, high: string): string => {
   if (low.length === 0) {
@@ -13,11 +14,15 @@ const fixedWidthRange = (low: string, high: string): string => {
   if (lowHead === highHead) {
     const inner = fixedWidthRange(lowTail, highTail);
 
-    return inner.includes("|") ? `${lowHead}(?:${inner})` : `${lowHead}${inner}`;
+    return inner.includes("|")
+      ? `${lowHead}(?:${inner})`
+      : `${lowHead}${inner}`;
   }
 
   const anyDigits =
-    lowTail.length <= 1 ? "[0-9]".repeat(lowTail.length) : `[0-9]{${String(lowTail.length)}}`;
+    lowTail.length <= 1
+      ? "[0-9]".repeat(lowTail.length)
+      : `[0-9]{${String(lowTail.length)}}`;
 
   if (/^0*$/u.test(lowTail) && /^9*$/u.test(highTail)) {
     return `${digitClass(lowHead, highHead)}${anyDigits}`;

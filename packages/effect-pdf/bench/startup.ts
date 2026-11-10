@@ -1,17 +1,31 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { Console, Effect, FileSystem, ManagedRuntime, Path, Schema } from "effect";
+import {
+  Console,
+  Effect,
+  FileSystem,
+  ManagedRuntime,
+  Path,
+  Schema,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
+import { open } from "../src/index.ts";
 import { bilevelScanPdf } from "./fixtures.ts";
 import { attempt, formatNumber, median, nodePdfEngine } from "./support.ts";
-import { open } from "../src/index.ts";
 
 const RUNS = 3;
 const BYTES_PER_MEGABYTE = 2 ** 20;
 const MEASURE_FLAG = "--measure";
 
-const Measurement = Schema.Struct({ readyMs: Schema.Finite, rssMb: Schema.Finite });
-const decodeMeasurement = Schema.decodeUnknownEffect(Schema.fromJsonString(Measurement));
+const Measurement = Schema.Struct({
+  readyMs: Schema.Finite,
+  rssMb: Schema.Finite,
+});
+
+const decodeMeasurement = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Measurement)
+);
 
 const measureOnce = Effect.gen(function* measurePoolStartup() {
   const size = Number(process.argv[process.argv.indexOf(MEASURE_FLAG) + 1]);
@@ -23,11 +37,13 @@ const measureOnce = Effect.gen(function* measurePoolStartup() {
       await runtime.runPromise(
         Effect.all(
           Array.from({ length: size }, () =>
-            Effect.scoped(Effect.flatMap(open(pdf), (document) => document.classify)),
+            Effect.scoped(
+              Effect.flatMap(open(pdf), (document) => document.classify)
+            )
           ),
-          { concurrency: "unbounded" },
-        ),
-      ),
+          { concurrency: "unbounded" }
+        )
+      )
   );
   const readyMs = performance.now() - started;
   const rssMb = process.memoryUsage().rss / BYTES_PER_MEGABYTE;
@@ -35,7 +51,10 @@ const measureOnce = Effect.gen(function* measurePoolStartup() {
     await runtime.dispose();
   });
   yield* Console.log(
-    yield* Schema.encodeEffect(Schema.fromJsonString(Measurement))({ readyMs, rssMb }),
+    yield* Schema.encodeEffect(Schema.fromJsonString(Measurement))({
+      readyMs,
+      rssMb,
+    })
   );
 });
 
@@ -52,17 +71,21 @@ const compare = Effect.gen(function* comparePoolSizes() {
           Array.from({ length: RUNS }, () =>
             Effect.gen(function* measureInChildProcess() {
               const output = yield* spawner.string(
-                ChildProcess.make(process.execPath, [script, MEASURE_FLAG, size.toString()]),
+                ChildProcess.make(process.execPath, [
+                  script,
+                  MEASURE_FLAG,
+                  size.toString(),
+                ])
               );
 
               return yield* decodeMeasurement(output.trim());
-            }),
-          ),
+            })
+          )
         );
 
         return `| ${size.toString()} | ${formatNumber(median(runs.map(({ readyMs }) => readyMs)), 0)} | ${formatNumber(median(runs.map(({ rssMb }) => rssMb)), 0)} |`;
-      }),
-    ),
+      })
+    )
   );
 
   const report = [
@@ -91,5 +114,5 @@ NodeRuntime.runMain(
     }
 
     return yield* compare;
-  }).pipe(Effect.provide(NodeServices.layer)),
+  }).pipe(Effect.provide(NodeServices.layer))
 );

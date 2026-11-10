@@ -2,7 +2,8 @@ import { HELPERS } from "./simple-type/emit.ts";
 
 export const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
 
-export const pascal = (name: string) => `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+export const pascal = (name: string) =>
+  `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 
 export const makeAllocator = () => {
   const used = new Set<string>([
@@ -66,9 +67,10 @@ export const makeAllocator = () => {
     const base = /^[0-9]/u.test(sanitized) ? `_${sanitized}` : sanitized;
 
     const candidate = used.has(base)
-      ? (Array.from({ length: used.size }, (_, index) => `${base}${String(index + 2)}`).find(
-          (suffixed) => !used.has(suffixed),
-        ) ?? base)
+      ? (Array.from(
+          { length: used.size },
+          (_, index) => `${base}${String(index + 2)}`
+        ).find((suffixed) => !used.has(suffixed)) ?? base)
       : base;
 
     used.add(candidate);

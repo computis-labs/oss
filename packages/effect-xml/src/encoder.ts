@@ -1,4 +1,5 @@
 import { Array, Effect, Predicate, Result, Schema } from "effect";
+
 import { XmlEncodeError } from "./errors/xml-encode-error.ts";
 import { firstIssue } from "./issue-path.ts";
 import type { ElementPlan, RootPlan } from "./types.ts";
@@ -17,11 +18,14 @@ export interface EncoderOptions {
 export type Encodable = Schema.Top & { readonly Encoded: XmlObject };
 
 export type Encode<S extends Encodable> = (
-  value: S["Type"],
+  value: S["Type"]
 ) => Effect.Effect<string, XmlEncodeError, S["EncodingServices"]>;
 
 interface ElementWriter {
-  readonly attributes: readonly { readonly key: string; readonly prefix: string }[];
+  readonly attributes: readonly {
+    readonly key: string;
+    readonly prefix: string;
+  }[];
   readonly closeIndent: string;
   readonly steps: readonly Step[];
 }
@@ -38,8 +42,12 @@ const SHORT_TEXT = 128;
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>';
 
 /* oxlint-disable no-control-regex -- control characters excluded from Char */
-const ILLEGAL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/u;
-const TEXT_SPECIAL = /[&<>\r\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/u;
+const ILLEGAL =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/u;
+
+const TEXT_SPECIAL =
+  /[&<>\r\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/u;
+
 const TEXT_SPECIAL_HEAD = /[&<>\u0000-\u0008\u000B-\u000E]/u;
 
 // oxlint-disable-next-line require-unicode-regexp -- also finds surrogate halves
@@ -71,32 +79,53 @@ const ATTRIBUTE_ENTITIES = new Map([
 
 export const escapeAttribute = (value: string) =>
   ATTRIBUTE_SPECIAL.test(value)
-    ? value.replaceAll(ATTRIBUTE_SPECIAL_ALL, (char) => ATTRIBUTE_ENTITIES.get(char) ?? char)
+    ? value.replaceAll(
+        ATTRIBUTE_SPECIAL_ALL,
+        (char) => ATTRIBUTE_ENTITIES.get(char) ?? char
+      )
     : value;
 
 const illegalAt = (value: string, path: string): XmlEncodeError | undefined => {
   const index = value.search(ILLEGAL);
-  const code = (value.codePointAt(index) ?? 0).toString(16).toUpperCase().padStart(4, "0");
+
+  const code = (value.codePointAt(index) ?? 0)
+    .toString(16)
+    .toUpperCase()
+    .padStart(4, "0");
 
   return index === -1
     ? undefined
-    : XmlEncodeError.fromReason({ path, reason: `Character U+${code} is not allowed in XML 1.0.` });
+    : XmlEncodeError.fromReason({
+        path,
+        reason: `Character U+${code} is not allowed in XML 1.0.`,
+      });
 };
 
-const findIllegal = (step: Step, value: XmlValue, path: string): XmlEncodeError | undefined => {
+const findIllegal = (
+  step: Step,
+  value: XmlValue,
+  path: string
+): XmlEncodeError | undefined => {
   if (Predicate.isString(value)) {
     return illegalAt(value, path);
   }
 
   const writer = step.element;
 
-  if (value === undefined || Array.isArray<XmlValue>(value) || writer === undefined) {
+  if (
+    value === undefined ||
+    Array.isArray<XmlValue>(value) ||
+    writer === undefined
+  ) {
     return undefined;
   }
 
   for (const { key } of writer.attributes) {
     const item = value[key];
-    const found = Predicate.isString(item) ? illegalAt(item, `${path}.${key}`) : undefined;
+
+    const found = Predicate.isString(item)
+      ? illegalAt(item, `${path}.${key}`)
+      : undefined;
 
     if (found !== undefined) {
       return found;
@@ -108,7 +137,11 @@ const findIllegal = (step: Step, value: XmlValue, path: string): XmlEncodeError 
 
     if (child.many && Array.isArray<XmlValue>(item)) {
       for (const [index, entry] of item.entries()) {
-        const found = findIllegal(child, entry, `${path}.${child.key}[${String(index)}]`);
+        const found = findIllegal(
+          child,
+          entry,
+          `${path}.${child.key}[${String(index)}]`
+        );
 
         if (found !== undefined) {
           return found;
@@ -126,16 +159,25 @@ const findIllegal = (step: Step, value: XmlValue, path: string): XmlEncodeError 
   return undefined;
 };
 
-export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}) => {
+export const makeWriter = (
+  plan: RootPlan,
+  options: Partial<EncoderOptions> = {}
+) => {
   const indent = Predicate.isNumber(options.indent)
     ? " ".repeat(options.indent)
     : (options.indent ?? "");
 
   const pretty = indent !== "";
-  const newline = (depth: number) => (pretty ? `\n${indent.repeat(depth)}` : "");
+
+  const newline = (depth: number) =>
+    pretty ? `\n${indent.repeat(depth)}` : "";
+
   const writers = new Map<ElementPlan, Map<number, ElementWriter>>();
 
-  const elementWriter = (element: ElementPlan, depth: number): ElementWriter => {
+  const elementWriter = (
+    element: ElementPlan,
+    depth: number
+  ): ElementWriter => {
     const level = pretty ? depth : 0;
     const byDepth = writers.get(element) ?? new Map<number, ElementWriter>();
     writers.set(element, byDepth);
@@ -153,10 +195,14 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
       closeIndent: newline(level),
       steps: element.sequence.map((child) => {
         const nested =
-          child.node.kind === "element" ? elementWriter(child.node, level + 1) : undefined;
+          child.node.kind === "element"
+            ? elementWriter(child.node, level + 1)
+            : undefined;
 
         const open =
-          nested !== undefined && nested.attributes.length > 0 ? `<${child.name}` : child.openTag;
+          nested !== undefined && nested.attributes.length > 0
+            ? `<${child.name}`
+            : child.openTag;
 
         return {
           close: child.closeTag,
@@ -180,13 +226,20 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
     element: rootWriter,
     key: plan.name,
     many: false,
-    open: rootWriter.attributes.length > 0 ? plan.openTagStart : `${plan.openTagStart}>`,
+    open:
+      rootWriter.attributes.length > 0
+        ? plan.openTagStart
+        : `${plan.openTagStart}>`,
   };
 
   const prolog = options.declaration === false ? "" : XML_DECLARATION;
   const header = prolog === "" || !pretty ? prolog : `${prolog}\n`;
 
-  const writeValue = (parts: string[], step: Step, value: XmlValue): boolean => {
+  const writeValue = (
+    parts: string[],
+    step: Step,
+    value: XmlValue
+  ): boolean => {
     if (Predicate.isString(value)) {
       const special =
         value.length <= SHORT_TEXT
@@ -204,9 +257,12 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
       parts.push(
         step.open,
         special
-          ? value.replaceAll(TEXT_SPECIAL_ALL, (char) => TEXT_ENTITIES.get(char) ?? char)
+          ? value.replaceAll(
+              TEXT_SPECIAL_ALL,
+              (char) => TEXT_ENTITIES.get(char) ?? char
+            )
           : value,
-        step.close,
+        step.close
       );
 
       return true;
@@ -214,7 +270,11 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
 
     const writer = step.element;
 
-    if (value === undefined || Array.isArray<XmlValue>(value) || writer === undefined) {
+    if (
+      value === undefined ||
+      Array.isArray<XmlValue>(value) ||
+      writer === undefined
+    ) {
       return true;
     }
 
@@ -248,7 +308,9 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
         : writeValue(parts, child, item);
     });
 
-    parts.push(parts.length === before ? step.close : writer.closeIndent + step.close);
+    parts.push(
+      parts.length === before ? step.close : writer.closeIndent + step.close
+    );
 
     return legal;
   };
@@ -263,7 +325,7 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
             XmlEncodeError.fromReason({
               path: plan.name,
               reason: "Character not allowed in XML 1.0.",
-            }),
+            })
         );
   };
 };
@@ -271,7 +333,7 @@ export const makeWriter = (plan: RootPlan, options: Partial<EncoderOptions> = {}
 export const makePlanEncoder = <S extends Encodable>(
   schema: S,
   plan: RootPlan,
-  options?: Partial<EncoderOptions>,
+  options?: Partial<EncoderOptions>
 ): Encode<S> => {
   const write = makeWriter(plan, options);
   const encode = Schema.encodeEffect(schema);
@@ -282,9 +344,11 @@ export const makePlanEncoder = <S extends Encodable>(
         onFailure: (error) => {
           const { message, path } = firstIssue(plan.name, error);
 
-          return Effect.fail(XmlEncodeError.fromReason({ cause: error, path, reason: message }));
+          return Effect.fail(
+            XmlEncodeError.fromReason({ cause: error, path, reason: message })
+          );
         },
         onSuccess: (encoded) => Effect.fromResult(write(encoded)),
-      }),
+      })
     );
 };

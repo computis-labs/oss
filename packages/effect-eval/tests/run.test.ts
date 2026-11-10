@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Option, Result, Schema, Stream } from "effect";
+
 import * as Agreement from "../src/agreement.ts";
 import * as Compare from "../src/compare.ts";
 import * as Dataset from "../src/dataset.ts";
@@ -38,9 +39,12 @@ describe("Run.fold", () => {
       const events: EvalEvent[] = [];
 
       const categorize = Eval.make({
-        dataset: Dataset.fromIterable(["m1", "m2", Dataset.skip("m3", "no truth")], {
-          id: (id: string) => id,
-        }),
+        dataset: Dataset.fromIterable(
+          ["m1", "m2", Dataset.skip("m3", "no truth")],
+          {
+            id: (id: string) => id,
+          }
+        ),
         name: "categorizer",
         score: Scorer.label<string, string>({
           actual: Option.some,
@@ -54,10 +58,12 @@ describe("Run.fold", () => {
           Reporter.layer([
             Reporter.fromStream(
               "recording",
-              Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+              Stream.runForEach((event) =>
+                Effect.sync(() => events.push(event))
+              )
             ),
-          ]),
-        ),
+          ])
+        )
       );
 
       const folded = yield* Run.fold(events);
@@ -71,36 +77,43 @@ describe("Run.fold", () => {
       });
       expect(folded.variants[0]?.summary).toEqual(run.variants[0]?.summary);
       expect(folded.outputs.map((output) => output.case)).toEqual(["m1", "m2"]);
-    }),
+    })
   );
 
-  it.effect("marks a run without RunFinished as interrupted and not passed", () =>
-    Effect.gen(function* () {
-      const events: EvalEvent[] = [];
+  it.effect(
+    "marks a run without RunFinished as interrupted and not passed",
+    () =>
+      Effect.gen(function* () {
+        const events: EvalEvent[] = [];
 
-      const categorize = Eval.make({
-        dataset: Dataset.fromIterable(["m1"], { id: (id: string) => id }),
-        name: "categorizer",
-        score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
-        task: (input) => Effect.succeed(input.input),
-      });
+        const categorize = Eval.make({
+          dataset: Dataset.fromIterable(["m1"], { id: (id: string) => id }),
+          name: "categorizer",
+          score: Scorer.label<string, string>({
+            actual: Option.some,
+            expected: Scorer.present,
+          }),
+          task: (input) => Effect.succeed(input.input),
+        });
 
-      yield* Runner.run(categorize).pipe(
-        Effect.provide(
-          Reporter.layer([
-            Reporter.fromStream(
-              "recording",
-              Stream.runForEach((event) => Effect.sync(() => events.push(event))),
-            ),
-          ]),
-        ),
-      );
+        yield* Runner.run(categorize).pipe(
+          Effect.provide(
+            Reporter.layer([
+              Reporter.fromStream(
+                "recording",
+                Stream.runForEach((event) =>
+                  Effect.sync(() => events.push(event))
+                )
+              ),
+            ])
+          )
+        );
 
-      const folded = yield* Run.fold(events.slice(0, 3));
+        const folded = yield* Run.fold(events.slice(0, 3));
 
-      expect(folded).toMatchObject({ interrupted: true, passed: false });
-      expect(folded.variants[0]?.summary.counts["right"]).toBe(1);
-    }),
+        expect(folded).toMatchObject({ interrupted: true, passed: false });
+        expect(folded.variants[0]?.summary.counts["right"]).toBe(1);
+      })
   );
 
   it.effect("fails on events without RunStarted", () =>
@@ -108,26 +121,48 @@ describe("Run.fold", () => {
       const failure = yield* Effect.flip(Run.fold([]));
 
       expect(failure.message).toBe("The events of the run have no RunStarted.");
-    }),
+    })
   );
 });
 
 describe("Run.succeededObservations", () => {
   it("filters by task success, case, variant and trial rather than the observation verdict", () => {
     const entries = [
-      { case: "page-a", failure: Option.none<string>(), trial: 1, variant: "small" },
-      { case: "page-a", failure: Option.some("model down"), trial: 2, variant: "small" },
-      { case: "page-a", failure: Option.some("model down"), trial: 1, variant: "large" },
-      { case: "page-b", failure: Option.none<string>(), trial: 1, variant: "small" },
+      {
+        case: "page-a",
+        failure: Option.none<string>(),
+        trial: 1,
+        variant: "small",
+      },
+      {
+        case: "page-a",
+        failure: Option.some("model down"),
+        trial: 2,
+        variant: "small",
+      },
+      {
+        case: "page-a",
+        failure: Option.some("model down"),
+        trial: 1,
+        variant: "large",
+      },
+      {
+        case: "page-b",
+        failure: Option.none<string>(),
+        trial: 1,
+        variant: "small",
+      },
     ];
 
     const base = runOf(
       "excluded",
       entries.map(({ case: id, trial, variant }) => ({
         ...scoredAs({ case: id, right: false, trial, variant }),
-        observation: Observation.exclude("pending")(scoredAs({ right: false }).observation),
+        observation: Observation.exclude("pending")(
+          scoredAs({ right: false }).observation
+        ),
       })),
-      2,
+      2
     );
 
     const run = {
@@ -142,18 +177,22 @@ describe("Run.succeededObservations", () => {
     };
 
     const succeeded = Run.succeededObservations(run);
-    expect(succeeded.map((entry) => [entry.variant, entry.case, entry.trial])).toEqual([
+    expect(
+      succeeded.map((entry) => [entry.variant, entry.case, entry.trial])
+    ).toEqual([
       ["small", "page-a", 1],
       ["small", "page-b", 1],
     ]);
     expect(
       Metric.read(
         Metric.summary(succeeded.map((entry) => entry.observation)),
-        Metric.excluded("pending"),
-      ),
+        Metric.excluded("pending")
+      )
     ).toBe(2);
     expect(
-      base.variants.map((variant) => Metric.read(variant.summary, Metric.excluded("pending"))),
+      base.variants.map((variant) =>
+        Metric.read(variant.summary, Metric.excluded("pending"))
+      )
     ).toEqual([3, 1]);
   });
 });
@@ -179,40 +218,71 @@ describe("Run.compare", () => {
 
   it("lists the regressions and the fixes with their verdicts", () => {
     expect(
-      comparison.regressions.map((transition) => [transition.case, transition.from, transition.to]),
+      comparison.regressions.map((transition) => [
+        transition.case,
+        transition.from,
+        transition.to,
+      ])
     ).toEqual([["b", "right", "wrong"]]);
-    expect(comparison.fixes.map((transition) => transition.case)).toEqual(["c", "d"]);
+    expect(comparison.fixes.map((transition) => transition.case)).toEqual([
+      "c",
+      "d",
+    ]);
   });
 
   it("lists the observations added and removed since the baseline", () => {
-    expect(comparison.added.map(Run.observationLabel)).toEqual(["default · new/new · trial 1"]);
-    expect(comparison.removed.map(Run.observationLabel)).toEqual(["default · gone/gone · trial 1"]);
+    expect(comparison.added.map(Run.observationLabel)).toEqual([
+      "default · new/new · trial 1",
+    ]);
+    expect(comparison.removed.map(Run.observationLabel)).toEqual([
+      "default · gone/gone · trial 1",
+    ]);
   });
 
   it("finds added and removed observations by variant, case, key and trial, not by their labels", () => {
     const renamed = Run.compare(
       runOf("head", [
-        scoredAs({ case: "reasoning=b · case", key: "", right: true, variant: "model=a" }),
+        scoredAs({
+          case: "reasoning=b · case",
+          key: "",
+          right: true,
+          variant: "model=a",
+        }),
       ]),
       runOf("base", [
-        scoredAs({ case: "case", key: "", right: true, variant: "model=a · reasoning=b" }),
-      ]),
+        scoredAs({
+          case: "case",
+          key: "",
+          right: true,
+          variant: "model=a · reasoning=b",
+        }),
+      ])
     );
 
     const moreTrials = Run.compare(
-      runOf("head", [scoredAs({ right: true, trial: 1 }), scoredAs({ right: true, trial: 2 })], 2),
-      runOf("base", [scoredAs({ right: true, trial: 1 })]),
+      runOf(
+        "head",
+        [
+          scoredAs({ right: true, trial: 1 }),
+          scoredAs({ right: true, trial: 2 }),
+        ],
+        2
+      ),
+      runOf("base", [scoredAs({ right: true, trial: 1 })])
     );
 
     expect([renamed.added.length, renamed.removed.length]).toEqual([1, 1]);
-    expect([moreTrials.added.map((entry) => entry.trial), moreTrials.removed]).toEqual([[2], []]);
+    expect([
+      moreTrials.added.map((entry) => entry.trial),
+      moreTrials.removed,
+    ]).toEqual([[2], []]);
   });
 
   it("counts the transitions between verdict classes", () => {
     expect(
       comparison.transitions
         .filter((count) => count.count > 0)
-        .map((count) => [count.from, count.to, count.count]),
+        .map((count) => [count.from, count.to, count.count])
     ).toEqual([
       ["right", "right", 1],
       ["right", "wrong", 1],
@@ -229,19 +299,28 @@ describe("Run.compare", () => {
       before: { n: 4, value: Option.some(0.5) },
       variant: "default",
     });
-    expect(Option.getOrUndefined(accuracy?.delta ?? Option.none())).toBeCloseTo(0.25);
-    expect(Option.getOrUndefined(accuracy?.pValue ?? Option.none())).toBeCloseTo(1);
-    expect(others.map((row) => row.pValue)).toEqual(others.map(() => Option.none()));
+    expect(Option.getOrUndefined(accuracy?.delta ?? Option.none())).toBeCloseTo(
+      0.25
+    );
+    expect(
+      Option.getOrUndefined(accuracy?.pValue ?? Option.none())
+    ).toBeCloseTo(1);
+    expect(others.map((row) => row.pValue)).toEqual(
+      others.map(() => Option.none())
+    );
   });
 
   it("pairs an observation only with the same variant and trial", () => {
     const moved = Run.compare(
       runOf(
         "head",
-        [scoredAs({ right: false, trial: 2 }), scoredAs({ right: false, variant: "large" })],
-        2,
+        [
+          scoredAs({ right: false, trial: 2 }),
+          scoredAs({ right: false, variant: "large" }),
+        ],
+        2
       ),
-      runOf("base", [scoredAs({ right: true, trial: 1 })], 2),
+      runOf("base", [scoredAs({ right: true, trial: 1 })], 2)
     );
 
     expect(moved.regressions).toEqual([]);
@@ -249,51 +328,67 @@ describe("Run.compare", () => {
 });
 
 describe("Run.compare with sub-cases", () => {
-  it.effect("keeps sub-cases with the same inner key apart in comparisons and trials", () =>
-    Effect.gen(function* () {
-      const statements = Eval.make({
-        dataset: Dataset.fromIterable(["statement"], { id: (id: string) => id }),
-        name: "statements",
-        score: Scorer.each<string, ReadonlyMap<string, boolean>, string, boolean, never>(
-          {
-            actual: (output) => output,
-            expected: () => [
-              { id: "A", input: "A", tags: [] },
-              { id: "B", input: "B", tags: [] },
-            ],
-          },
-          Scorer.make((_input, outcome) =>
-            Effect.succeed([
-              Observation.compared({
-                agreement: Option.contains(Option.flatten(Result.getSuccess(outcome)), true)
-                  ? Agreement.exact
-                  : Agreement.different,
-                detail,
-                key: "field",
-              }),
-            ]),
+  it.effect(
+    "keeps sub-cases with the same inner key apart in comparisons and trials",
+    () =>
+      Effect.gen(function* () {
+        const statements = Eval.make({
+          dataset: Dataset.fromIterable(["statement"], {
+            id: (id: string) => id,
+          }),
+          name: "statements",
+          score: Scorer.each<
+            string,
+            ReadonlyMap<string, boolean>,
+            string,
+            boolean,
+            never
+          >(
+            {
+              actual: (output) => output,
+              expected: () => [
+                { id: "A", input: "A", tags: [] },
+                { id: "B", input: "B", tags: [] },
+              ],
+            },
+            Scorer.make((_input, outcome) =>
+              Effect.succeed([
+                Observation.compared({
+                  agreement: Option.contains(
+                    Option.flatten(Result.getSuccess(outcome)),
+                    true
+                  )
+                    ? Agreement.exact
+                    : Agreement.different,
+                  detail,
+                  key: "field",
+                }),
+              ])
+            )
           ),
-        ),
-        task: () =>
-          Effect.succeed(
-            new Map([
-              ["A", false],
-              ["B", true],
-            ]),
-          ),
-        trials: 2,
-      });
+          task: () =>
+            Effect.succeed(
+              new Map([
+                ["A", false],
+                ["B", true],
+              ])
+            ),
+          trials: 2,
+        });
 
-      const run = yield* Runner.run(statements);
-      const trials = Option.getOrUndefined(run.variants[0]?.trials ?? Option.none());
+        const run = yield* Runner.run(statements);
 
-      expect(Run.compare(run, run).regressions).toEqual([]);
-      expect([trials?.passAtK, trials?.passHatK, trials?.flaky]).toEqual([
-        Option.some(0.5),
-        Option.some(0.5),
-        [],
-      ]);
-    }),
+        const trials = Option.getOrUndefined(
+          run.variants[0]?.trials ?? Option.none()
+        );
+
+        expect(Run.compare(run, run).regressions).toEqual([]);
+        expect([trials?.passAtK, trials?.passHatK, trials?.flaky]).toEqual([
+          Option.some(0.5),
+          Option.some(0.5),
+          [],
+        ]);
+      })
   );
 });
 
@@ -302,11 +397,13 @@ const unchanged = (run: Run.Run) => {
 
   return {
     changedTransitions: comparison.transitions.filter(
-      (count) => count.from !== count.to && count.count > 0,
+      (count) => count.from !== count.to && count.count > 0
     ),
     deltas: [
       ...new Set(
-        comparison.deltas.flatMap((row) => Option.toArray(row.delta)).map((delta) => delta),
+        comparison.deltas
+          .flatMap((row) => Option.toArray(row.delta))
+          .map((delta) => delta)
       ),
     ].filter((delta) => delta !== 0),
     fixes: comparison.fixes,
@@ -314,9 +411,24 @@ const unchanged = (run: Run.Run) => {
   };
 };
 
-const clean = { changedTransitions: [], deltas: [], fixes: [], regressions: [] };
+const clean = {
+  changedTransitions: [],
+  deltas: [],
+  fixes: [],
+  regressions: [],
+};
 
-const TRICKY = Schema.Literals(["", "/", "\\", "a", "b", "a/b", "a\\/b", "\\/", "\\_"]);
+const TRICKY = Schema.Literals([
+  "",
+  "/",
+  "\\",
+  "a",
+  "b",
+  "a/b",
+  "a\\/b",
+  "\\/",
+  "\\_",
+]);
 
 const casesOf = (ids: readonly string[]) =>
   [...new Set(ids)].map((id) => ({ id, input: id, tags: [] }));
@@ -325,7 +437,11 @@ const answers = (keys: { readonly first?: string; readonly second?: string }) =>
   Eval.make({
     dataset: Dataset.fromIterable(["case"], { id: (id: string) => id }),
     name: "answers",
-    score: Scorer.all<string, { readonly first: string; readonly second: string }, never>(
+    score: Scorer.all<
+      string,
+      { readonly first: string; readonly second: string },
+      never
+    >(
       Scorer.label({
         actual: (output) => Option.some(output.first),
         expected: () => Scorer.present("yes"),
@@ -335,7 +451,7 @@ const answers = (keys: { readonly first?: string; readonly second?: string }) =>
         actual: (output) => Option.some(output.second),
         expected: () => Scorer.present("yes"),
         ...whenDefined(keys.second, (key) => ({ key })),
-      }),
+      })
     ),
     task: () => Effect.succeed({ first: "yes", second: "no" }),
     trials: 2,
@@ -344,45 +460,60 @@ const answers = (keys: { readonly first?: string; readonly second?: string }) =>
 const rightWhen = (id: string) => (id.length % 2 === 0 ? id : `not ${id}`);
 
 describe("Run.compare with composed scorers", () => {
-  it.effect("keeps a sub-case apart from a sub-case whose id holds a slash", () =>
-    Effect.gen(function* () {
-      const statements = Eval.make({
-        dataset: Dataset.fromIterable(["statement"], { id: (id: string) => id }),
-        name: "statements",
-        score: Scorer.each<string, ReadonlyMap<string, boolean>, string, boolean, never>(
-          {
-            actual: (output) => output,
-            expected: () => casesOf(["a", "a/b"]),
-          },
-          Scorer.make((input, outcome) =>
-            Effect.succeed([
-              Observation.compared({
-                agreement: Option.contains(Option.flatten(Result.getSuccess(outcome)), true)
-                  ? Agreement.exact
-                  : Agreement.different,
-                detail,
-                key: input.id === "a" ? Observation.keyOf("b") : Observation.rootKey,
-              }),
-            ]),
+  it.effect(
+    "keeps a sub-case apart from a sub-case whose id holds a slash",
+    () =>
+      Effect.gen(function* () {
+        const statements = Eval.make({
+          dataset: Dataset.fromIterable(["statement"], {
+            id: (id: string) => id,
+          }),
+          name: "statements",
+          score: Scorer.each<
+            string,
+            ReadonlyMap<string, boolean>,
+            string,
+            boolean,
+            never
+          >(
+            {
+              actual: (output) => output,
+              expected: () => casesOf(["a", "a/b"]),
+            },
+            Scorer.make((input, outcome) =>
+              Effect.succeed([
+                Observation.compared({
+                  agreement: Option.contains(
+                    Option.flatten(Result.getSuccess(outcome)),
+                    true
+                  )
+                    ? Agreement.exact
+                    : Agreement.different,
+                  detail,
+                  key:
+                    input.id === "a"
+                      ? Observation.keyOf("b")
+                      : Observation.rootKey,
+                }),
+              ])
+            )
           ),
-        ),
-        task: () =>
-          Effect.succeed(
-            new Map([
-              ["a", false],
-              ["a/b", true],
-            ]),
-          ),
-      });
+          task: () =>
+            Effect.succeed(
+              new Map([
+                ["a", false],
+                ["a/b", true],
+              ])
+            ),
+        });
 
-      const run = yield* Runner.run(statements);
+        const run = yield* Runner.run(statements);
 
-      expect(run.variants[0]?.observations.map((entry) => entry.observation.key)).toEqual([
-        "a/b",
-        "a\\/b",
-      ]);
-      expect(unchanged(run)).toEqual(clean);
-    }),
+        expect(
+          run.variants[0]?.observations.map((entry) => entry.observation.key)
+        ).toEqual(["a/b", "a\\/b"]);
+        expect(unchanged(run)).toEqual(clean);
+      })
   );
 
   it.effect(
@@ -390,8 +521,14 @@ describe("Run.compare with composed scorers", () => {
     () =>
       Effect.gen(function* () {
         const refused = yield* Effect.flip(Runner.run(answers({})));
-        const run = yield* Runner.run(answers({ first: "first", second: "second" }));
-        const trials = Option.getOrUndefined(run.variants[0]?.trials ?? Option.none());
+
+        const run = yield* Runner.run(
+          answers({ first: "first", second: "second" })
+        );
+
+        const trials = Option.getOrUndefined(
+          run.variants[0]?.trials ?? Option.none()
+        );
 
         expect(refused).toBeInstanceOf(EvalConfigError);
         expect(refused).toMatchObject({ path: "score" });
@@ -401,7 +538,7 @@ describe("Run.compare with composed scorers", () => {
           Option.some(0.5),
           [],
         ]);
-      }),
+      })
   );
 
   it.effect.prop(
@@ -436,7 +573,7 @@ describe("Run.compare with composed scorers", () => {
                   casesOf(nested).map((item) => [
                     item.id,
                     `${Option.getOrElse(output, () => "")}${item.id}`,
-                  ]),
+                  ])
                 ),
               expected: () => casesOf(nested),
             },
@@ -444,8 +581,8 @@ describe("Run.compare with composed scorers", () => {
               actual: (output) => output,
               expected: (id) => Scorer.present(rightWhen(id)),
               key: "row",
-            }),
-          ),
+            })
+          )
         );
 
         const composed = Eval.make({
@@ -457,33 +594,48 @@ describe("Run.compare with composed scorers", () => {
               expected: () => Scorer.present("x"),
               key: "top",
             }),
-            Scorer.each({ actual: (output) => output, expected: () => casesOf(subs) }, inner),
+            Scorer.each(
+              { actual: (output) => output, expected: () => casesOf(subs) },
+              inner
+            )
           ),
-          task: () => Effect.succeed(new Map(casesOf(subs).map((item) => [item.id, item.id]))),
+          task: () =>
+            Effect.succeed(
+              new Map(casesOf(subs).map((item) => [item.id, item.id]))
+            ),
           trials: 2,
         });
 
         const run = yield* Runner.run(composed);
-        const trials = Option.getOrUndefined(run.variants[0]?.trials ?? Option.none());
+
+        const trials = Option.getOrUndefined(
+          run.variants[0]?.trials ?? Option.none()
+        );
 
         const identities = run.variants.flatMap((variant) =>
           variant.observations.map((entry) =>
-            JSON.stringify([entry.case, entry.trial, entry.observation.key]),
-          ),
+            JSON.stringify([entry.case, entry.trial, entry.observation.key])
+          )
         );
 
         expect(new Set(identities).size).toBe(identities.length);
         expect(unchanged(run)).toEqual(clean);
-        expect([trials?.passAtK, trials?.flaky]).toEqual([trials?.passHatK, []]);
+        expect([trials?.passAtK, trials?.flaky]).toEqual([
+          trials?.passHatK,
+          [],
+        ]);
       }),
-    { timeout: 30_000 },
+    { timeout: 30_000 }
   );
 });
 
 const excludedAs = (id: string): Scored => {
   const base = scoredAs({ case: id, right: false });
 
-  return { ...base, observation: Observation.exclude("convention")(base.observation) };
+  return {
+    ...base,
+    observation: Observation.exclude("convention")(base.observation),
+  };
 };
 
 const accuracyDelta = (comparison: Run.Comparison) =>
@@ -496,9 +648,12 @@ describe("Run.compare McNemar", () => {
     const comparison = Run.compare(
       runOf(
         "head",
-        [...ids, "i"].map((id) => scoredAs({ case: id, right: true })),
+        [...ids, "i"].map((id) => scoredAs({ case: id, right: true }))
       ),
-      runOf("base", [...ids.map(excludedAs), scoredAs({ case: "i", right: false })]),
+      runOf("base", [
+        ...ids.map(excludedAs),
+        scoredAs({ case: "i", right: false }),
+      ])
     );
 
     expect(accuracyDelta(comparison)?.pValue).toEqual(Option.some(1));
@@ -507,7 +662,7 @@ describe("Run.compare McNemar", () => {
   it("has no p-value when no pair is measured on both sides", () => {
     const comparison = Run.compare(
       runOf("head", [scoredAs({ case: "a", right: true })]),
-      runOf("base", [excludedAs("a")]),
+      runOf("base", [excludedAs("a")])
     );
 
     expect(accuracyDelta(comparison)?.pValue).toEqual(Option.none());
@@ -520,22 +675,26 @@ describe("Run.compare delta intervals", () => {
   const comparison = Run.compare(
     runOf(
       "head",
-      ids.map((id, index) => scoredAs({ case: id, right: index < 16 })),
+      ids.map((id, index) => scoredAs({ case: id, right: index < 16 }))
     ),
     runOf(
       "base",
-      ids.map((id, index) => scoredAs({ case: id, right: index < 10 })),
-    ),
+      ids.map((id, index) => scoredAs({ case: id, right: index < 10 }))
+    )
   );
 
   it("gives each delta a paired interval around it", () => {
     const accuracy = accuracyDelta(comparison);
-    const delta = Option.getOrElse(accuracy?.delta ?? Option.none(), () => Number.NaN);
 
-    const [low, high] = Option.getOrElse(accuracy?.interval ?? Option.none(), () => [
-      Number.NaN,
-      Number.NaN,
-    ]);
+    const delta = Option.getOrElse(
+      accuracy?.delta ?? Option.none(),
+      () => Number.NaN
+    );
+
+    const [low, high] = Option.getOrElse(
+      accuracy?.interval ?? Option.none(),
+      () => [Number.NaN, Number.NaN]
+    );
 
     expect(delta).toBeCloseTo(0.3);
     expect(low).toBeLessThan(delta);
@@ -546,7 +705,7 @@ describe("Run.compare delta intervals", () => {
   it("has no interval without paired observations", () => {
     const unpairedComparison = Run.compare(
       runOf("head", [scoredAs({ case: "a", right: true })]),
-      runOf("base", [scoredAs({ case: "b", right: true })]),
+      runOf("base", [scoredAs({ case: "b", right: true })])
     );
 
     expect(accuracyDelta(unpairedComparison)?.interval).toEqual(Option.none());
@@ -559,25 +718,30 @@ describe("Run.compare delta intervals", () => {
       runOf("base", [
         scoredAs({ case: "paired", right: true }),
         scoredAs({ case: "removed", right: false }),
-      ]),
+      ])
     );
 
     const addedNine = Run.compare(
       runOf("head", [
         scoredAs({ case: "paired", right: true }),
         ...Array.from({ length: 9 }, (_, index) =>
-          scoredAs({ case: `added-${String(index)}`, right: false }),
+          scoredAs({ case: `added-${String(index)}`, right: false })
         ),
       ]),
-      runOf("base", [scoredAs({ case: "paired", right: true })]),
+      runOf("base", [scoredAs({ case: "paired", right: true })])
     );
 
     expect(
       [removedOne, addedNine].map((compared) => {
         const accuracy = accuracyDelta(compared);
 
-        return [accuracy?.before.value, accuracy?.after.value, accuracy?.delta, accuracy?.interval];
-      }),
+        return [
+          accuracy?.before.value,
+          accuracy?.after.value,
+          accuracy?.delta,
+          accuracy?.interval,
+        ];
+      })
     ).toEqual([
       [Option.some(1), Option.some(1), Option.some(0), Option.some([0, 0])],
       [Option.some(1), Option.some(1), Option.some(0), Option.some([0, 0])],
@@ -591,8 +755,8 @@ describe("Run.compare delta intervals", () => {
           scoredAs({ case: "a", right: false }),
           scoredAs({ case: "b", right: true }),
         ]),
-        runOf("base", [scoredAs({ case: "a", right: true }), excludedAs("b")]),
-      ),
+        runOf("base", [scoredAs({ case: "a", right: true }), excludedAs("b")])
+      )
     );
 
     expect([accuracy?.before.n, accuracy?.delta, accuracy?.interval]).toEqual([
@@ -610,8 +774,13 @@ describe("Run.variantRun trial stats", () => {
 
   it("finds flaky cases and estimates pass@k and pass^k", () => {
     const run = variantOf(
-      [scored("a", true, 1), scored("a", true, 2), scored("b", true, 1), scored("b", false, 2)],
-      2,
+      [
+        scored("a", true, 1),
+        scored("a", true, 2),
+        scored("b", true, 1),
+        scored("b", false, 2),
+      ],
+      2
     );
 
     const trials = Option.getOrUndefined(run.trials);
@@ -627,8 +796,13 @@ describe("Run.variantRun trial stats", () => {
 
   it("gives the mean and deviation of every count metric across trials", () => {
     const run = variantOf(
-      [scored("a", true, 1), scored("b", true, 1), scored("a", false, 2), scored("b", false, 2)],
-      2,
+      [
+        scored("a", true, 1),
+        scored("b", true, 1),
+        scored("a", false, 2),
+        scored("b", false, 2),
+      ],
+      2
     );
 
     const trials = Option.getOrUndefined(run.trials);
@@ -646,12 +820,14 @@ describe("Run.variantRun trial stats", () => {
   it("leaves excluded and unscored observations out of pass@k and pass^k", () => {
     const excluded = (trial: number) => ({
       ...scored("x", true, trial),
-      observation: Observation.exclude("convention")(scored("x", true, trial).observation),
+      observation: Observation.exclude("convention")(
+        scored("x", true, trial).observation
+      ),
     });
 
     const run = variantOf(
       [scored("a", true, 1), scored("a", true, 2), excluded(1), excluded(2)],
-      2,
+      2
     );
 
     const trials = Option.getOrUndefined(run.trials);
@@ -664,26 +840,33 @@ describe("Run.variantRun trial stats", () => {
   it("keeps k and leaves out an observation measured in fewer than k trials", () => {
     const excluded = (id: string, trial: number) => ({
       ...scored(id, true, trial),
-      observation: Observation.exclude("convention")(scored(id, true, trial).observation),
+      observation: Observation.exclude("convention")(
+        scored(id, true, trial).observation
+      ),
     });
 
     const short = Option.getOrUndefined(
-      variantOf([scored("x", true, 1), excluded("x", 2)], 2).trials,
+      variantOf([scored("x", true, 1), excluded("x", 2)], 2).trials
     );
 
     const mixed = Option.getOrUndefined(
       variantOf(
-        [scored("a", true, 1), scored("a", false, 2), scored("x", true, 1), excluded("x", 2)],
-        2,
-      ).trials,
+        [
+          scored("a", true, 1),
+          scored("a", false, 2),
+          scored("x", true, 1),
+          excluded("x", 2),
+        ],
+        2
+      ).trials
     );
 
-    expect([short?.k, short?.passAtK, short?.passHatK, short?.shortOfK]).toEqual([
-      2,
-      Option.none(),
-      Option.none(),
-      1,
-    ]);
+    expect([
+      short?.k,
+      short?.passAtK,
+      short?.passHatK,
+      short?.shortOfK,
+    ]).toEqual([2, Option.none(), Option.none(), 1]);
     expect([mixed?.passAtK, mixed?.passHatK, mixed?.shortOfK]).toEqual([
       Option.some(1),
       Option.some(0),
@@ -694,10 +877,14 @@ describe("Run.variantRun trial stats", () => {
   it("reports a metric no trial can measure as unmeasured, not as zero", () => {
     const excluded = (trial: number) => ({
       ...scored("x", true, trial),
-      observation: Observation.exclude("convention")(scored("x", true, trial).observation),
+      observation: Observation.exclude("convention")(
+        scored("x", true, trial).observation
+      ),
     });
 
-    const trials = Option.getOrUndefined(variantOf([excluded(1), excluded(2)], 2).trials);
+    const trials = Option.getOrUndefined(
+      variantOf([excluded(1), excluded(2)], 2).trials
+    );
 
     expect(trials?.metrics["accuracy"]).toEqual({
       mean: Option.none(),

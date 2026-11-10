@@ -1,16 +1,26 @@
-// oxlint-disable-next-line test-boundary/no-test-imports -- the benchmarks are removed before the merge and share the test invoices until then
-import { FatturaXml as FatturaElettronicaSchema } from "../tests/fixtures/fattura.ts";
-import { Effect, flow, Result, Schema, SchemaAST, SchemaTransformation } from "effect";
+import {
+  Effect,
+  flow,
+  Result,
+  Schema,
+  SchemaAST,
+  SchemaTransformation,
+} from "effect";
 import XMLBuilder from "fast-xml-builder";
 import { XMLParser } from "fast-xml-parser";
 import { validateXML } from "xmllint-wasm";
 
-const NAMESPACE = "http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2";
+// oxlint-disable-next-line test-boundary/no-test-imports -- the benchmarks are removed before the merge and share the test invoices until then
+import { FatturaXml as FatturaElettronicaSchema } from "../tests/fixtures/fattura.ts";
+
+const NAMESPACE =
+  "http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2";
+
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>';
 
 const collectArrayElementNames = (
   ast: SchemaAST.AST,
-  elementName?: string,
+  elementName?: string
 ): ReadonlySet<string> => {
   if (SchemaAST.isArrays(ast)) {
     return new Set([
@@ -25,13 +35,15 @@ const collectArrayElementNames = (
     return new Set(
       ast.propertySignatures.flatMap((property) => [
         ...collectArrayElementNames(property.type, String(property.name)),
-      ]),
+      ])
     );
   }
 
   if (SchemaAST.isUnion(ast)) {
     return new Set(
-      ast.types.flatMap((member) => [...collectArrayElementNames(member, elementName)]),
+      ast.types.flatMap((member) => [
+        ...collectArrayElementNames(member, elementName),
+      ])
     );
   }
 
@@ -45,15 +57,18 @@ const FatturaDocumentSchema = Schema.Union([
       SchemaTransformation.transform({
         decode: (document) => document.FatturaElettronica,
         encode: (fattura) => ({ FatturaElettronica: fattura }),
-      }),
-    ),
+      })
+    )
   ),
   FatturaElettronicaSchema,
 ]);
 
-class BaselineDecodeError extends Schema.TaggedError<BaselineDecodeError>()("BaselineDecodeError", {
-  cause: Schema.Unknown,
-}) {
+class BaselineDecodeError extends Schema.TaggedError<BaselineDecodeError>()(
+  "BaselineDecodeError",
+  {
+    cause: Schema.Unknown,
+  }
+) {
   readonly code = "BASELINE_DECODE";
 }
 
@@ -61,7 +76,9 @@ export const makeBaseline = (xsd: {
   readonly dsig: { readonly contents: string; readonly fileName: string };
   readonly main: { readonly contents: string; readonly fileName: string };
 }) => {
-  const arrayElements = collectArrayElementNames(SchemaAST.toEncoded(FatturaElettronicaSchema.ast));
+  const arrayElements = collectArrayElementNames(
+    SchemaAST.toEncoded(FatturaElettronicaSchema.ast)
+  );
 
   const parser = new XMLParser({
     attributeNamePrefix: "",
@@ -87,12 +104,16 @@ export const makeBaseline = (xsd: {
     suppressEmptyNode: true,
   });
 
-  const encodeFattura = flow(Schema.encodeResult(FatturaElettronicaSchema), Result.getOrThrow);
+  const encodeFattura = flow(
+    Schema.encodeResult(FatturaElettronicaSchema),
+    Result.getOrThrow
+  );
+
   const decodeParsed = Schema.decodeUnknownEffect(FatturaDocumentSchema);
 
   const buildDocument = (
     format: "compact" | "pretty",
-    encoded: typeof FatturaElettronicaSchema.Encoded,
+    encoded: typeof FatturaElettronicaSchema.Encoded
   ) => {
     const { SistemaEmittente, versione, ...elements } = encoded;
 
@@ -109,7 +130,10 @@ export const makeBaseline = (xsd: {
       },
     };
 
-    const document = format === "compact" ? compactBuilder.build(root) : prettyBuilder.build(root);
+    const document =
+      format === "compact"
+        ? compactBuilder.build(root)
+        : prettyBuilder.build(root);
 
     return `${XML_DECLARATION}${document}`;
   };
@@ -124,13 +148,14 @@ export const makeBaseline = (xsd: {
       },
     }).pipe(
       Effect.flatMap(decodeParsed),
-      Effect.mapError((cause) => new BaselineDecodeError({ cause })),
+      Effect.mapError((cause) => new BaselineDecodeError({ cause }))
     );
 
   return {
     buildDocument,
     decodeFatturaFromXml,
-    decodeFatturaFromXmlSync: (xml: string) => Effect.runSync(decodeFatturaFromXml(xml)),
+    decodeFatturaFromXmlSync: (xml: string) =>
+      Effect.runSync(decodeFatturaFromXml(xml)),
     encodeFattura,
     encodeFatturaToXml: (fattura: typeof FatturaElettronicaSchema.Type) =>
       buildDocument("compact", encodeFattura(fattura)),

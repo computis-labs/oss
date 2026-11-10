@@ -1,7 +1,8 @@
-import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
+import * as Schema from "effect/Schema";
 import * as Transferable from "effect/workers/Transferable";
+
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import { PdfFormError } from "./errors/pdf-form-error.ts";
 import { PdfOpenError } from "./errors/pdf-open-error.ts";
@@ -26,11 +27,17 @@ const FormFailure = Schema.Union([PdfEngineError, PdfFormError, PdfPageError]);
 
 export const OpenRpc = Rpc.make("Open", {
   error: Schema.Union([PdfEngineError, PdfOpenError, PdfPageError]),
-  payload: { bytes: Transferable.Uint8Array, document: DocumentId, password: Schema.String },
+  payload: {
+    bytes: Transferable.Uint8Array,
+    document: DocumentId,
+    password: Schema.String,
+  },
   success: Schema.Array(PdfPageSchema),
 });
 
-export const CloseRpc = Rpc.make("Close", { payload: { document: DocumentId } });
+export const CloseRpc = Rpc.make("Close", {
+  payload: { document: DocumentId },
+});
 
 export class PdfRpcs extends RpcGroup.make(
   OpenRpc,
@@ -47,7 +54,12 @@ export class PdfRpcs extends RpcGroup.make(
   }),
   Rpc.make("Find", {
     error: PageFailure,
-    payload: { document: DocumentId, flags: Schema.String, pages: Pages, source: Schema.String },
+    payload: {
+      document: DocumentId,
+      flags: Schema.String,
+      pages: Pages,
+      source: Schema.String,
+    },
     success: Schema.Array(PdfTextMatchSchema),
   }),
   Rpc.make("PageImages", {
@@ -57,7 +69,11 @@ export class PdfRpcs extends RpcGroup.make(
   }),
   Rpc.make("Render", {
     error: PageFailure,
-    payload: { document: DocumentId, page: Schema.Int, size: PdfRenderSizeSchema },
+    payload: {
+      document: DocumentId,
+      page: Schema.Int,
+      size: PdfRenderSizeSchema,
+    },
     success: PdfImageSchema,
   }),
   Rpc.make("Fields", {
@@ -77,5 +93,5 @@ export class PdfRpcs extends RpcGroup.make(
     error: Schema.Union([PdfEngineError, PdfSaveError]),
     payload: { document: DocumentId, incremental: Schema.Boolean },
     success: Transferable.Uint8Array,
-  }),
+  })
 ) {}

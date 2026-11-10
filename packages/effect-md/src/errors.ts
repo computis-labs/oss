@@ -1,5 +1,6 @@
-import { whenDefined } from "./object.ts";
 import { Schema } from "effect";
+
+import { whenDefined } from "./object.ts";
 
 export const PromptSyntaxErrorReason = {
   ConflictingInput: "ConflictingInput",
@@ -43,7 +44,7 @@ export class PromptSyntaxError extends Schema.TaggedError<PromptSyntaxError>()(
     offset: Schema.Number,
     path: Schema.optionalKey(Schema.String),
     reason: Schema.Literals(Object.values(PromptSyntaxErrorReason)),
-  },
+  }
 ) {
   readonly code = "PROMPT_SYNTAX";
 
@@ -68,7 +69,7 @@ export const syntaxError = (
   file: SourceFile,
   offset: number,
   reason: SyntaxErrorReason,
-  detail: string,
+  detail: string
 ) =>
   PromptSyntaxError.make({
     ...locate(file.text, offset),
@@ -82,7 +83,9 @@ export const didYouMean = (value: string, candidates: Iterable<string>) => {
   const needle = value.toLowerCase();
 
   const distanceTo = (candidate: string) => {
-    const rows = [Array.from({ length: candidate.length + 1 }, (_, index) => index)];
+    const rows = [
+      Array.from({ length: candidate.length + 1 }, (_, index) => index),
+    ];
 
     for (let row = 1; row <= needle.length; row += 1) {
       const previous = rows[row - 1] ?? [];
@@ -94,8 +97,8 @@ export const didYouMean = (value: string, candidates: Iterable<string>) => {
           Math.min(
             (previous[column] ?? 0) + 1,
             (current[column - 1] ?? 0) + 1,
-            (previous[column - 1] ?? 0) + cost,
-          ),
+            (previous[column - 1] ?? 0) + cost
+          )
         );
       }
 

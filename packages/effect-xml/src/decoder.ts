@@ -1,11 +1,12 @@
 import { Effect, Result, Schema } from "effect";
+
 import { localName, positionAt } from "./characters.ts";
 import { openFrame, segment, store, toNode } from "./decoder-plan.ts";
 import type { Frame, Step } from "./decoder-plan.ts";
 import type { Encodable } from "./encoder.ts";
-import { exactDecoder } from "./exact-decoder.ts";
 import { XmlDecodeError } from "./errors/xml-decode-error.ts";
 import type { XmlParseError } from "./errors/xml-parse-error.ts";
+import { exactDecoder } from "./exact-decoder.ts";
 import { firstIssue, issuePosition } from "./issue-path.ts";
 import { DEFAULT_MAX_DEPTH, tokenize } from "./tokenizer.ts";
 import type { RootPlan } from "./types.ts";
@@ -37,8 +38,12 @@ export interface DecoderOptions {
 }
 
 export type Decode<S extends Encodable> = (
-  xml: string,
-) => Effect.Effect<S["Type"], XmlParseError | XmlDecodeError, S["DecodingServices"]>;
+  xml: string
+) => Effect.Effect<
+  S["Type"],
+  XmlParseError | XmlDecodeError,
+  S["DecodingServices"]
+>;
 
 const XMLNS = "xmlns";
 const XMLNS_PREFIXED = "xmlns:";
@@ -90,7 +95,7 @@ class DecodeState {
 export const makeDecoder = <S extends Encodable>(
   schema: S,
   plan: RootPlan,
-  options: Partial<DecoderOptions> = {},
+  options: Partial<DecoderOptions> = {}
 ): Decode<S> => {
   const skipUnknown = options.unknownElements === "skip";
   const trimText = options.trimText === true;
@@ -101,12 +106,17 @@ export const makeDecoder = <S extends Encodable>(
 
   return (xml) =>
     Effect.suspend(
-      (): Effect.Effect<S["Type"], XmlParseError | XmlDecodeError, S["DecodingServices"]> => {
+      (): Effect.Effect<
+        S["Type"],
+        XmlParseError | XmlDecodeError,
+        S["DecodingServices"]
+      > => {
         const root = openFrame(rootNode);
         const state = new DecodeState(root);
 
         const fail = (message: string, offset: number) => {
-          const segments = state.leaf === undefined ? [] : [segment(state.leaf, state.top)];
+          const segments =
+            state.leaf === undefined ? [] : [segment(state.leaf, state.top)];
 
           for (
             let current: Frame | undefined = state.top;
@@ -170,7 +180,8 @@ export const makeDecoder = <S extends Encodable>(
             }
 
             if (scope.prefix === "") {
-              state.defaultNamespace = scope.namespace === "" ? undefined : scope.namespace;
+              state.defaultNamespace =
+                scope.namespace === "" ? undefined : scope.namespace;
             }
           }
         };
@@ -179,7 +190,9 @@ export const makeDecoder = <S extends Encodable>(
           const colon = qname.indexOf(":");
 
           const namespace =
-            colon === -1 ? state.defaultNamespace : state.bindings?.get(qname.slice(0, colon));
+            colon === -1
+              ? state.defaultNamespace
+              : state.bindings?.get(qname.slice(0, colon));
 
           if (state.top === root && state.leaf === undefined) {
             state.rootNamespace = namespace;
@@ -189,7 +202,7 @@ export const makeDecoder = <S extends Encodable>(
               ? true
               : fail(
                   `Invalid document namespace: expected ${plan.namespace}, found ${namespace ?? "none"}.`,
-                  state.pendingOffset,
+                  state.pendingOffset
                 );
           }
 
@@ -200,7 +213,7 @@ export const makeDecoder = <S extends Encodable>(
           if (!skipUnknown) {
             return fail(
               `Element ${qname} is not in the document namespace ${state.rootNamespace ?? "(none)"}.`,
-              state.pendingOffset,
+              state.pendingOffset
             );
           }
 
@@ -270,7 +283,9 @@ export const makeDecoder = <S extends Encodable>(
               }
 
               const attribute =
-                state.leaf === undefined ? state.top.element.attributes.get(qname) : undefined;
+                state.leaf === undefined
+                  ? state.top.element.attributes.get(qname)
+                  : undefined;
 
               if (attribute !== undefined) {
                 state.top.value[attribute.name] = value;
@@ -283,14 +298,18 @@ export const makeDecoder = <S extends Encodable>(
               if (
                 skipUnknown ||
                 qname.startsWith(XML_PREFIXED) ||
-                (state.top === root && state.leaf === undefined && ROOT_SCHEMA_LOCATIONS.has(qname))
+                (state.top === root &&
+                  state.leaf === undefined &&
+                  ROOT_SCHEMA_LOCATIONS.has(qname))
               ) {
                 return true;
               }
 
               const message = `Unexpected attribute: ${qname}.`;
 
-              return hasPrefix ? failLater(message, offset) : fail(message, offset);
+              return hasPrefix
+                ? failLater(message, offset)
+                : fail(message, offset);
             },
             close: () => {
               if (state.scopes !== undefined) {
@@ -343,7 +362,8 @@ export const makeDecoder = <S extends Encodable>(
 
               return true;
             },
-            keepWhitespace: () => !trimText && state.leaf !== undefined && state.skipDepth === 0,
+            keepWhitespace: () =>
+              !trimText && state.leaf !== undefined && state.skipDepth === 0,
             openEnd: () => {
               if (
                 state.prefixedNames !== undefined &&
@@ -354,7 +374,10 @@ export const makeDecoder = <S extends Encodable>(
               }
 
               if (state.deferredFailure !== undefined) {
-                return fail(state.deferredFailure.text, state.deferredFailure.offset);
+                return fail(
+                  state.deferredFailure.text,
+                  state.deferredFailure.offset
+                );
               }
 
               if (state.pendingQname === undefined) {
@@ -365,7 +388,8 @@ export const makeDecoder = <S extends Encodable>(
               state.pendingQname = undefined;
 
               return (
-                (!state.pendingPrefixed && state.defaultNamespace === state.rootDefault) ||
+                (!state.pendingPrefixed &&
+                  state.defaultNamespace === state.rootDefault) ||
                 checkNamespace(qname)
               );
             },
@@ -399,8 +423,9 @@ export const makeDecoder = <S extends Encodable>(
 
               const exact =
                 state.leaf === undefined
-                  ? (sequence.find((step, index) => index >= from && step.name === qname) ??
-                    children.get(qname))
+                  ? (sequence.find(
+                      (step, index) => index >= from && step.name === qname
+                    ) ?? children.get(qname))
                   : undefined;
 
               const prefixedChild =
@@ -467,15 +492,19 @@ export const makeDecoder = <S extends Encodable>(
               }
 
               if (state.leaf === undefined) {
-                return fail("Unexpected text inside a structured element.", offset);
+                return fail(
+                  "Unexpected text inside a structured element.",
+                  offset
+                );
               }
 
-              state.leafText = state.leafText === "" ? value : state.leafText + value;
+              state.leafText =
+                state.leafText === "" ? value : state.leafText + value;
 
               return true;
             },
           },
-          tokenizeOptions,
+          tokenizeOptions
         );
 
         if (Result.isFailure(result)) {
@@ -490,7 +519,11 @@ export const makeDecoder = <S extends Encodable>(
 
         return decodeValue(input).pipe(
           Effect.mapError((schemaError) => {
-            const { keys, message, path } = firstIssue(plan.name, schemaError, input);
+            const { keys, message, path } = firstIssue(
+              plan.name,
+              schemaError,
+              input
+            );
 
             return XmlDecodeError.fromReason({
               cause: schemaError,
@@ -498,8 +531,8 @@ export const makeDecoder = <S extends Encodable>(
               position: issuePosition(xml, keys),
               reason: message,
             });
-          }),
+          })
         );
-      },
+      }
     );
 };

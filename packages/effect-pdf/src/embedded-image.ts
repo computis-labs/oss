@@ -1,7 +1,8 @@
 import * as Match from "effect/Match";
-import type { Pdfium } from "./pdfium.ts";
+
 import { bitmapFormats, withAllocation } from "./memory.ts";
 import type { PageObject } from "./objects.ts";
+import type { Pdfium } from "./pdfium.ts";
 import { bgrToRgb, packBilevel, pngScanlines } from "./png.ts";
 import type { PdfImageDraft, Raster } from "./png.ts";
 import { pdfImageMediaTypes, pdfImageOrigins } from "./types.ts";
@@ -25,7 +26,10 @@ export interface PlacedImage extends PageObject {
   readonly width: number;
 }
 
-export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | undefined => {
+export const embeddedImage = (
+  lib: Pdfium,
+  image: PlacedImage
+): PdfImageDraft | undefined => {
   const filters = Array.from(
     { length: lib.FPDFImageObj_GetImageFilterCount(image.pointer) },
     (_, index) => {
@@ -36,7 +40,7 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
 
         return lib.pdfium.UTF8ToString(buffer);
       });
-    },
+    }
   );
 
   const rawSize =
@@ -55,8 +59,10 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
   const frameComponents = (): number | null => {
     for (
       let position = JPEG_FIRST_SEGMENT;
-      position + JPEG_COMPONENTS_OFFSET < jpeg.length && jpeg[position] === JPEG_MARKER;
-      position += 2 + (jpeg[position + 2] ?? 0) * 256 + (jpeg[position + 3] ?? 0)
+      position + JPEG_COMPONENTS_OFFSET < jpeg.length &&
+      jpeg[position] === JPEG_MARKER;
+      position +=
+        2 + (jpeg[position + 2] ?? 0) * 256 + (jpeg[position + 3] ?? 0)
     ) {
       if (JPEG_FRAME_MARKERS.has(jpeg[position + 1] ?? 0)) {
         return jpeg[position + JPEG_COMPONENTS_OFFSET] ?? null;
@@ -95,7 +101,7 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
       gray: format === bitmapFormats.gray,
     }).pipe(
       Match.when({ bilevel: true, gray: true }, () =>
-        packBilevel(heap, { height, start, stride, width }),
+        packBilevel(heap, { height, start, stride, width })
       ),
       Match.when({ gray: true }, (): Raster => ({
         bitDepth: 8,
@@ -115,9 +121,9 @@ export const embeddedImage = (lib: Pdfium, image: PlacedImage): PdfImageDraft | 
             stride,
             width,
           },
-          format === bitmapFormats.bgra ? 4 : 3,
-        ),
-      ),
+          format === bitmapFormats.bgra ? 4 : 3
+        )
+      )
     );
 
     return {

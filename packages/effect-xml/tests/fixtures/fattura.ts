@@ -1,5 +1,6 @@
 import { Result, Schema } from "effect";
 import { Base64 } from "effect/encoding";
+
 import { FatturaElettronica } from "./fattura-xsd.gen.ts";
 
 export const FatturaXml = FatturaElettronica;
@@ -10,8 +11,12 @@ const amount = (cents: number) => (cents / 100).toFixed(2);
 
 const line = (index: number) => ({
   AliquotaIVA: "22.00",
-  AltriDatiGestionali: [{ RiferimentoTesto: `CM-${String(index)}`, TipoDato: "COMMESSA" }],
-  CodiceArticolo: [{ CodiceTipo: "INTERNO", CodiceValore: `ART-${String(index)}` }],
+  AltriDatiGestionali: [
+    { RiferimentoTesto: `CM-${String(index)}`, TipoDato: "COMMESSA" },
+  ],
+  CodiceArticolo: [
+    { CodiceTipo: "INTERNO", CodiceValore: `ART-${String(index)}` },
+  ],
   Descrizione: `Attività di consulenza & sviluppo software, modulo n. ${String(index)}`,
   NumeroLinea: String(index),
   PrezzoTotale: "100.00",
@@ -40,7 +45,9 @@ export const fatturaFixtures = specs.map((spec) => {
       ],
       DettaglioLinee: [
         line(1),
-        ...Array.from({ length: spec.lines - 1 }, (_, index) => line(index + 2)),
+        ...Array.from({ length: spec.lines - 1 }, (_, index) =>
+          line(index + 2)
+        ),
       ],
     },
     DatiGenerali: {
@@ -79,8 +86,8 @@ export const fatturaFixtures = specs.map((spec) => {
                 Attachment: Base64.encode(
                   Uint8Array.from(
                     { length: spec.attachmentBytes },
-                    (_, index) => (index * 31 + 7) % 256,
-                  ),
+                    (_, index) => (index * 31 + 7) % 256
+                  )
                 ),
                 FormatoAttachment: "PDF",
                 NomeAttachment: "fattura.pdf",
@@ -126,5 +133,8 @@ export const fatturaFixtures = specs.map((spec) => {
     versione: "FPR12",
   };
 
-  return { fattura: Result.getOrThrow(Schema.decodeResult(FatturaXml)(document)), name: spec.name };
+  return {
+    fattura: Result.getOrThrow(Schema.decodeResult(FatturaXml)(document)),
+    name: spec.name,
+  };
 });

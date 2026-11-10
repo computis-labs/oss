@@ -3,17 +3,21 @@ import type { WrappedPdfiumModule } from "@embedpdf/pdfium";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as SynchronizedRef from "effect/SynchronizedRef";
 import type * as Result from "effect/Result";
+import * as SynchronizedRef from "effect/SynchronizedRef";
+
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
-import type { WasmModule } from "./types/webassembly.d.ts";
 import { PdfiumWasm } from "./pdfium-wasm.ts";
+import type { WasmModule } from "./types/webassembly.d.ts";
 
 export type Pdfium = WrappedPdfiumModule;
 
-const boot = Effect.fn("PdfiumRuntime.boot")(function* bootPdfium(module: WasmModule) {
+const boot = Effect.fn("PdfiumRuntime.boot")(function* bootPdfium(
+  module: WasmModule
+) {
   return yield* Effect.tryPromise({
-    catch: (cause) => new PdfEngineError({ cause, message: "PDFium could not start." }),
+    catch: (cause) =>
+      new PdfEngineError({ cause, message: "PDFium could not start." }),
     try: async () => {
       const lib = await init({
         instantiateWasm: (imports, receive) => {
@@ -42,25 +46,33 @@ export class PdfiumRuntime extends Context.Service<PdfiumRuntime>()(
         current: SynchronizedRef.get(current),
         run: Effect.fn("PdfiumRuntime.run")(function* runOnPdfium<A, E>(
           lib: Pdfium,
-          task: (lib: Pdfium) => Result.Result<A, E>,
+          task: (lib: Pdfium) => Result.Result<A, E>
         ) {
           if ((yield* SynchronizedRef.get(current)) !== lib) {
             return yield* new PdfEngineError({
-              message: "PDFium restarted after a failure: open the document again.",
+              message:
+                "PDFium restarted after a failure: open the document again.",
             });
           }
 
           const outcome = yield* Effect.try({
             catch: (cause) =>
-              new PdfEngineError({ cause, message: "PDFium failed on this document." }),
+              new PdfEngineError({
+                cause,
+                message: "PDFium failed on this document.",
+              }),
             try: () => task(lib),
-          }).pipe(Effect.tapError(() => SynchronizedRef.updateEffect(current, () => boot(module))));
+          }).pipe(
+            Effect.tapError(() =>
+              SynchronizedRef.updateEffect(current, () => boot(module))
+            )
+          );
 
           return yield* Effect.fromResult(outcome);
         }),
       } as const;
     }),
-  },
+  }
 ) {
   static readonly layer = Layer.effect(PdfiumRuntime, PdfiumRuntime.make);
 }

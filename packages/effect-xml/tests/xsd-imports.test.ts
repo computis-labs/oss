@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Layer, Path } from "effect";
+
 import { XsdSchemaError } from "../src/errors/xsd-schema-error.ts";
 import { XsdValidationError } from "../src/errors/xsd-validation-error.ts";
 import * as Xsd from "../src/xsd.ts";
@@ -58,27 +59,41 @@ layer(Layer.mergeAll(MemoryFileSystem, Path.layer))(
       ["a path", { path: ROOT }],
       [
         "a file URL",
-        { contents: utf8.encode(rootXsd), url: "file:///schemas/order%20dir/root.xsd" },
+        {
+          contents: utf8.encode(rootXsd),
+          url: "file:///schemas/order%20dir/root.xsd",
+        },
       ],
-    ] as const)("follows imports and includes from a schema given as %s", ([, schema]) =>
-      Effect.gen(function* test() {
-        const validator = yield* Xsd.make({ schema });
+    ] as const)(
+      "follows imports and includes from a schema given as %s",
+      ([, schema]) =>
+        Effect.gen(function* test() {
+          const validator = yield* Xsd.make({ schema });
 
-        expect(yield* Effect.exit(validator.validate(order("ABC")))).toStrictEqual(Exit.void);
-        expect(yield* Effect.flip(validator.validate(order("abc")))).toBeInstanceOf(
-          XsdValidationError,
-        );
-      }),
+          expect(
+            yield* Effect.exit(validator.validate(order("ABC")))
+          ).toStrictEqual(Exit.void);
+          expect(
+            yield* Effect.flip(validator.validate(order("abc")))
+          ).toBeInstanceOf(XsdValidationError);
+        })
     );
 
-    it.effect("fails with XsdSchemaError when an imported schema is not on the FileSystem", () =>
-      Effect.gen(function* test() {
-        const error = yield* Effect.flip(
-          Xsd.make({ schema: { contents: utf8.encode(rootXsd), url: "/elsewhere/root.xsd" } }),
-        );
+    it.effect(
+      "fails with XsdSchemaError when an imported schema is not on the FileSystem",
+      () =>
+        Effect.gen(function* test() {
+          const error = yield* Effect.flip(
+            Xsd.make({
+              schema: {
+                contents: utf8.encode(rootXsd),
+                url: "/elsewhere/root.xsd",
+              },
+            })
+          );
 
-        expect(error).toBeInstanceOf(XsdSchemaError);
-      }),
+          expect(error).toBeInstanceOf(XsdSchemaError);
+        })
     );
-  },
+  }
 );

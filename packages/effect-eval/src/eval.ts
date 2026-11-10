@@ -1,8 +1,14 @@
 import { Effect, Option, pipe } from "effect";
 import type { Array, Duration, Schedule, Schema, Scope } from "effect";
+
 import type { Case, Dataset } from "./dataset.ts";
 import { perCase } from "./execution.ts";
-import type { BatchedExecution, Execution, PerCaseExecution, WholeExecution } from "./execution.ts";
+import type {
+  BatchedExecution,
+  Execution,
+  PerCaseExecution,
+  WholeExecution,
+} from "./execution.ts";
 import type { Gate } from "./gate.ts";
 import type { Scorer } from "./scorer.ts";
 
@@ -63,15 +69,23 @@ export type BatchDefinition<
   readonly execution: BatchedExecution | WholeExecution;
   readonly task: (
     inputs: Array.NonEmptyReadonlyArray<Case<A>>,
-    setup: S,
+    setup: S
   ) => Effect.Effect<readonly O[], E, R>;
 };
 
 export type BatchRunner<A, O, E, R> = (
-  inputs: Array.NonEmptyReadonlyArray<Case<A>>,
+  inputs: Array.NonEmptyReadonlyArray<Case<A>>
 ) => Effect.Effect<readonly O[], E, R>;
 
-export interface Eval<A, O, E = never, DE = never, R = never, DR = never, SR = never> {
+export interface Eval<
+  A,
+  O,
+  E = never,
+  DE = never,
+  R = never,
+  DR = never,
+  SR = never,
+> {
   readonly name: string;
   readonly dataset: Dataset<A, DE, DR>;
   readonly execution: Execution;
@@ -90,7 +104,7 @@ export interface Eval<A, O, E = never, DE = never, R = never, DR = never, SR = n
 const build = <A, O, S, E, DE, R, DR, SR, SetupE, SetupR>(
   definition: Common<A, O, S, DE, DR, SR, SetupE, SetupR>,
   execution: Execution,
-  runner: (setup: S) => BatchRunner<A, O, E, R>,
+  runner: (setup: S) => BatchRunner<A, O, E, R>
 ): Eval<A, O, E | SetupE, DE, R | SetupR, DR, SR> => ({
   budget: definition.budget ?? {},
   dataset: definition.dataset,
@@ -100,14 +114,14 @@ const build = <A, O, S, E, DE, R, DR, SR, SetupE, SetupR>(
   name: definition.name,
   output: Option.fromNullishOr(definition.output),
   prepare: Option.match(
-    Option.fromNullishOr<Effect.Effect<S, SetupE, SetupR | Scope.Scope> | undefined>(
-      definition.setup,
-    ),
+    Option.fromNullishOr<
+      Effect.Effect<S, SetupE, SetupR | Scope.Scope> | undefined
+    >(definition.setup),
     {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: SetupOf makes setup optional only when S is undefined, so the task receives undefined.
       onNone: () => Effect.sync(() => runner(undefined as S)),
       onSome: (setup) => setup.pipe(Effect.map(runner)),
-    },
+    }
   ),
   retry: Option.fromNullishOr(definition.retry),
   score: definition.score,
@@ -128,7 +142,7 @@ export const make = <
   SetupE = E,
   SetupR = R,
 >(
-  definition: PerCaseDefinition<A, O, S, E, DE, R, DR, SR, SetupE, SetupR>,
+  definition: PerCaseDefinition<A, O, S, E, DE, R, DR, SR, SetupE, SetupR>
 ): Eval<A, O, E | SetupE, DE, R | SetupR, DR, SR> =>
   build(
     definition,
@@ -136,8 +150,8 @@ export const make = <
     (setup) => (inputs) =>
       pipe(
         inputs,
-        Effect.forEach((input) => definition.task(input, setup)),
-      ),
+        Effect.forEach((input) => definition.task(input, setup))
+      )
   );
 
 export const makeBatched = <
@@ -152,6 +166,10 @@ export const makeBatched = <
   SetupE = E,
   SetupR = R,
 >(
-  definition: BatchDefinition<A, O, S, E, DE, R, DR, SR, SetupE, SetupR>,
+  definition: BatchDefinition<A, O, S, E, DE, R, DR, SR, SetupE, SetupR>
 ): Eval<A, O, E | SetupE, DE, R | SetupR, DR, SR> =>
-  build(definition, definition.execution, (setup) => (inputs) => definition.task(inputs, setup));
+  build(
+    definition,
+    definition.execution,
+    (setup) => (inputs) => definition.task(inputs, setup)
+  );

@@ -1,8 +1,9 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
 
-const unwrapParenthesizedExpression = (expression: ESTree.Expression): ESTree.Expression => {
+const unwrapParenthesizedExpression = (
+  expression: ESTree.Expression
+): ESTree.Expression => {
   let current = expression;
 
   while (current.type === "ParenthesizedExpression") {
@@ -25,7 +26,8 @@ const isDiscarded = (node: ESTree.Node) => {
 
   while (
     parent !== null &&
-    (parent.type === "ParenthesizedExpression" || parent.type === "AwaitExpression")
+    (parent.type === "ParenthesizedExpression" ||
+      parent.type === "AwaitExpression")
   ) {
     ({ parent } = parent);
   }

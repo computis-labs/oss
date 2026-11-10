@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+
 import { XmlDecodeError } from "../src/errors/xml-decode-error.ts";
 import { XmlEncodeError } from "../src/errors/xml-encode-error.ts";
 import { XmlParseError } from "../src/errors/xml-parse-error.ts";
@@ -13,12 +14,15 @@ describe("error messages", () => {
     });
 
     expect(error.message).toBe(
-      "Expected a string of at most 2 characters at FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Provincia (line 2, column 12)",
+      "Expected a string of at most 2 characters at FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Provincia (line 2, column 12)"
     );
   });
 
   it("describes a decode failure without a position with its path only", () => {
-    const error = XmlDecodeError.fromReason({ path: "Documento.Titolo", reason: "Missing key" });
+    const error = XmlDecodeError.fromReason({
+      path: "Documento.Titolo",
+      reason: "Missing key",
+    });
 
     expect(error.message).toBe("Missing key at Documento.Titolo");
   });
@@ -46,7 +50,9 @@ describe("error messages", () => {
       reason: "Unexpected closing tag </B>",
     });
 
-    expect(error.message).toBe("Unexpected closing tag </B> (line 1, column 14)");
+    expect(error.message).toBe(
+      "Unexpected closing tag </B> (line 1, column 14)"
+    );
   });
 
   it("describes an encode failure with its path", () => {
@@ -56,7 +62,7 @@ describe("error messages", () => {
     });
 
     expect(error.message).toBe(
-      "Character U+0001 is not allowed in XML 1.0. at Documento.Nota[1].Testo",
+      "Character U+0001 is not allowed in XML 1.0. at Documento.Nota[1].Testo"
     );
   });
 
@@ -70,7 +76,7 @@ describe("error messages", () => {
     });
 
     expect(error.message).toBe(
-      "XSD validation failed: Element 'Numero': missing. (line 1, column 1); Element 'Data': invalid. (line 4, column 7)",
+      "XSD validation failed: Element 'Numero': missing. (line 1, column 1); Element 'Data': invalid. (line 4, column 7)"
     );
   });
 
@@ -80,6 +86,8 @@ describe("error messages", () => {
       reason: "XSD validation failed: libxml2 failed without a diagnostic",
     });
 
-    expect(error.message).toBe("XSD validation failed: libxml2 failed without a diagnostic");
+    expect(error.message).toBe(
+      "XSD validation failed: libxml2 failed without a diagnostic"
+    );
   });
 });

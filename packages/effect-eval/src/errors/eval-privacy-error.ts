@@ -5,7 +5,11 @@ export class EvalPrivacyError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >()("EvalPrivacyError", {
   findings: Schema.Array(
-    Schema.Struct({ case: Schema.String, path: Schema.String, rule: Schema.String }),
+    Schema.Struct({
+      case: Schema.String,
+      path: Schema.String,
+      rule: Schema.String,
+    })
   ),
 }) {
   readonly code = "EVAL_PRIVACY";

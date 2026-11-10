@@ -1,8 +1,12 @@
 import { summary } from "@actions/core";
+import { Context, Effect, Layer } from "effect";
+
+import {
+  ActionSummaryError,
+  ActionSummaryErrorReason,
+} from "./errors/action-summary-error.ts";
 import { whenDefined } from "./object.ts";
 import { thrownMessage } from "./thrown-message.ts";
-import { Context, Effect, Layer } from "effect";
-import { ActionSummaryError, ActionSummaryErrorReason } from "./errors/action-summary-error.ts";
 
 export interface SummaryTableCell {
   readonly data: string;
@@ -23,10 +27,19 @@ export interface ActionSummaryApi {
   readonly addEOL: () => ActionSummaryApi;
   readonly addHeading: (text: string, level?: HeadingLevel) => ActionSummaryApi;
   readonly addCodeBlock: (code: string, lang?: string) => ActionSummaryApi;
-  readonly addList: (items: readonly string[], ordered?: boolean) => ActionSummaryApi;
-  readonly addTable: (rows: readonly (readonly SummaryTableCell[])[]) => ActionSummaryApi;
+  readonly addList: (
+    items: readonly string[],
+    ordered?: boolean
+  ) => ActionSummaryApi;
+  readonly addTable: (
+    rows: readonly (readonly SummaryTableCell[])[]
+  ) => ActionSummaryApi;
   readonly addDetails: (label: string, content: string) => ActionSummaryApi;
-  readonly addImage: (src: string, alt: string, options?: SummaryImageOptions) => ActionSummaryApi;
+  readonly addImage: (
+    src: string,
+    alt: string,
+    options?: SummaryImageOptions
+  ) => ActionSummaryApi;
   readonly addLink: (text: string, href: string) => ActionSummaryApi;
   readonly addSeparator: () => ActionSummaryApi;
   readonly addBreak: () => ActionSummaryApi;
@@ -43,13 +56,17 @@ export interface ActionSummaryApi {
 const writeFailed = (cause: unknown) =>
   new ActionSummaryError({
     cause,
-    description: thrownMessage(cause, "GITHUB_STEP_SUMMARY could not be written"),
+    description: thrownMessage(
+      cause,
+      "GITHUB_STEP_SUMMARY could not be written"
+    ),
     reason: ActionSummaryErrorReason.WriteFailed,
   });
 
-export class ActionSummary extends Context.Service<ActionSummary, ActionSummaryApi>()(
-  "@computis/effect-github/ActionSummary",
-) {
+export class ActionSummary extends Context.Service<
+  ActionSummary,
+  ActionSummaryApi
+>()("@computis/effect-github/ActionSummary") {
   static readonly layer = Layer.sync(ActionSummary, () => {
     const self: ActionSummaryApi = {
       addBreak: () => {
@@ -113,16 +130,23 @@ export class ActionSummary extends Context.Service<ActionSummary, ActionSummaryA
             row.map((cell) => ({
               data: cell.data,
               ...whenDefined(cell.header, (header) => ({ header })),
-              ...whenDefined(cell.colspan, (colspan) => ({ colspan: String(colspan) })),
-              ...whenDefined(cell.rowspan, (rowspan) => ({ rowspan: String(rowspan) })),
-            })),
-          ),
+              ...whenDefined(cell.colspan, (colspan) => ({
+                colspan: String(colspan),
+              })),
+              ...whenDefined(cell.rowspan, (rowspan) => ({
+                rowspan: String(rowspan),
+              })),
+            }))
+          )
         );
 
         return self;
       },
       clear: Effect.fn("ActionSummary.clear")(function* clear() {
-        yield* Effect.tryPromise({ catch: writeFailed, try: async () => await summary.clear() });
+        yield* Effect.tryPromise({
+          catch: writeFailed,
+          try: async () => await summary.clear(),
+        });
 
         return self;
       }),
@@ -154,6 +178,8 @@ const jobSummary = Effect.service(ActionSummary);
 export const write = (options?: { readonly overwrite?: boolean }) =>
   jobSummary.pipe(Effect.flatMap((service) => service.write(options)));
 
-export const clear = jobSummary.pipe(Effect.flatMap((service) => service.clear()));
+export const clear = jobSummary.pipe(
+  Effect.flatMap((service) => service.clear())
+);
 
 export const { layer } = ActionSummary;

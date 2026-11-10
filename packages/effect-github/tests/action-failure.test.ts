@@ -1,15 +1,25 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
+
 import { ActionApiError } from "../src/errors/action-api-error.ts";
 import {
   ActionContextError,
   ActionContextErrorReason,
 } from "../src/errors/action-context-error.ts";
 import { ActionFailed } from "../src/errors/action-failed.ts";
-import { isActionError, isActionFailure } from "../src/errors/action-failure.ts";
+import {
+  isActionError,
+  isActionFailure,
+} from "../src/errors/action-failure.ts";
 import type { ActionError } from "../src/errors/action-failure.ts";
-import { ActionInputError, ActionInputErrorReason } from "../src/errors/action-input-error.ts";
-import { ActionOIDCError, ActionOIDCErrorReason } from "../src/errors/action-oidc-error.ts";
+import {
+  ActionInputError,
+  ActionInputErrorReason,
+} from "../src/errors/action-input-error.ts";
+import {
+  ActionOIDCError,
+  ActionOIDCErrorReason,
+} from "../src/errors/action-oidc-error.ts";
 import {
   ActionSummaryError,
   ActionSummaryErrorReason,
@@ -19,14 +29,20 @@ import {
   InputValidationFailureReason,
 } from "../src/errors/input-validation-failure.ts";
 
-class MergeConflict extends Schema.TaggedError<MergeConflict>()("MergeConflict", {
-  path: Schema.String,
-}) {
+class MergeConflict extends Schema.TaggedError<MergeConflict>()(
+  "MergeConflict",
+  {
+    path: Schema.String,
+  }
+) {
   readonly code = "MERGE_CONFLICT";
 }
 
 const packageErrors: readonly ActionError[] = [
-  new ActionInputError({ name: "token", reason: ActionInputErrorReason.Missing }),
+  new ActionInputError({
+    name: "token",
+    reason: ActionInputErrorReason.Missing,
+  }),
   new ActionContextError({ reason: ActionContextErrorReason.InvalidRepo }),
   new ActionApiError({ method: "GET /user", status: 404 }),
   new ActionOIDCError({ reason: ActionOIDCErrorReason.NotAvailable }),
@@ -41,9 +57,12 @@ const packageErrors: readonly ActionError[] = [
 ];
 
 describe("isActionError", () => {
-  it.each(packageErrors)("recognises the package error $_tag", (packageError) => {
-    expect(isActionError(packageError)).toBe(true);
-  });
+  it.each(packageErrors)(
+    "recognises the package error $_tag",
+    (packageError) => {
+      expect(isActionError(packageError)).toBe(true);
+    }
+  );
 
   it("rejects an error of the caller", () => {
     expect(isActionError(new MergeConflict({ path: "apps/web" }))).toBe(false);
@@ -52,6 +71,8 @@ describe("isActionError", () => {
 
 describe("isActionFailure", () => {
   it("leaves out an error that is not a step failure", () => {
-    expect(isActionFailure(new ActionApiError({ method: "GET /user", status: 404 }))).toBe(false);
+    expect(
+      isActionFailure(new ActionApiError({ method: "GET /user", status: 404 }))
+    ).toBe(false);
   });
 });

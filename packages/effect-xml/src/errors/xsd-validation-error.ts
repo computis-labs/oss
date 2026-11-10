@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+
 import { describePosition } from "./xml-position.ts";
 
 export interface XsdIssue {
@@ -13,7 +14,11 @@ export class XsdValidationError extends Schema.TaggedError<
 >()("XsdValidationError", {
   cause: Schema.optionalKey(Schema.Defect()),
   issues: Schema.Array(
-    Schema.Struct({ column: Schema.Number, line: Schema.Number, message: Schema.String }),
+    Schema.Struct({
+      column: Schema.Number,
+      line: Schema.Number,
+      message: Schema.String,
+    })
   ),
   message: Schema.String,
 }) {

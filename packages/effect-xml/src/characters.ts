@@ -49,7 +49,7 @@ export const nextNonCharacter = (xml: string, from: number) => {
   const other = Math.min(
     LOW_CONTROLS.exec(xml)?.index ?? xml.length,
     nextIndexOf(xml, "\uFFFE", from),
-    nextIndexOf(xml, "\uFFFF", from),
+    nextIndexOf(xml, "\uFFFF", from)
   );
 
   const pattern = HIGH_CONTROLS_AND_SURROGATES;
@@ -80,7 +80,7 @@ export const positionAt = (xml: string, offset: number): XmlPosition => {
 
   const breaks = Array.from(
     xml.slice(0, end + 1).matchAll(LINE_BREAKS),
-    ({ index }) => index,
+    ({ index }) => index
   ).filter((index) => index < end);
 
   const lineStart = (breaks.at(-1) ?? -1) + 1;

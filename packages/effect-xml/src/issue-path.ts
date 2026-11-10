@@ -1,5 +1,6 @@
 import { Array, Predicate, SchemaAST, SchemaIssue } from "effect";
 import type { Schema } from "effect";
+
 import { localName, positionAt } from "./characters.ts";
 import type { XmlValue } from "./encoder.ts";
 import type { XmlPosition } from "./errors/xml-position.ts";
@@ -13,14 +14,17 @@ interface Located {
 const formatIssues = SchemaIssue.makeFormatterStandardSchemaV1();
 const formatIssue = SchemaIssue.makeFormatterDefault();
 
-const formatted = (issue: SchemaIssue.Issue, keys: readonly PropertyKey[]): Located => {
+const formatted = (
+  issue: SchemaIssue.Issue,
+  keys: readonly PropertyKey[]
+): Located => {
   const [first] = formatIssues(issue).issues;
 
   return {
     keys: [
       ...keys,
       ...(first?.path ?? []).map((segment) =>
-        Predicate.isObjectKeyword(segment) ? segment.key : segment,
+        Predicate.isObjectKeyword(segment) ? segment.key : segment
       ),
     ],
     message: first?.message ?? formatIssue(issue),
@@ -30,7 +34,7 @@ const formatted = (issue: SchemaIssue.Issue, keys: readonly PropertyKey[]): Loca
 const locate = (
   issue: SchemaIssue.Issue,
   keys: readonly PropertyKey[],
-  input: XmlValue,
+  input: XmlValue
 ): Located => {
   if (Predicate.isTagged(issue, "Pointer")) {
     return locate(issue.issue, [...keys, ...issue.path], input);
@@ -44,29 +48,36 @@ const locate = (
     ? issue.ast.types.filter(SchemaAST.isObjects)
     : [];
 
-  if (!Predicate.isTagged(issue, "AnyOf") || members.length !== issue.ast.types.length) {
+  if (
+    !Predicate.isTagged(issue, "AnyOf") ||
+    members.length !== issue.ast.types.length
+  ) {
     return formatted(issue, keys);
   }
 
-  const value = Array.reduce<PropertyKey, unknown>(keys, input, (current, key) =>
-    Predicate.hasProperty(current, key) ? current[key] : undefined,
+  const value = Array.reduce<PropertyKey, unknown>(
+    keys,
+    input,
+    (current, key) =>
+      Predicate.hasProperty(current, key) ? current[key] : undefined
   );
 
   const names = members.map(
-    (member) => new Set(member.propertySignatures.map((property) => property.name)),
+    (member) =>
+      new Set(member.propertySignatures.map((property) => property.name))
   );
 
   const distinctive = members.map((member) =>
     member.propertySignatures.filter((property) =>
-      names.some((others) => !others.has(property.name)),
-    ),
+      names.some((others) => !others.has(property.name))
+    )
   );
 
   const labels = distinctive.map((properties) =>
     properties
       .filter((property) => !SchemaAST.isOptional(property.type))
       .map((property) => String(property.name))
-      .join("+"),
+      .join("+")
   );
 
   if (members.length < 2 || labels.includes("")) {
@@ -74,14 +85,18 @@ const locate = (
   }
 
   const present = members.filter((_, index) =>
-    (distinctive[index] ?? []).some((property) => Predicate.hasProperty(value, property.name)),
+    (distinctive[index] ?? []).some((property) =>
+      Predicate.hasProperty(value, property.name)
+    )
   );
 
   const [member] = present;
 
   const chosen =
     present.length === 1
-      ? issue.issues.find((candidate) => "ast" in candidate && candidate.ast === member)
+      ? issue.issues.find(
+          (candidate) => "ast" in candidate && candidate.ast === member
+        )
       : undefined;
 
   return chosen === undefined
@@ -89,17 +104,26 @@ const locate = (
     : locate(chosen, keys, input);
 };
 
-export const firstIssue = (rootName: string, error: Schema.SchemaError, input?: XmlValue) => {
+export const firstIssue = (
+  rootName: string,
+  error: Schema.SchemaError,
+  input?: XmlValue
+) => {
   const { keys, message } = locate(error.issue, [], input);
 
   const path = Array.reduce(keys, rootName, (prefix, key) =>
-    Predicate.isNumber(key) ? `${prefix}[${String(key)}]` : `${prefix}.${String(key)}`,
+    Predicate.isNumber(key)
+      ? `${prefix}[${String(key)}]`
+      : `${prefix}.${String(key)}`
   );
 
   return { keys, message, path };
 };
 
-export const issuePosition = (xml: string, keys: readonly PropertyKey[]): XmlPosition => {
+export const issuePosition = (
+  xml: string,
+  keys: readonly PropertyKey[]
+): XmlPosition => {
   const targets: { readonly index: number; readonly name: string }[] = [];
 
   for (let position = 0; position < keys.length; position += 1) {
@@ -136,7 +160,12 @@ export const issuePosition = (xml: string, keys: readonly PropertyKey[]): XmlPos
     },
     openEnd: () => true,
     openStart: (qname, offset) => {
-      elements.push({ attributes: [], name: localName(qname), offset, parent: open.at(-1) });
+      elements.push({
+        attributes: [],
+        name: localName(qname),
+        offset,
+        parent: open.at(-1),
+      });
       open.push(elements.length - 1);
 
       return true;
@@ -151,19 +180,27 @@ export const issuePosition = (xml: string, keys: readonly PropertyKey[]): XmlPos
       const candidates =
         matched.length === position + 1
           ? elements.flatMap((element, index) =>
-              element.parent === matched.at(-1) && element.name === target.name ? [index] : [],
+              element.parent === matched.at(-1) && element.name === target.name
+                ? [index]
+                : []
             )
           : [];
 
       const found = candidates[target.index];
 
       return found === undefined ? matched : [...matched, found];
-    },
+    }
   );
 
   const last = targets.at(-1);
-  const owner = last === undefined ? undefined : elements[chain[targets.length - 1] ?? -1];
+
+  const owner =
+    last === undefined ? undefined : elements[chain[targets.length - 1] ?? -1];
+
   const attribute = owner?.attributes.find(({ qname }) => qname === last?.name);
 
-  return positionAt(xml, attribute?.offset ?? elements[chain.at(-1) ?? -1]?.offset ?? 0);
+  return positionAt(
+    xml,
+    attribute?.offset ?? elements[chain.at(-1) ?? -1]?.offset ?? 0
+  );
 };

@@ -1,8 +1,12 @@
-import { whenDefined } from "./object.ts";
 import { Console, Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
 import { compile } from "./compiler.ts";
-import { PromptProjectError, PromptProjectErrorReason } from "./project-error.ts";
+import { whenDefined } from "./object.ts";
+import {
+  PromptProjectError,
+  PromptProjectErrorReason,
+} from "./project-error.ts";
 
 export interface ProjectOptions {
   readonly root: string;
@@ -28,11 +32,14 @@ const render = (options: ProjectOptions) =>
       entries
         .filter((entry) => sourcePattern.test(entry))
         .map((entry) =>
-          Effect.map(fs.readFileString(path.join(options.root, entry)), (text) => ({
-            path: entry.split(path.sep).join("/"),
-            text,
-          })),
-        ),
+          Effect.map(
+            fs.readFileString(path.join(options.root, entry)),
+            (text) => ({
+              path: entry.split(path.sep).join("/"),
+              text,
+            })
+          )
+        )
     );
 
     const cwd = path.resolve(".");
@@ -55,8 +62,12 @@ const render = (options: ProjectOptions) =>
       return { code, output };
     }
 
-    const [command, ...args] = Array.from(options.format.matchAll(argumentPattern), ([part]) =>
-      part.replaceAll(quotePattern, "$<double>$<single>").replaceAll("{file}", output),
+    const [command, ...args] = Array.from(
+      options.format.matchAll(argumentPattern),
+      ([part]) =>
+        part
+          .replaceAll(quotePattern, "$<double>$<single>")
+          .replaceAll("{file}", output)
     );
 
     if (command === undefined) {
@@ -75,7 +86,7 @@ const render = (options: ProjectOptions) =>
           .spawn(
             ChildProcess.make(command, args, {
               stdin: Stream.make(new TextEncoder().encode(code)),
-            }),
+            })
           )
           .pipe(
             Effect.mapError((platformError) =>
@@ -83,8 +94,8 @@ const render = (options: ProjectOptions) =>
                 detail: `Cannot run '${command}' (${platformError.message}). Check that it is installed and on the PATH.`,
                 output,
                 reason: PromptProjectErrorReason.FormatFailed,
-              }),
-            ),
+              })
+            )
           );
 
         return yield* Effect.all(
@@ -93,14 +104,17 @@ const render = (options: ProjectOptions) =>
             Stream.mkString(Stream.decodeText(handle.stderr)),
             handle.exitCode,
           ],
-          { concurrency: "unbounded" },
+          { concurrency: "unbounded" }
         );
-      }),
+      })
     );
 
     if (exitCode !== 0) {
       return yield* PromptProjectError.make({
-        detail: [`'${options.format}' exited with code ${exitCode}.`, stderr.trim()]
+        detail: [
+          `'${options.format}' exited with code ${exitCode}.`,
+          stderr.trim(),
+        ]
           .filter((line) => line.length > 0)
           .join("\n"),
         output,
@@ -153,8 +167,13 @@ export const check = (options: ProjectOptions) =>
     return { output };
   });
 
-export const report = (result: { readonly changed: boolean; readonly output: string }) =>
-  Console.log(result.changed ? `Wrote ${result.output}` : `${result.output} is up to date`);
+export const report = (result: {
+  readonly changed: boolean;
+  readonly output: string;
+}) =>
+  Console.log(
+    result.changed ? `Wrote ${result.output}` : `${result.output} is up to date`
+  );
 
 export const watch = (options: ProjectOptions) =>
   Effect.gen(function* watchProgram() {
@@ -164,7 +183,7 @@ export const watch = (options: ProjectOptions) =>
       Effect.matchEffect({
         onFailure: (failure) => Console.error(failure.message),
         onSuccess: report,
-      }),
+      })
     );
 
     yield* Console.log(`Watching ${options.root} for prompt changes`);
@@ -172,10 +191,10 @@ export const watch = (options: ProjectOptions) =>
       Stream.make(options.root),
       fs.watch(options.root, { recursive: true }).pipe(
         Stream.map((event) => event.path),
-        Stream.filter((changed) => sourcePattern.test(changed)),
-      ),
+        Stream.filter((changed) => sourcePattern.test(changed))
+      )
     ).pipe(
       Stream.debounce("50 millis"),
-      Stream.runForEach(() => once),
+      Stream.runForEach(() => once)
     );
   });

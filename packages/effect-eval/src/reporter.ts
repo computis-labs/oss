@@ -15,6 +15,7 @@ import {
 } from "effect";
 import type { PlatformError } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
 import { EvalReporterError } from "./errors/eval-reporter-error.ts";
 import { EvalReporterFailed } from "./errors/eval-reporter-failed.ts";
 import * as Events from "./events.ts";
@@ -26,10 +27,15 @@ import type {
   RunStarted,
   VariantFinished,
 } from "./events.ts";
+import { whenDefined } from "./object.ts";
+import {
+  RedactsSensitive,
+  SensitiveExposure,
+  UNLOGGED,
+  redactRun,
+} from "./redact.ts";
 import { fold } from "./run.ts";
 import type { Run } from "./run.ts";
-import { whenDefined } from "./object.ts";
-import { RedactsSensitive, SensitiveExposure, UNLOGGED, redactRun } from "./redact.ts";
 
 export const deliveries = {
   all: "all",
@@ -41,7 +47,9 @@ export type Delivery = (typeof deliveries)[keyof typeof deliveries];
 const SLIDING_CAPACITY = 256;
 
 const isProgress = (event: EvalEvent) =>
-  Events.isCaseStarted(event) || Events.isCaseFinished(event) || Events.isCaseErrored(event);
+  Events.isCaseStarted(event) ||
+  Events.isCaseFinished(event) ||
+  Events.isCaseErrored(event);
 
 export const destinations = {
   file: "file",
@@ -56,7 +64,9 @@ export interface Reporter<E = never, R = never> {
   readonly required: boolean;
   readonly acceptsSensitive: boolean;
   readonly destination?: Destination;
-  readonly consume: (events: Stream.Stream<EvalEvent>) => Effect.Effect<void, E, R | Scope.Scope>;
+  readonly consume: (
+    events: Stream.Stream<EvalEvent>
+  ) => Effect.Effect<void, E, R | Scope.Scope>;
   readonly compare?: (base: Run, head: Run) => Effect.Effect<void, E, R>;
 }
 
@@ -69,10 +79,12 @@ export interface Options {
 
 export const fromStream = <E, R>(
   name: string,
-  consume: (events: Stream.Stream<EvalEvent>) => Effect.Effect<void, E, R | Scope.Scope>,
+  consume: (
+    events: Stream.Stream<EvalEvent>
+  ) => Effect.Effect<void, E, R | Scope.Scope>,
   options: Options & {
     readonly compare?: (base: Run, head: Run) => Effect.Effect<void, E, R>;
-  } = {},
+  } = {}
 ): Reporter<E, R> => ({
   acceptsSensitive: options.acceptsSensitive ?? false,
   consume,
@@ -98,12 +110,13 @@ export interface Hooks<E, R> extends Options {
 
 const ignore = () => Effect.void;
 
-export const RunEvents = Context.Reference<Option.Option<Effect.Effect<readonly EvalEvent[]>>>(
-  "effect-eval/RunEvents",
-  { defaultValue: () => Option.none() },
-);
+export const RunEvents = Context.Reference<
+  Option.Option<Effect.Effect<readonly EvalEvent[]>>
+>("effect-eval/RunEvents", { defaultValue: () => Option.none() });
 
-export const make = <E = never, R = never>(hooks: Hooks<E, R>): Reporter<E, R> =>
+export const make = <E = never, R = never>(
+  hooks: Hooks<E, R>
+): Reporter<E, R> =>
   fromStream(
     hooks.name,
     (events) => {
@@ -132,23 +145,23 @@ export const make = <E = never, R = never>(hooks: Hooks<E, R>): Reporter<E, R> =
                   Option.match({
                     onNone: () => Effect.succeed<readonly EvalEvent[]>(seen),
                     onSome: (all) => all,
-                  }),
+                  })
                 ),
                 Effect.flatMap(fold),
                 Effect.orDie,
-                Effect.flatMap(onRunFinished),
+                Effect.flatMap(onRunFinished)
               );
             },
             RunStarted: hooks.onRunStarted ?? ignore,
             VariantFinished: hooks.onVariantFinished ?? ignore,
           });
-        }),
+        })
       );
     },
     {
       ...hooks,
       ...whenDefined(hooks.onComparison, (compare) => ({ compare })),
-    },
+    }
   );
 
 export const silent: Reporter = fromStream("silent", Stream.runDrain);
@@ -157,7 +170,7 @@ export const process = (
   name: string,
   command: string,
   args: readonly string[] = [],
-  options: Options = {},
+  options: Options = {}
 ): Reporter<
   EvalReporterError | PlatformError.PlatformError,
   ChildProcessSpawner.ChildProcessSpawner
@@ -172,12 +185,14 @@ export const process = (
           ChildProcess.make(command, args, {
             stderr: "inherit",
             stdin: events.pipe(
-              Stream.mapEffect((event) => Effect.orDie(Events.encodeLine(event))),
+              Stream.mapEffect((event) =>
+                Effect.orDie(Events.encodeLine(event))
+              ),
               Stream.map((line) => `${line}\n`),
-              Stream.encodeText,
+              Stream.encodeText
             ),
             stdout: "inherit",
-          }),
+          })
         );
 
         yield* handle.exitCode.pipe(
@@ -187,11 +202,11 @@ export const process = (
               new EvalReporterError({
                 message: `${command} exited with code ${String(code)}.`,
                 reporter: name,
-              }),
-          ),
+              })
+          )
         );
       }),
-    options,
+    options
   );
 
 export const required = <E, R>(self: Reporter<E, R>): Reporter<E, R> => ({
@@ -204,24 +219,33 @@ export const sliding = <E, R>(self: Reporter<E, R>): Reporter<E, R> => ({
   delivery: deliveries.sliding,
 });
 
-export const acceptingSensitive = <E, R>(self: Reporter<E, R>): Reporter<E, R> => ({
+export const acceptingSensitive = <E, R>(
+  self: Reporter<E, R>
+): Reporter<E, R> => ({
   ...self,
   acceptsSensitive: true,
 });
 
 export type Installed = Reporter<unknown>;
 
-export const Reporters = Context.Reference<readonly Installed[]>("effect-eval/Reporters", {
-  defaultValue: () => [],
-});
+export const Reporters = Context.Reference<readonly Installed[]>(
+  "effect-eval/Reporters",
+  {
+    defaultValue: () => [],
+  }
+);
 
 export type Services<T> = T extends Reporter<unknown, infer R> ? R : never;
 
 export function layer<T extends Reporter<unknown, unknown> = never>(
-  reporters: readonly T[],
+  reporters: readonly T[]
 ): Layer.Layer<never, never, Services<T>>;
-export function layer<R>(reporters: readonly Reporter<unknown, R>[]): Layer.Layer<never, never, R>;
-export function layer<R>(reporters: readonly Reporter<unknown, R>[]): Layer.Layer<never, never, R> {
+export function layer<R>(
+  reporters: readonly Reporter<unknown, R>[]
+): Layer.Layer<never, never, R>;
+export function layer<R>(
+  reporters: readonly Reporter<unknown, R>[]
+): Layer.Layer<never, never, R> {
   return Layer.effect(
     Reporters,
     Effect.context<R>().pipe(
@@ -232,9 +256,11 @@ export function layer<R>(reporters: readonly Reporter<unknown, R>[]): Layer.Laye
             Effect.scope.pipe(
               Effect.flatMap((scope) =>
                 Effect.suspend(() => consume(events)).pipe(
-                  Effect.provideContext(Context.add(context, Scope.Scope, scope)),
-                ),
-              ),
+                  Effect.provideContext(
+                    Context.add(context, Scope.Scope, scope)
+                  )
+                )
+              )
             ),
           ...whenDefined(draw, (given) => ({
             compare: (base: Run, head: Run) =>
@@ -242,19 +268,24 @@ export function layer<R>(reporters: readonly Reporter<unknown, R>[]): Layer.Laye
                 Effect.scope.pipe(
                   Effect.flatMap((scope) =>
                     Effect.suspend(() => given(base, head)).pipe(
-                      Effect.provideContext(Context.add(context, Scope.Scope, scope)),
-                    ),
-                  ),
-                ),
+                      Effect.provideContext(
+                        Context.add(context, Scope.Scope, scope)
+                      )
+                    )
+                  )
+                )
               ),
           })),
-        })),
-      ),
-    ),
+        }))
+      )
+    )
   );
 }
 
-export const compare = Effect.fn("Reporter.compare")(function* compareRuns(base: Run, head: Run) {
+export const compare = Effect.fn("Reporter.compare")(function* compareRuns(
+  base: Run,
+  head: Run
+) {
   const reporters = yield* Reporters;
   const sensitive = base.sensitive || head.sensitive;
 
@@ -269,36 +300,41 @@ export const compare = Effect.fn("Reporter.compare")(function* compareRuns(base:
           Effect.suspend(() =>
             sensitive && !reporter.acceptsSensitive
               ? draw(redactRun(base), redactRun(head))
-              : draw(base, head),
+              : draw(base, head)
           ).pipe(
             Effect.provideService(RedactsSensitive, !reporter.acceptsSensitive),
             Effect.provideService(SensitiveExposure, Option.some(exposed)),
             Effect.exit,
-            Effect.map((exit) => Option.some(exit)),
+            Effect.map((exit) => Option.some(exit))
           ),
       }).pipe(
         Effect.map((exit) => ({
           exit,
           quiet: sensitive || MutableRef.get(exposed),
           reporter,
-        })),
+        }))
       );
-    }),
+    })
   );
 
   const broken = exits.flatMap(({ exit, quiet, reporter }) =>
     Option.toArray(exit).flatMap((found) =>
-      Exit.isFailure(found) ? [{ exit: found, quiet, reporter }] : [],
-    ),
+      Exit.isFailure(found) ? [{ exit: found, quiet, reporter }] : []
+    )
   );
 
   yield* Effect.forEach(
     broken,
     ({ exit, quiet, reporter }) =>
       quiet
-        ? Effect.logWarning(`The reporter ${reporter.name} failed to compare. ${UNLOGGED}`)
-        : Effect.logWarning(`The reporter ${reporter.name} failed to compare.`, exit),
-    { discard: true },
+        ? Effect.logWarning(
+            `The reporter ${reporter.name} failed to compare. ${UNLOGGED}`
+          )
+        : Effect.logWarning(
+            `The reporter ${reporter.name} failed to compare.`,
+            exit
+          ),
+    { discard: true }
   );
   const requiredFailure = broken.find(({ reporter }) => reporter.required);
 
@@ -308,66 +344,76 @@ export const compare = Effect.fn("Reporter.compare")(function* compareRuns(base:
         new EvalReporterFailed({
           cause: requiredFailure.quiet ? UNLOGGED : requiredFailure.exit,
           reporter: requiredFailure.reporter.name,
-        }),
+        })
       );
 });
 
-export const subscribe = Effect.fn("Reporter.subscribe")(function* subscribeReporter(
-  pubsub: PubSub.PubSub<EvalEvent>,
-  delivery: Delivery,
-) {
-  const subscription = yield* PubSub.subscribe(pubsub);
-  const events = Stream.fromSubscription(subscription).pipe(Stream.takeUntil(Events.isRunFinished));
+export const subscribe = Effect.fn("Reporter.subscribe")(
+  function* subscribeReporter(
+    pubsub: PubSub.PubSub<EvalEvent>,
+    delivery: Delivery
+  ) {
+    const subscription = yield* PubSub.subscribe(pubsub);
 
-  if (delivery === deliveries.all) {
-    return events;
-  }
-
-  const buffer = yield* Ref.make<{
-    readonly events: readonly EvalEvent[];
-    readonly ended: boolean;
-  }>({
-    ended: false,
-    events: [],
-  });
-
-  const doorbell = yield* Queue.sliding<boolean>(1);
-  yield* pipe(
-    events,
-    Stream.runForEach((event) =>
-      Ref.update(buffer, (current) => {
-        const appended = [...current.events, event];
-        const oldest = appended.findIndex(isProgress);
-
-        return {
-          ...current,
-          events:
-            appended.filter(isProgress).length > SLIDING_CAPACITY
-              ? [...appended.slice(0, oldest), ...appended.slice(oldest + 1)]
-              : appended,
-        };
-      }).pipe(Effect.andThen(Queue.offer(doorbell, true))),
-    ),
-    Effect.ensuring(
-      Ref.update(buffer, (current) => ({ ...current, ended: true })).pipe(
-        Effect.andThen(Queue.offer(doorbell, true)),
-      ),
-    ),
-    Effect.forkScoped,
-  );
-
-  const drain = (): Effect.Effect<readonly [readonly EvalEvent[], Option.Option<boolean>]> =>
-    Ref.modify(buffer, (current) => [current, { ...current, events: [] }]).pipe(
-      Effect.flatMap((taken) => {
-        if (taken.events.length > 0) {
-          return Effect.succeed([taken.events, Option.some(true)] as const);
-        }
-
-        return taken.ended
-          ? Effect.succeed([[], Option.none<boolean>()] as const)
-          : Queue.take(doorbell).pipe(Effect.andThen(drain));
-      }),
+    const events = Stream.fromSubscription(subscription).pipe(
+      Stream.takeUntil(Events.isRunFinished)
     );
 
-  return Stream.paginate(true, drain);
-});
+    if (delivery === deliveries.all) {
+      return events;
+    }
+
+    const buffer = yield* Ref.make<{
+      readonly events: readonly EvalEvent[];
+      readonly ended: boolean;
+    }>({
+      ended: false,
+      events: [],
+    });
+
+    const doorbell = yield* Queue.sliding<boolean>(1);
+    yield* pipe(
+      events,
+      Stream.runForEach((event) =>
+        Ref.update(buffer, (current) => {
+          const appended = [...current.events, event];
+          const oldest = appended.findIndex(isProgress);
+
+          return {
+            ...current,
+            events:
+              appended.filter(isProgress).length > SLIDING_CAPACITY
+                ? [...appended.slice(0, oldest), ...appended.slice(oldest + 1)]
+                : appended,
+          };
+        }).pipe(Effect.andThen(Queue.offer(doorbell, true)))
+      ),
+      Effect.ensuring(
+        Ref.update(buffer, (current) => ({ ...current, ended: true })).pipe(
+          Effect.andThen(Queue.offer(doorbell, true))
+        )
+      ),
+      Effect.forkScoped
+    );
+
+    const drain = (): Effect.Effect<
+      readonly [readonly EvalEvent[], Option.Option<boolean>]
+    > =>
+      Ref.modify(buffer, (current) => [
+        current,
+        { ...current, events: [] },
+      ]).pipe(
+        Effect.flatMap((taken) => {
+          if (taken.events.length > 0) {
+            return Effect.succeed([taken.events, Option.some(true)] as const);
+          }
+
+          return taken.ended
+            ? Effect.succeed([[], Option.none<boolean>()] as const)
+            : Queue.take(doorbell).pipe(Effect.andThen(drain));
+        })
+      );
+
+    return Stream.paginate(true, drain);
+  }
+);

@@ -1,7 +1,11 @@
 import { Effect, Layer, Predicate, Redacted, Schema } from "effect";
+
 import { ActionRunner } from "../action-runner.ts";
 import type { InputOptions } from "../action-runner.ts";
-import { ActionInputError, ActionInputErrorReason } from "../errors/action-input-error.ts";
+import {
+  ActionInputError,
+  ActionInputErrorReason,
+} from "../errors/action-input-error.ts";
 
 export interface LogEntry {
   readonly level: "debug" | "info" | "warning" | "error" | "notice";
@@ -19,7 +23,7 @@ export const make = (
     readonly inputs?: Readonly<Record<string, string>>;
     readonly state?: Readonly<Record<string, string>>;
     readonly idToken?: string;
-  } = {},
+  } = {}
 ) => {
   const inputs = new Map(Object.entries(options.inputs ?? {}));
 
@@ -36,12 +40,15 @@ export const make = (
 
   const readInput = Effect.fn("ActionRunnerTest.readInput")(function* readInput(
     name: string,
-    inputOptions: InputOptions = {},
+    inputOptions: InputOptions = {}
   ) {
     const value = inputs.get(name) ?? "";
 
     if (inputOptions.required === true && value === "") {
-      return yield* new ActionInputError({ name, reason: ActionInputErrorReason.Missing });
+      return yield* new ActionInputError({
+        name,
+        reason: ActionInputErrorReason.Missing,
+      });
     }
 
     return inputOptions.trimWhitespace === false ? value : value.trim();
@@ -67,44 +74,52 @@ export const make = (
       Effect.sync(() => {
         recording.variables.set(name, value);
       }),
-    getBooleanInput: Effect.fn("TestActionRunner.getBooleanInput")(function* getBooleanInput(
-      name: string,
-      inputOptions?: InputOptions,
-    ) {
-      const value = yield* readInput(name, inputOptions).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ActionInputError({ cause, name, reason: ActionInputErrorReason.InvalidType }),
-        ),
-      );
+    getBooleanInput: Effect.fn("TestActionRunner.getBooleanInput")(
+      function* getBooleanInput(name: string, inputOptions?: InputOptions) {
+        const value = yield* readInput(name, inputOptions).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ActionInputError({
+                cause,
+                name,
+                reason: ActionInputErrorReason.InvalidType,
+              })
+          )
+        );
 
-      if (trueInputs.has(value)) {
-        return true;
+        if (trueInputs.has(value)) {
+          return true;
+        }
+
+        if (falseInputs.has(value)) {
+          return false;
+        }
+
+        return yield* new ActionInputError({
+          name,
+          reason: ActionInputErrorReason.InvalidType,
+          value,
+        });
       }
-
-      if (falseInputs.has(value)) {
-        return false;
-      }
-
-      return yield* new ActionInputError({
-        name,
-        reason: ActionInputErrorReason.InvalidType,
-        value,
-      });
-    }),
-    getIDToken: () => Effect.succeed(Redacted.make(options.idToken ?? "test-oidc-token")),
+    ),
+    getIDToken: () =>
+      Effect.succeed(Redacted.make(options.idToken ?? "test-oidc-token")),
     getInput: readInput,
-    getMultilineInput: Effect.fn("ActionRunnerTest.getMultilineInput")(function* getMultilineInput(
-      name: string,
-      inputOptions?: InputOptions,
-    ) {
-      const value = yield* readInput(name, { ...inputOptions, trimWhitespace: false });
+    getMultilineInput: Effect.fn("ActionRunnerTest.getMultilineInput")(
+      function* getMultilineInput(name: string, inputOptions?: InputOptions) {
+        const value = yield* readInput(name, {
+          ...inputOptions,
+          trimWhitespace: false,
+        });
 
-      return value
-        .split("\n")
-        .filter((line) => line !== "")
-        .map((line) => (inputOptions?.trimWhitespace === false ? line : line.trim()));
-    }),
+        return value
+          .split("\n")
+          .filter((line) => line !== "")
+          .map((line) =>
+            inputOptions?.trimWhitespace === false ? line : line.trim()
+          );
+      }
+    ),
     getState: (name) => Effect.sync(() => recording.state.get(name) ?? ""),
     group: <A, E, R>(name: string, fn: () => Effect.Effect<A, E, R>) =>
       Effect.acquireUseRelease(
@@ -115,15 +130,21 @@ export const make = (
         () =>
           Effect.sync(() => {
             recording.groups.pop();
-          }),
-      ).pipe(Effect.withSpan("ActionRunnerTest.group", { attributes: { group: name } })),
+          })
+      ).pipe(
+        Effect.withSpan("ActionRunnerTest.group", {
+          attributes: { group: name },
+        })
+      ),
     info: log("info"),
     notice: log("notice"),
     saveState: (name, value) =>
       Effect.gen(function* saveRecordedState() {
         const stored = Predicate.isString(value)
           ? value
-          : yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value);
+          : yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+              value
+            );
 
         recording.state.set(name, stored);
       }).pipe(Effect.orDie),

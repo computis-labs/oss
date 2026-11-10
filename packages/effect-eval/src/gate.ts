@@ -1,4 +1,5 @@
 import { Data, Effect, Option } from "effect";
+
 import { EvalGateFailed } from "./errors/eval-gate-failed.ts";
 import type { GateResult, Scored } from "./events.ts";
 import { describeSelector } from "./history.ts";
@@ -21,26 +22,32 @@ export type Bound = (typeof bounds)[keyof typeof bounds];
 
 export type Gate = Data.TaggedEnum<{
   Max: { readonly metric: Metric.Metric; readonly threshold: number };
-  Min: { readonly metric: RatioMetric; readonly threshold: number; readonly on: Bound };
+  Min: {
+    readonly metric: RatioMetric;
+    readonly threshold: number;
+    readonly on: Bound;
+  };
   By: { readonly tag: string; readonly gate: Gate };
   NoRegressions: { readonly baseline: Selector };
 }>;
 
 const { $match, By, Max, Min, NoRegressions } = Data.taggedEnum<Gate>();
 
-export const max = (metric: Metric.Metric, threshold: number): Gate => Max({ metric, threshold });
+export const max = (metric: Metric.Metric, threshold: number): Gate =>
+  Max({ metric, threshold });
 
 export const min = (
   metric: RatioMetric,
   threshold: number,
-  options: { readonly on?: Bound } = {},
+  options: { readonly on?: Bound } = {}
 ): Gate => Min({ metric, on: options.on ?? bounds.value, threshold });
 
 export const missedOnlyOnGaps = max(Metric.missed, 0);
 
 export const by = (tag: string, gate: Gate): Gate => By({ gate, tag });
 
-export const noRegressions = (baseline: Selector): Gate => NoRegressions({ baseline });
+export const noRegressions = (baseline: Selector): Gate =>
+  NoRegressions({ baseline });
 
 export const baselinesOf = (gates: readonly Gate[]): readonly Selector[] =>
   gates.flatMap((gate) =>
@@ -49,7 +56,7 @@ export const baselinesOf = (gates: readonly Gate[]): readonly Selector[] =>
       Max: () => [],
       Min: () => [],
       NoRegressions: ({ baseline }) => [baseline],
-    }),
+    })
   );
 
 export type Baselines = (selector: Selector) => Option.Option<Run>;
@@ -62,14 +69,18 @@ export const describe = (gate: Gate): string =>
     Max: ({ metric, threshold }) => `${metric.name} ≤ ${String(threshold)}`,
     Min: ({ metric, on, threshold }) =>
       `${metric.name}${on === bounds.lowerBound ? " (lower bound)" : ""} ≥ ${String(threshold)}`,
-    NoRegressions: ({ baseline }) => `no regressions from ${describeSelector(baseline)}`,
+    NoRegressions: ({ baseline }) =>
+      `no regressions from ${describeSelector(baseline)}`,
   });
 
 const violationsOf = (
   items: readonly { readonly judged: Judged; readonly scored: Scored }[],
   violates: (judged: Judged) => boolean,
-  limit: number,
-) => items.flatMap((item) => (violates(item.judged) ? [item.scored] : [])).slice(0, limit);
+  limit: number
+) =>
+  items
+    .flatMap((item) => (violates(item.judged) ? [item.scored] : []))
+    .slice(0, limit);
 
 const evaluateOne = (
   gate: Gate,
@@ -77,10 +88,13 @@ const evaluateOne = (
   scope: Option.Option<string>,
   scored: readonly Scored[],
   baselines: Baselines,
-  limit: number,
+  limit: number
 ): GateResult => {
   const items = scored.map((entry) => ({
-    judged: { observation: entry.observation, verdict: Verdicts.of(entry.observation) },
+    judged: {
+      observation: entry.observation,
+      verdict: Verdicts.of(entry.observation),
+    },
     scored: entry,
   }));
 
@@ -95,7 +109,7 @@ const evaluateOne = (
         Option.some(tag),
         scored.filter((entry) => new Set(entry.observation.tags).has(tag)),
         baselines,
-        limit,
+        limit
       ),
       gate: result.gate,
     }),
@@ -115,7 +129,7 @@ const evaluateOne = (
             Metric.isCount(metric)
               ? metric.counts(entry)
               : metric.admits(entry) && metric.weight(entry) > 0,
-          limit,
+          limit
         ),
       };
     },
@@ -135,13 +149,15 @@ const evaluateOne = (
         violations: violationsOf(
           items,
           (entry) => metric.admits(entry) && metric.weight(entry) < 1,
-          limit,
+          limit
         ),
       };
     },
     NoRegressions: ({ baseline }) => {
       const previous = Option.flatMap(baselines(baseline), (run) =>
-        Option.fromNullishOr(run.variants.find((entry) => entry.variant === variant)),
+        Option.fromNullishOr(
+          run.variants.find((entry) => entry.variant === variant)
+        )
       );
 
       return Option.match(previous, {
@@ -154,7 +170,7 @@ const evaluateOne = (
         }),
         onSome: (before) => {
           const regressions = Runs.regressionsOf(
-            Runs.transitionsOf(before.observations, scored),
+            Runs.transitionsOf(before.observations, scored)
           ).map((transition) => transition.after);
 
           return {
@@ -172,19 +188,29 @@ const evaluateOne = (
 
 export const evaluate = (
   gates: readonly Gate[],
-  variants: readonly { readonly variant: string; readonly observations: readonly Scored[] }[],
+  variants: readonly {
+    readonly variant: string;
+    readonly observations: readonly Scored[];
+  }[],
   baselines: Baselines = noBaselines,
-  limit = MAX_VIOLATIONS,
+  limit = MAX_VIOLATIONS
 ): readonly GateResult[] =>
   variants.flatMap((variant) =>
     gates.map((gate) =>
-      evaluateOne(gate, variant.variant, Option.none(), variant.observations, baselines, limit),
-    ),
+      evaluateOne(
+        gate,
+        variant.variant,
+        Option.none(),
+        variant.observations,
+        baselines,
+        limit
+      )
+    )
   );
 
 export const check = (
   results: readonly GateResult[],
-  options: { readonly sensitive?: boolean } = {},
+  options: { readonly sensitive?: boolean } = {}
 ): Effect.Effect<void, EvalGateFailed> => {
   const failed = results.flatMap((result) =>
     result.passed
@@ -194,10 +220,14 @@ export const check = (
             ...result,
             violations: result.violations
               .slice(0, MAX_VIOLATIONS)
-              .map((scored) => (options.sensitive === true ? redactScored(scored) : scored)),
+              .map((scored) =>
+                options.sensitive === true ? redactScored(scored) : scored
+              ),
           },
-        ],
+        ]
   );
 
-  return failed.length === 0 ? Effect.void : Effect.fail(new EvalGateFailed({ results: failed }));
+  return failed.length === 0
+    ? Effect.void
+    : Effect.fail(new EvalGateFailed({ results: failed }));
 };

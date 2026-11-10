@@ -22,7 +22,9 @@ declare global {
 
     type Exports = Readonly<Record<string, ExportValue>>;
 
-    type Imports = Readonly<Record<string, Readonly<Record<string, ImportValue>>>>;
+    type Imports = Readonly<
+      Record<string, Readonly<Record<string, ImportValue>>>
+    >;
 
     var Module: {
       readonly prototype: Module;

@@ -12,18 +12,24 @@ import {
   identity,
   pipe,
 } from "effect";
+
 import { withLive } from "./clock.ts";
 import { EvalReporterFailed } from "./errors/eval-reporter-failed.ts";
 import { EVENTS_VERSION } from "./events.ts";
 import type { EvalEvent, EventBody } from "./events.ts";
-import { RedactsSensitive, SensitiveExposure, UNLOGGED, redactEvent } from "./redact.ts";
+import {
+  RedactsSensitive,
+  SensitiveExposure,
+  UNLOGGED,
+  redactEvent,
+} from "./redact.ts";
 import { RunEvents, subscribe } from "./reporter.ts";
 import type { Installed } from "./reporter.ts";
 
 export const open = Effect.fn("Bus.open")(function* openBus(
   runId: string,
   reporters: readonly Installed[],
-  sensitive: boolean,
+  sensitive: boolean
 ) {
   const pubsub = yield* PubSub.unbounded<EvalEvent>();
   const events: EvalEvent[] = [];
@@ -33,29 +39,49 @@ export const open = Effect.fn("Bus.open")(function* openBus(
   const fibers = yield* pipe(
     reporters,
     Effect.forEach((reporter) => {
-      const shown = sensitive && !reporter.acceptsSensitive ? redactEvent : identity<EvalEvent>;
+      const shown =
+        sensitive && !reporter.acceptsSensitive
+          ? redactEvent
+          : identity<EvalEvent>;
+
       const exposed = MutableRef.make(false);
 
       return subscribe(pubsub, reporter.delivery).pipe(
         Effect.flatMap((stream) =>
           Effect.scoped(
-            Effect.suspend(() => reporter.consume(stream.pipe(Stream.map(shown)))).pipe(
-              Effect.provideService(RunEvents, Option.some(Effect.sync(() => events.map(shown)))),
-              Effect.provideService(RedactsSensitive, !reporter.acceptsSensitive),
-              Effect.provideService(SensitiveExposure, Option.some(exposed)),
-            ),
-          ).pipe(Effect.exit, Effect.forkScoped),
+            Effect.suspend(() =>
+              reporter.consume(stream.pipe(Stream.map(shown)))
+            ).pipe(
+              Effect.provideService(
+                RunEvents,
+                Option.some(Effect.sync(() => events.map(shown)))
+              ),
+              Effect.provideService(
+                RedactsSensitive,
+                !reporter.acceptsSensitive
+              ),
+              Effect.provideService(SensitiveExposure, Option.some(exposed))
+            )
+          ).pipe(Effect.exit, Effect.forkScoped)
         ),
-        Effect.map((fiber) => ({ exposed, fiber, reporter })),
+        Effect.map((fiber) => ({ exposed, fiber, reporter }))
       );
-    }),
+    })
   );
 
   const emit = (body: EventBody) =>
     Effect.gen(function* emitEvent() {
       const index = yield* Ref.getAndUpdate(sequence, (value) => value + 1);
       const at = yield* withLive(DateTime.now);
-      const event: EvalEvent = { ...body, at, runId, sequence: index, version: EVENTS_VERSION };
+
+      const event: EvalEvent = {
+        ...body,
+        at,
+        runId,
+        sequence: index,
+        version: EVENTS_VERSION,
+      };
+
       events.push(event);
       yield* PubSub.publish(pubsub, event);
     }).pipe(Semaphore.withPermits(ordering, 1));
@@ -69,16 +95,16 @@ export const open = Effect.fn("Bus.open")(function* openBus(
             Effect.map((polled) =>
               Option.exists(
                 Option.fromNullishOr(polled),
-                (exit) => Exit.isFailure(exit) || Exit.isFailure(exit.value),
+                (exit) => Exit.isFailure(exit) || Exit.isFailure(exit.value)
               )
                 ? [reporter.name]
-                : [],
-            ),
-          ),
-        ),
-      ),
+                : []
+            )
+          )
+        )
+      )
     ),
-    Effect.map((names) => names.flat()),
+    Effect.map((names) => names.flat())
   );
 
   const close = Effect.gen(function* closeBus() {
@@ -90,9 +116,9 @@ export const open = Effect.fn("Bus.open")(function* openBus(
             exit,
             quiet: sensitive || MutableRef.get(exposed),
             reporter,
-          })),
-        ),
-      ),
+          }))
+        )
+      )
     );
 
     const broken = exits.filter(({ exit }) => Exit.isFailure(exit));
@@ -100,9 +126,11 @@ export const open = Effect.fn("Bus.open")(function* openBus(
       broken,
       ({ exit, quiet, reporter }) =>
         quiet
-          ? Effect.logWarning(`The reporter ${reporter.name} failed. ${UNLOGGED}`)
+          ? Effect.logWarning(
+              `The reporter ${reporter.name} failed. ${UNLOGGED}`
+            )
           : Effect.logWarning(`The reporter ${reporter.name} failed.`, exit),
-      { discard: true },
+      { discard: true }
     );
     const requiredFailure = broken.find(({ reporter }) => reporter.required);
 

@@ -1,4 +1,5 @@
 import { Result } from "effect";
+
 import * as CharSet from "../charset.ts";
 
 export type RegexNode =
@@ -60,7 +61,16 @@ const SINGLE_ESCAPES: ReadonlyMap<string, number> = new Map([
   ["^", 0x5e],
 ]);
 
-const UNSUPPORTED_MULTI_ESCAPES = new Set(["c", "C", "d", "D", "i", "I", "w", "W"]);
+const UNSUPPORTED_MULTI_ESCAPES = new Set([
+  "c",
+  "C",
+  "d",
+  "D",
+  "i",
+  "I",
+  "w",
+  "W",
+]);
 
 const set = (value: CharSet.CharSet): RegexNode => ({
   kind: "set",
@@ -68,17 +78,22 @@ const set = (value: CharSet.CharSet): RegexNode => ({
 });
 
 export const choice = (branches: readonly RegexNode[]): RegexNode =>
-  branches.length === 1 && branches[0] !== undefined ? branches[0] : { branches, kind: "choice" };
+  branches.length === 1 && branches[0] !== undefined
+    ? branches[0]
+    : { branches, kind: "choice" };
 
 export const parse = (source: string): Parsed<RegexNode> => {
   const chars = Array.from(source.matchAll(CODE_POINTS), ([char]) => char);
 
   const failAt = (at: number, message: string) =>
     Result.fail(
-      `${message} at character ${String(at + 1)} of the pattern ${JSON.stringify(source)}`,
+      `${message} at character ${String(at + 1)} of the pattern ${JSON.stringify(source)}`
     );
 
-  const parseProperty = (escaped: string, at: number): Parsed<Consumed<Escape>> =>
+  const parseProperty = (
+    escaped: string,
+    at: number
+  ): Parsed<Consumed<Escape>> =>
     Result.gen(function* parseCategoryEscape() {
       const open = at + 1;
 
@@ -100,13 +115,16 @@ export const parse = (source: string): Parsed<RegexNode> => {
           open,
           name.startsWith("Is")
             ? `The Unicode block ${name} is not supported`
-            : `The Unicode category \\${escaped}{${name}} depends on the Unicode tables of the validator and has no exact JavaScript translation`,
+            : `The Unicode category \\${escaped}{${name}} depends on the Unicode tables of the validator and has no exact JavaScript translation`
         );
       }
 
       return {
         next: close + 1,
-        value: { kind: "set", set: escaped === "p" ? block : CharSet.complement(block) },
+        value: {
+          kind: "set",
+          set: escaped === "p" ? block : CharSet.complement(block),
+        },
       } as const;
     });
 
@@ -116,13 +134,19 @@ export const parse = (source: string): Parsed<RegexNode> => {
       const escaped = chars[escapedAt];
 
       if (escaped === undefined) {
-        return yield* failAt(escapedAt, "The pattern ends with a lone backslash");
+        return yield* failAt(
+          escapedAt,
+          "The pattern ends with a lone backslash"
+        );
       }
 
       const single = SINGLE_ESCAPES.get(escaped);
 
       if (single !== undefined) {
-        return { next: escapedAt + 1, value: { codePoint: single, kind: "char" } } as const;
+        return {
+          next: escapedAt + 1,
+          value: { codePoint: single, kind: "char" },
+        } as const;
       }
 
       if (escaped === "s" || escaped === "S") {
@@ -130,7 +154,10 @@ export const parse = (source: string): Parsed<RegexNode> => {
           next: escapedAt + 1,
           value: {
             kind: "set",
-            set: escaped === "s" ? CharSet.WHITESPACE : CharSet.complement(CharSet.WHITESPACE),
+            set:
+              escaped === "s"
+                ? CharSet.WHITESPACE
+                : CharSet.complement(CharSet.WHITESPACE),
           },
         } as const;
       }
@@ -138,7 +165,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
       if (UNSUPPORTED_MULTI_ESCAPES.has(escaped)) {
         return yield* failAt(
           escapedAt,
-          `The escape \\${escaped} depends on the Unicode tables of the validator and has no exact JavaScript translation`,
+          `The escape \\${escaped} depends on the Unicode tables of the validator and has no exact JavaScript translation`
         );
       }
 
@@ -146,7 +173,10 @@ export const parse = (source: string): Parsed<RegexNode> => {
         return yield* parseProperty(escaped, escapedAt);
       }
 
-      return yield* failAt(escapedAt, `The escape \\${escaped} is not valid in an XSD pattern`);
+      return yield* failAt(
+        escapedAt,
+        `The escape \\${escaped} is not valid in an XSD pattern`
+      );
     });
 
   const parseRangeEnd = (at: number): Parsed<Consumed<number>> =>
@@ -168,11 +198,17 @@ export const parse = (source: string): Parsed<RegexNode> => {
       const escape = yield* parseEscape(at);
 
       return escape.value.kind === "set"
-        ? yield* failAt(escape.next, "A multi-character escape cannot end a range")
+        ? yield* failAt(
+            escape.next,
+            "A multi-character escape cannot end a range"
+          )
         : { next: escape.next, value: escape.value.codePoint };
     });
 
-  const parseClassItem = (groupStart: number, at: number): Parsed<Consumed<CharSet.CharSet>> =>
+  const parseClassItem = (
+    groupStart: number,
+    at: number
+  ): Parsed<Consumed<CharSet.CharSet>> =>
     Result.gen(function* parseCharRange() {
       const char = chars[at] ?? "";
 
@@ -180,7 +216,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
         if (at !== groupStart && chars[at + 1] !== "]") {
           return yield* failAt(
             at,
-            "A '-' inside a character class is only exact at its start or end",
+            "A '-' inside a character class is only exact at its start or end"
           );
         }
 
@@ -188,7 +224,10 @@ export const parse = (source: string): Parsed<RegexNode> => {
       }
 
       if (char === "[") {
-        return yield* failAt(at, "An unescaped '[' is not valid inside a character class");
+        return yield* failAt(
+          at,
+          "An unescaped '[' is not valid inside a character class"
+        );
       }
 
       const escape = char === "\\" ? yield* parseEscape(at) : undefined;
@@ -197,7 +236,11 @@ export const parse = (source: string): Parsed<RegexNode> => {
         return { next: escape.next, value: escape.value.set };
       }
 
-      const start = escape === undefined ? (char.codePointAt(0) ?? 0) : escape.value.codePoint;
+      const start =
+        escape === undefined
+          ? (char.codePointAt(0) ?? 0)
+          : escape.value.codePoint;
+
       const afterStart = escape?.next ?? at + 1;
 
       if (
@@ -228,14 +271,21 @@ export const parse = (source: string): Parsed<RegexNode> => {
           return yield* failAt(index, "The character class is not closed");
         }
 
-        const subtracting = char === "-" && chars[index + 1] === "[" && index !== groupStart;
+        const subtracting =
+          char === "-" && chars[index + 1] === "[" && index !== groupStart;
 
         if (char === "]" || subtracting) {
-          const subtracted = subtracting ? yield* parseClass(index + 1) : undefined;
+          const subtracted = subtracting
+            ? yield* parseClass(index + 1)
+            : undefined;
+
           const close = subtracted?.next ?? index;
 
           if (chars[close] !== "]") {
-            return yield* failAt(close, "A character class subtraction must end its class");
+            return yield* failAt(
+              close,
+              "A character class subtraction must end its class"
+            );
           }
 
           if (ranges.length === 0) {
@@ -251,7 +301,9 @@ export const parse = (source: string): Parsed<RegexNode> => {
           return {
             next: close + 1,
             value:
-              subtracted === undefined ? positive : CharSet.subtract(positive, subtracted.value),
+              subtracted === undefined
+                ? positive
+                : CharSet.subtract(positive, subtracted.value),
           };
         }
 
@@ -269,7 +321,10 @@ export const parse = (source: string): Parsed<RegexNode> => {
     return { next, value: digits === "" ? undefined : Number(digits) };
   };
 
-  const parseQuantifier = (node: RegexNode, at: number): Parsed<Consumed<RegexNode>> =>
+  const parseQuantifier = (
+    node: RegexNode,
+    at: number
+  ): Parsed<Consumed<RegexNode>> =>
     Result.gen(function* parseXsdQuantifier() {
       const char = chars[at];
 
@@ -302,7 +357,10 @@ export const parse = (source: string): Parsed<RegexNode> => {
       }
 
       if (max.value !== undefined && max.value < min.value) {
-        return yield* failAt(max.next + 1, "The quantifier maximum is below its minimum");
+        return yield* failAt(
+          max.next + 1,
+          "The quantifier maximum is below its minimum"
+        );
       }
 
       return {
@@ -313,7 +371,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
 
   const parseAtom = (
     parseRegExp: (at: number) => Parsed<Consumed<RegexNode>>,
-    at: number,
+    at: number
   ): Parsed<Consumed<RegexNode>> =>
     Result.gen(function* parseXsdAtom() {
       const char = chars[at] ?? "";
@@ -340,24 +398,35 @@ export const parse = (source: string): Parsed<RegexNode> => {
         return {
           next: escape.next,
           value: set(
-            escape.value.kind === "set" ? escape.value.set : CharSet.single(escape.value.codePoint),
+            escape.value.kind === "set"
+              ? escape.value.set
+              : CharSet.single(escape.value.codePoint)
           ),
         };
       }
 
       if (char === ".") {
-        return { next: at + 1, value: set(CharSet.complement(CharSet.LINE_BREAKS)) };
+        return {
+          next: at + 1,
+          value: set(CharSet.complement(CharSet.LINE_BREAKS)),
+        };
       }
 
       if (char === "{") {
-        return yield* failAt(at, "A '{' is only exact as a quantifier after an atom");
+        return yield* failAt(
+          at,
+          "A '{' is only exact as a quantifier after an atom"
+        );
       }
 
       if ("?*+)]".includes(char)) {
         return yield* failAt(at, `Unexpected '${char}'`);
       }
 
-      return { next: at + 1, value: set(CharSet.single(char.codePointAt(0) ?? 0)) };
+      return {
+        next: at + 1,
+        value: set(CharSet.single(char.codePointAt(0) ?? 0)),
+      };
     });
 
   const parseRegExp = (at: number): Parsed<Consumed<RegexNode>> =>
@@ -377,7 +446,7 @@ export const parse = (source: string): Parsed<RegexNode> => {
                 return items.length === 1 && only !== undefined
                   ? only
                   : { items, kind: "sequence" };
-              }),
+              })
             ),
           };
         }
@@ -414,7 +483,10 @@ const collectSets = (node: RegexNode): readonly CharSet.CharSet[] => {
     return collectSets(node.node);
   }
 
-  return (node.kind === "sequence" ? node.items : node.branches).flatMap(collectSets);
+  return (node.kind === "sequence" ? node.items : node.branches).flatMap(
+    collectSets
+  );
 };
 
-export const isBmpOnly = (node: RegexNode) => collectSets(node).every(CharSet.isBmp);
+export const isBmpOnly = (node: RegexNode) =>
+  collectSets(node).every(CharSet.isBmp);

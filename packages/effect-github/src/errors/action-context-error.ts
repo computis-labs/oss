@@ -12,7 +12,7 @@ export class ActionContextError extends Schema.TaggedError<ActionContextError>()
     cause: Schema.optionalKey(Schema.Defect()),
     description: Schema.optionalKey(Schema.String),
     reason: Schema.Literals(Object.values(ActionContextErrorReason)),
-  },
+  }
 ) {
   readonly code = "ACTION_CONTEXT";
 

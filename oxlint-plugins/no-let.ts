@@ -1,5 +1,4 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
 
 const isLoopCounter = (node: ESTree.VariableDeclaration) =>

@@ -1,7 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
-import path from "node:path";
-
 import type { Dirent } from "node:fs";
+import path from "node:path";
 
 import { publicPackages } from "../scripts/oss-packages.ts";
 
@@ -37,8 +36,10 @@ const SCANNED_EXTENSIONS = new Set([
 
 // Matches the specifier list of `import { A, type B as C } from "…"` and of
 // `export { A } from "…"`, which are the only two ways another file can claim a name.
-const NAMED_CLAUSE = /\b(?:import|export)\b[^;{]*\{(?<names>[^}]*)\}\s*from\s*["'][^"']+["']/gu;
-const DEFAULT_CLAUSE = /\bimport\s+(?:type\s+)?(?<name>[A-Za-z_$][\w$]*)\s*(?:,|from\b)/gu;
+const NAMED_CLAUSE =
+  /\b(?:import|export)\b[^;{]*\{(?<names>[^}]*)\}\s*from\s*["'][^"']+["']/gu;
+const DEFAULT_CLAUSE =
+  /\bimport\s+(?:type\s+)?(?<name>[A-Za-z_$][\w$]*)\s*(?:,|from\b)/gu;
 const SPECIFIER_NAME = /^(?:type\s+)?(?<name>[A-Za-z_$][\w$]*)/u;
 const WILDCARD_CLAUSE =
   /\b(?:import|export)\s+(?:type\s+)?\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s*from\s*["'](?<specifier>[^"']+)["']/gu;
@@ -99,7 +100,8 @@ const importedNames = (source: string) => {
   return names;
 };
 
-const withoutExtension = (file: string) => file.slice(0, -path.extname(file).length || undefined);
+const withoutExtension = (file: string) =>
+  file.slice(0, -path.extname(file).length || undefined);
 
 /**
  * The segments after an alias or a package name: `#/x`, `#shared/x`, `@/x` and
@@ -112,7 +114,9 @@ const aliasTail = (specifier: string) => {
     return rest.slice(1).join("/");
   }
 
-  return head.startsWith("#") || head.startsWith("@") ? rest.join("/") : specifier;
+  return head.startsWith("#") || head.startsWith("@")
+    ? rest.join("/")
+    : specifier;
 };
 
 /**
@@ -185,8 +189,11 @@ export const isImportedElsewhere = (name: string, filename: string) => {
   const root = process.cwd();
   const index = indexFor(root);
   const self = path.resolve(filename);
-  const publicRoots = publicPackages.map((pkg) => path.join(root, "packages", pkg) + path.sep);
-  const isPublic = (file: string) => publicRoots.some((publicRoot) => file.startsWith(publicRoot));
+  const publicRoots = publicPackages.map(
+    (pkg) => path.join(root, "packages", pkg) + path.sep
+  );
+  const isPublic = (file: string) =>
+    publicRoots.some((publicRoot) => file.startsWith(publicRoot));
   const selfIsPublic = isPublic(self);
   const claimedByOther = (importers: ReadonlySet<string> | undefined) => {
     for (const importer of importers ?? []) {

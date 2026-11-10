@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Option } from "effect";
+
 import * as Agreement from "../src/agreement.ts";
 import * as Observation from "../src/observation.ts";
 import { actualStates, expectedStates } from "../src/observation.ts";
@@ -36,9 +37,9 @@ describe("Verdict.of", () => {
   });
 
   it("calls a missing value with a known gap a gap", () => {
-    expect(Verdict.of(Observation.knownGap("the bank sends no reference")(missing))).toBe(
-      verdicts.gap,
-    );
+    expect(
+      Verdict.of(Observation.knownGap("the bank sends no reference")(missing))
+    ).toBe(verdicts.gap);
   });
 
   it("calls a correct abstention right", () => {
@@ -49,8 +50,8 @@ describe("Verdict.of", () => {
           detail,
           expected: expectedStates.absent,
           key: "natura",
-        }),
-      ),
+        })
+      )
     ).toBe(verdicts.right);
   });
 
@@ -62,8 +63,8 @@ describe("Verdict.of", () => {
           detail,
           expected: expectedStates.absent,
           key: "natura",
-        }),
-      ),
+        })
+      )
     ).toBe(verdicts.wrong);
   });
 
@@ -75,20 +76,26 @@ describe("Verdict.of", () => {
           detail,
           expected: expectedStates.unknown,
           key: "natura",
-        }),
-      ),
+        })
+      )
     ).toBe(verdicts.unscored);
   });
 
   it("calls a failed task errored", () => {
     expect(
-      Verdict.of(Observation.errored("natura", "timeout", { expected: expectedStates.present })),
+      Verdict.of(
+        Observation.errored("natura", "timeout", {
+          expected: expectedStates.present,
+        })
+      )
     ).toBe(verdicts.errored);
   });
 
   it("lets an exclusion win over an error", () => {
     const observation = Observation.exclude("convention")(
-      Observation.errored("natura", "timeout", { expected: expectedStates.present }),
+      Observation.errored("natura", "timeout", {
+        expected: expectedStates.present,
+      })
     );
 
     expect(Verdict.of(observation)).toBe(verdicts.excluded);
@@ -96,19 +103,23 @@ describe("Verdict.of", () => {
 
   it("lets an error win over an unknown expectation", () => {
     expect(
-      Verdict.of(Observation.errored("natura", "timeout", { expected: expectedStates.unknown })),
+      Verdict.of(
+        Observation.errored("natura", "timeout", {
+          expected: expectedStates.unknown,
+        })
+      )
     ).toBe(verdicts.errored);
   });
 
   it("lets an exclusion win over an exact agreement", () => {
-    expect(Verdict.of(Observation.exclude("pending")(compared(Agreement.exact)))).toBe(
-      verdicts.excluded,
-    );
+    expect(
+      Verdict.of(Observation.exclude("pending")(compared(Agreement.exact)))
+    ).toBe(verdicts.excluded);
   });
 
   it("calls a present pair without an agreement wrong", () => {
-    expect(Verdict.of({ ...compared(Agreement.exact), agreement: Option.none() })).toBe(
-      verdicts.wrong,
-    );
+    expect(
+      Verdict.of({ ...compared(Agreement.exact), agreement: Option.none() })
+    ).toBe(verdicts.wrong);
   });
 });

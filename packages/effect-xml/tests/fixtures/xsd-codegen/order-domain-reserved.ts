@@ -1,4 +1,5 @@
 import type { Schema as S } from "effect";
+
 import type { XsdDomain } from "../../../src/xsd-codegen/runtime.ts";
 
 const identity = (self: S.String) => self;

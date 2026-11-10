@@ -1,5 +1,7 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
+
+import { isObject, isString } from "./predicates.ts";
 import {
   isStandardLibrary,
   isUnresolved,
@@ -7,12 +9,14 @@ import {
   projectFor,
   typeAt,
 } from "./type-information.ts";
-import { isObject, isString } from "./predicates.ts";
 
 const guardName = /^(?:is|has)[A-Z]/u;
 
 const mayNameCheck = (name: string) =>
-  guardName.test(name) || name === "isArray" || name === "parse" || name === "String";
+  guardName.test(name) ||
+  name === "isArray" ||
+  name === "parse" ||
+  name === "String";
 
 const memberName = (node: ESTree.MemberExpression) => {
   if (!node.computed && node.property.type === "Identifier") {
@@ -24,7 +28,10 @@ const memberName = (node: ESTree.MemberExpression) => {
   return undefined;
 };
 
-const mayReadCheck = (node: ESTree.Node | null | undefined, aliases: ReadonlySet<string>) => {
+const mayReadCheck = (
+  node: ESTree.Node | null | undefined,
+  aliases: ReadonlySet<string>
+) => {
   if (node?.type === "Identifier") {
     return mayNameCheck(node.name) || aliases.has(node.name);
   }
@@ -48,14 +55,21 @@ const noUnknownNarrowing = defineRule({
         : "a helper that reads the message off a thrown value";
     const unresolved = (node: ESTree.Node) => {
       const project = projectFor(context.physicalFilename);
-      return isUnresolved(project.checker, typeAt(project, context.physicalFilename, node));
+      return isUnresolved(
+        project.checker,
+        typeAt(project, context.physicalFilename, node)
+      );
     };
     const aliases = new Set<string>();
-    const aliasSources: Array<{ readonly local: string; readonly source: ESTree.Node }> = [];
+    const aliasSources: Array<{
+      readonly local: string;
+      readonly source: ESTree.Node;
+    }> = [];
     const calls: ESTree.CallExpression[] = [];
     const resolveAliases = () => {
       const found = aliasSources.filter(
-        ({ local, source }) => !aliases.has(local) && mayReadCheck(source, aliases),
+        ({ local, source }) =>
+          !aliases.has(local) && mayReadCheck(source, aliases)
       );
       for (const { local } of found) {
         aliases.add(local);
@@ -67,7 +81,11 @@ const noUnknownNarrowing = defineRule({
 
     const checkCall = (node: ESTree.CallExpression) => {
       const project = projectFor(context.physicalFilename);
-      const check = libraryCheck(project, context.physicalFilename, node.callee);
+      const check = libraryCheck(
+        project,
+        context.physicalFilename,
+        node.callee
+      );
       if (check === "JSON.parse") {
         context.report({ messageId: "jsonParse", node });
         return;
@@ -79,23 +97,35 @@ const noUnknownNarrowing = defineRule({
         argument.type !== "SpreadElement" &&
         unresolved(argument)
       ) {
-        context.report({ data: { check }, messageId: "unknownNarrowing", node });
+        context.report({
+          data: { check },
+          messageId: "unknownNarrowing",
+          node,
+        });
       }
     };
 
     return {
-      BinaryExpression: (node: ESTree.BinaryExpression | ESTree.PrivateInExpression) => {
+      BinaryExpression: (
+        node: ESTree.BinaryExpression | ESTree.PrivateInExpression
+      ) => {
         if (node.operator === "instanceof") {
           const project = projectFor(context.physicalFilename);
           const symbol = project.checker.getSymbolAtPosition(
             context.physicalFilename,
-            node.right.end - 1,
+            node.right.end - 1
           );
           if (
             symbol?.name === "Error" &&
-            symbol.declarations.some((declaration) => isStandardLibrary(declaration.path))
+            symbol.declarations.some((declaration) =>
+              isStandardLibrary(declaration.path)
+            )
           ) {
-            context.report({ data: { helper }, messageId: "instanceofError", node });
+            context.report({
+              data: { helper },
+              messageId: "instanceofError",
+              node,
+            });
           }
         }
         if (
@@ -103,7 +133,11 @@ const noUnknownNarrowing = defineRule({
           node.left.type !== "PrivateIdentifier" &&
           unresolved(node.right)
         ) {
-          context.report({ data: { check: "`in`" }, messageId: "unknownNarrowing", node });
+          context.report({
+            data: { check: "`in`" },
+            messageId: "unknownNarrowing",
+            node,
+          });
         }
       },
       CallExpression: (node: ESTree.CallExpression) => {
@@ -111,7 +145,9 @@ const noUnknownNarrowing = defineRule({
       },
       ImportSpecifier: (node: ESTree.ImportSpecifier) => {
         const imported =
-          node.imported.type === "Identifier" ? node.imported.name : node.imported.value;
+          node.imported.type === "Identifier"
+            ? node.imported.name
+            : node.imported.value;
         if (mayNameCheck(imported)) {
           aliases.add(node.local.name);
         }
@@ -120,7 +156,8 @@ const noUnknownNarrowing = defineRule({
         resolveAliases();
         for (const call of calls) {
           const named =
-            call.callee.type === "Identifier" || call.callee.type === "MemberExpression";
+            call.callee.type === "Identifier" ||
+            call.callee.type === "MemberExpression";
           if (!named || mayReadCheck(call.callee, aliases)) {
             checkCall(call);
           }
@@ -152,12 +189,14 @@ const noUnknownNarrowing = defineRule({
         const project = projectFor(context.physicalFilename);
         const symbol = project.checker.getSymbolAtPosition(
           context.physicalFilename,
-          node.parameterName.end - 1,
+          node.parameterName.end - 1
         );
         if (
           isUnresolved(
             project.checker,
-            symbol === undefined ? undefined : project.checker.getTypeOfSymbol(symbol),
+            symbol === undefined
+              ? undefined
+              : project.checker.getTypeOfSymbol(symbol)
           )
         ) {
           context.report({ messageId: "unprovedPredicate", node });
@@ -167,7 +206,8 @@ const noUnknownNarrowing = defineRule({
   },
   meta: {
     docs: {
-      description: "Require a schema contract before narrowing unresolved inputs.",
+      description:
+        "Require a schema contract before narrowing unresolved inputs.",
     },
     messages: {
       instanceofError:

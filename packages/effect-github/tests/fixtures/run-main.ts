@@ -1,10 +1,14 @@
 import { Effect, Schema } from "effect";
+
 import { runMain } from "../../src/action.ts";
 import { ActionFailed } from "../../src/errors/action-failed.ts";
 
-class MergeConflict extends Schema.TaggedError<MergeConflict>()("MergeConflict", {
-  path: Schema.String,
-}) {
+class MergeConflict extends Schema.TaggedError<MergeConflict>()(
+  "MergeConflict",
+  {
+    path: Schema.String,
+  }
+) {
   readonly code = "MERGE_CONFLICT";
 
   override get message() {
@@ -12,7 +16,9 @@ class MergeConflict extends Schema.TaggedError<MergeConflict>()("MergeConflict",
   }
 }
 
-const draftFailure = Effect.fail(new ActionFailed({ message: "Draft pull requests cannot merge" }));
+const draftFailure = Effect.fail(
+  new ActionFailed({ message: "Draft pull requests cannot merge" })
+);
 
 const succeed = () => {
   runMain(Effect.void, { disablePrettyLogger: true });
@@ -28,7 +34,9 @@ const scenarios = new Map([
   [
     "domain-error",
     () => {
-      runMain(Effect.fail(new MergeConflict({ path: "apps/web" })), { disablePrettyLogger: true });
+      runMain(Effect.fail(new MergeConflict({ path: "apps/web" })), {
+        disablePrettyLogger: true,
+      });
     },
   ],
   [
@@ -41,7 +49,10 @@ const scenarios = new Map([
   [
     "unreported-failure",
     () => {
-      runMain(draftFailure, { disableErrorReporting: true, disablePrettyLogger: true });
+      runMain(draftFailure, {
+        disableErrorReporting: true,
+        disablePrettyLogger: true,
+      });
     },
   ],
 ]);

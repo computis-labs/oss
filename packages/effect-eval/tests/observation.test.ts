@@ -1,12 +1,17 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Option, Result, Schema, pipe } from "effect";
+
 import * as Agreement from "../src/agreement.ts";
 import * as Observation from "../src/observation.ts";
 import { actualStates, expectedStates } from "../src/observation.ts";
 
 const observation = Observation.compared({
   agreement: Agreement.partial(0.5),
-  detail: { actual: "Rossi Srl", expected: "Rossi S.r.l.", note: "supplier name" },
+  detail: {
+    actual: "Rossi Srl",
+    expected: "Rossi S.r.l.",
+    note: "supplier name",
+  },
   key: "denominazione",
   tags: ["group:supplier"],
 });
@@ -29,7 +34,7 @@ describe("Observation.errored", () => {
       Observation.errored("natura", "timeout after 180 s", {
         expected: expectedStates.unknown,
         tags: ["month:2025-03"],
-      }),
+      })
     ).toMatchObject({
       actual: actualStates.absent,
       detail: { actual: "", expected: "" },
@@ -46,7 +51,7 @@ describe("Observation.knownGap, exclude and tagged", () => {
       observation,
       Observation.knownGap("no reference"),
       Observation.exclude("convention"),
-      Observation.tagged("bank:intesa"),
+      Observation.tagged("bank:intesa")
     );
 
     expect(changed).toEqual({
@@ -61,12 +66,21 @@ describe("Observation.knownGap, exclude and tagged", () => {
 describe("ObservationSchema", () => {
   it.effect("encodes the optional fields as null and decodes them back", () =>
     Effect.gen(function* () {
-      const encoded = yield* Schema.encodeEffect(Observation.ObservationSchema)(observation);
-      const decoded = yield* Schema.decodeUnknownEffect(Observation.ObservationSchema)(encoded);
+      const encoded = yield* Schema.encodeEffect(Observation.ObservationSchema)(
+        observation
+      );
 
-      expect(encoded).toMatchObject({ excluded: null, failure: null, gap: null });
+      const decoded = yield* Schema.decodeUnknownEffect(
+        Observation.ObservationSchema
+      )(encoded);
+
+      expect(encoded).toMatchObject({
+        excluded: null,
+        failure: null,
+        gap: null,
+      });
       expect(decoded).toEqual(observation);
-    }),
+    })
   );
 
   const stored = {
@@ -83,7 +97,9 @@ describe("ObservationSchema", () => {
 
   it("rejects two present sides without an agreement", () => {
     expect(
-      Result.isFailure(Schema.decodeUnknownResult(Observation.ObservationSchema)(stored)),
+      Result.isFailure(
+        Schema.decodeUnknownResult(Observation.ObservationSchema)(stored)
+      )
     ).toBe(true);
   });
 
@@ -94,8 +110,8 @@ describe("ObservationSchema", () => {
           ...stored,
           actual: "absent",
           agreement: { _tag: "Exact" },
-        }),
-      ),
+        })
+      )
     ).toBe(true);
   });
 
@@ -106,8 +122,8 @@ describe("ObservationSchema", () => {
           ...stored,
           agreement: { _tag: "Exact" },
           failure: "timeout",
-        }),
-      ),
+        })
+      )
     ).toBe(true);
   });
 });
@@ -125,7 +141,7 @@ describe("Observation.ObservationSchema.make", () => {
         gap: Option.none(),
         key: "natura",
         tags: [],
-      }),
+      })
     ).toThrow();
   });
 });
@@ -138,15 +154,28 @@ describe("Observation.make", () => {
         detail: { actual: "—", expected: "—" },
         expected: expectedStates.absent,
         key: "natura",
-      }).agreement,
+      }).agreement
     ).toEqual(Option.none());
   });
 });
 
-const TRICKY = Schema.Literals(["", "/", "\\", "a", "b", "a/b", "a\\/b", "\\/", "\\_"]);
+const TRICKY = Schema.Literals([
+  "",
+  "/",
+  "\\",
+  "a",
+  "b",
+  "a/b",
+  "a\\/b",
+  "\\/",
+  "\\_",
+]);
 
 const encode = (sub: string, key: string) =>
-  Observation.within(sub, key === "" ? Observation.rootKey : Observation.keyOf(key));
+  Observation.within(
+    sub,
+    key === "" ? Observation.rootKey : Observation.keyOf(key)
+  );
 
 describe("Observation keys", () => {
   it("keeps the case itself, an empty segment and a segment with a slash apart", () => {
@@ -162,11 +191,14 @@ describe("Observation keys", () => {
 
   it.prop(
     "gives two keys within a sub-case the same text only when sub-case and inner key are the same",
-    { first: Schema.Tuple([TRICKY, TRICKY]), second: Schema.Tuple([TRICKY, TRICKY]) },
-    ({ first: [firstCase, firstKey], second: [secondCase, secondKey] }) => {
-      expect(encode(firstCase, firstKey) === encode(secondCase, secondKey)).toBe(
-        firstCase === secondCase && firstKey === secondKey,
-      );
+    {
+      first: Schema.Tuple([TRICKY, TRICKY]),
+      second: Schema.Tuple([TRICKY, TRICKY]),
     },
+    ({ first: [firstCase, firstKey], second: [secondCase, secondKey] }) => {
+      expect(
+        encode(firstCase, firstKey) === encode(secondCase, secondKey)
+      ).toBe(firstCase === secondCase && firstKey === secondKey);
+    }
   );
 });

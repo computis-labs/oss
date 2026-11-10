@@ -1,13 +1,14 @@
 import { Effect, Result, SchemaAST } from "effect";
 import type { FileSystem, Path, Scope } from "effect";
 import { SchemaJITCompiler } from "effect/schema";
+
 import { makeDecoder } from "./decoder.ts";
 import type { Decode, DecoderOptions } from "./decoder.ts";
 import { makePlanEncoder } from "./encoder.ts";
 import type { Encodable, Encode, EncoderOptions } from "./encoder.ts";
-import { exactDecoder } from "./exact-decoder.ts";
 import type { XmlPlanError } from "./errors/xml-plan-error.ts";
 import type { XsdSchemaError } from "./errors/xsd-schema-error.ts";
+import { exactDecoder } from "./exact-decoder.ts";
 import { compile } from "./plan.ts";
 import * as Xsd from "./xsd.ts";
 import type { XsdSchemaSource, XsdValidatorApi } from "./xsd.ts";
@@ -35,7 +36,10 @@ export interface ValidatingCodec<S extends Encodable> {
   readonly validate: XsdValidatorApi["validate"];
 }
 
-export const codec = <S extends Encodable>(schema: S, options: CodecOptions = {}) =>
+export const codec = <S extends Encodable>(
+  schema: S,
+  options: CodecOptions = {}
+) =>
   Result.map(compile(schema), (plan) => {
     if (options.jit !== false) {
       SchemaJITCompiler.enable(exactDecoder(schema).ast);
@@ -51,15 +55,14 @@ export const codec = <S extends Encodable>(schema: S, options: CodecOptions = {}
 
 export const make: <S extends Encodable>(
   schema: S,
-  options: ValidatingCodecOptions,
+  options: ValidatingCodecOptions
 ) => Effect.Effect<
   ValidatingCodec<S>,
   XmlPlanError | XsdSchemaError,
   Scope.Scope | FileSystem.FileSystem | Path.Path
-> = Effect.fn("EffectXml.make")(function* makeValidatingCodec<S extends Encodable>(
-  schema: S,
-  options: ValidatingCodecOptions,
-) {
+> = Effect.fn("EffectXml.make")(function* makeValidatingCodec<
+  S extends Encodable,
+>(schema: S, options: ValidatingCodecOptions) {
   const { decode, encode } = yield* Effect.fromResult(codec(schema, options));
   const { validate } = yield* Xsd.make({ schema: options.xsd });
 

@@ -1,6 +1,7 @@
 import * as Result from "effect/Result";
-import type { Pdfium } from "./pdfium.ts";
+
 import { PdfPageError } from "./errors/pdf-page-error.ts";
+import type { Pdfium } from "./pdfium.ts";
 
 export interface PdfHandle {
   readonly document: number;
@@ -11,7 +12,7 @@ export interface PdfHandle {
 export const withPage = <A, E>(
   { document, lib }: PdfHandle,
   page: number,
-  action: (pagePointer: number) => Result.Result<A, E>,
+  action: (pagePointer: number) => Result.Result<A, E>
 ): Result.Result<A, E | PdfPageError> => {
   const pagePointer = lib.FPDF_LoadPage(document, page);
 
@@ -28,7 +29,7 @@ export const withPage = <A, E>(
 
 export const withFormEnvironment = <A>(
   { document, lib }: PdfHandle,
-  action: (form: number) => A,
+  action: (form: number) => A
 ): A => {
   const info = lib.PDFiumExt_OpenFormFillInfo();
   const form = lib.PDFiumExt_InitFormFillEnvironment(document, info);
@@ -45,7 +46,7 @@ export const withFormPage = <A, E>(
   handle: PdfHandle,
   form: number,
   page: number,
-  action: (pagePointer: number) => Result.Result<A, E>,
+  action: (pagePointer: number) => Result.Result<A, E>
 ): Result.Result<A, E | PdfPageError> =>
   withPage(handle, page, (pagePointer) => {
     handle.lib.FORM_OnAfterLoadPage(pagePointer, form);
@@ -59,12 +60,13 @@ export const withFormPage = <A, E>(
 
 export const selectedPages = (
   { pageCount }: Pick<PdfHandle, "pageCount">,
-  pages: readonly number[] | undefined,
+  pages: readonly number[] | undefined
 ): Result.Result<readonly number[], PdfPageError> => {
-  const selection = pages ?? Array.from({ length: pageCount }, (_, index) => index);
+  const selection =
+    pages ?? Array.from({ length: pageCount }, (_, index) => index);
 
   const outside = selection.find(
-    (page) => !Number.isInteger(page) || page < 0 || page >= pageCount,
+    (page) => !Number.isInteger(page) || page < 0 || page >= pageCount
   );
 
   return outside === undefined
@@ -76,7 +78,7 @@ export const withAnnotation = <A>(
   { lib }: PdfHandle,
   pagePointer: number,
   index: number,
-  action: (annotation: number) => A,
+  action: (annotation: number) => A
 ): A => {
   const annotation = lib.FPDFPage_GetAnnot(pagePointer, index);
 

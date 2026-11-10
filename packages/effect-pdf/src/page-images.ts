@@ -1,11 +1,18 @@
 import * as Result from "effect/Result";
+
 import { embeddedImage } from "./embedded-image.ts";
 import type { PlacedImage } from "./embedded-image.ts";
 import { PdfPageError } from "./errors/pdf-page-error.ts";
 import { withFormEnvironment, withFormPage } from "./handle.ts";
-import { withAllocation } from "./memory.ts";
 import type { PdfHandle } from "./handle.ts";
-import { areaOf, overlapArea, pageBox, pageObjects, pageObjectTypes } from "./objects.ts";
+import { withAllocation } from "./memory.ts";
+import {
+  areaOf,
+  overlapArea,
+  pageBox,
+  pageObjects,
+  pageObjectTypes,
+} from "./objects.ts";
 import { MAX_RENDER_PIXELS, renderPng, renderedSize } from "./render.ts";
 
 export const DEFAULT_PAGE_IMAGE_DPI = 200;
@@ -44,7 +51,13 @@ export const pageImage = (handle: PdfHandle, page: number, dpi: number) =>
           objects
             .filter((object) => object.type === pageObjectTypes.image)
             .map((object): Result.Result<PlacedImage, PdfPageError> => {
-              if (!lib.FPDFImageObj_GetImageMetadata(object.pointer, pagePointer, metadata)) {
+              if (
+                !lib.FPDFImageObj_GetImageMetadata(
+                  object.pointer,
+                  pagePointer,
+                  metadata
+                )
+              ) {
                 return Result.fail(PdfPageError.unreadableImage(page));
               }
 
@@ -57,8 +70,8 @@ export const pageImage = (handle: PdfHandle, page: number, dpi: number) =>
                 height: lib.pdfium.HEAPU32[word + 1] ?? 0,
                 width: lib.pdfium.HEAPU32[word] ?? 0,
               });
-            }),
-        ),
+            })
+        )
       );
 
       if (Result.isFailure(read)) {
@@ -68,12 +81,15 @@ export const pageImage = (handle: PdfHandle, page: number, dpi: number) =>
       const images = read.success;
       const masked = images.some(isMask);
       const pictures = images.filter((image) => !isMask(image));
-      const [largest] = pictures.toSorted((left, right) => pixelsOf(right) - pixelsOf(left));
+
+      const [largest] = pictures.toSorted(
+        (left, right) => pixelsOf(right) - pixelsOf(left)
+      );
 
       const overlaid = objects.some(
         (object) =>
           VISIBLE_OVERLAYS.has(object.type) ||
-          (object.type === pageObjectTypes.text && !object.invisibleText),
+          (object.type === pageObjectTypes.text && !object.invisibleText)
       );
 
       const scan =
@@ -81,7 +97,8 @@ export const pageImage = (handle: PdfHandle, page: number, dpi: number) =>
         !masked &&
         !overlaid &&
         pixelsOf(largest) >=
-          DOMINANT_PIXEL_SHARE * pictures.reduce((total, image) => total + pixelsOf(image), 0) &&
+          DOMINANT_PIXEL_SHARE *
+            pictures.reduce((total, image) => total + pixelsOf(image), 0) &&
         overlapArea(largest.bounds, box) >= SCAN_COVERAGE * areaOf(box)
           ? embeddedImage(lib, largest)
           : undefined;
@@ -91,13 +108,17 @@ export const pageImage = (handle: PdfHandle, page: number, dpi: number) =>
       }
 
       const size = renderedSize(lib, pagePointer, { dpi });
-      const shrink = Math.min(1, Math.sqrt(MAX_RENDER_PIXELS / (size.width * size.height)));
+
+      const shrink = Math.min(
+        1,
+        Math.sqrt(MAX_RENDER_PIXELS / (size.width * size.height))
+      );
 
       return Result.succeed(
         renderPng(lib, form, pagePointer, {
           height: Math.max(1, Math.floor(size.height * shrink)),
           width: Math.max(1, Math.floor(size.width * shrink)),
-        }),
+        })
       );
-    }),
+    })
   );

@@ -1,6 +1,6 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
+
 import { isString } from "./predicates.ts";
 
 const TAG_PROPERTY = "_tag";
@@ -29,14 +29,18 @@ const noDirectTagAccess = defineRule({
       }
     },
     Property: (node) => {
-      if (node.parent.type === "ObjectPattern" && staticPropertyName(node.key) === TAG_PROPERTY) {
+      if (
+        node.parent.type === "ObjectPattern" &&
+        staticPropertyName(node.key) === TAG_PROPERTY
+      ) {
         context.report({ messageId: "directAccess", node: node.key });
       }
     },
     TSInterfaceDeclaration: (node: ESTree.TSInterfaceDeclaration) => {
       for (const member of node.body.body) {
         if (
-          (member.type === "TSPropertySignature" || member.type === "TSMethodSignature") &&
+          (member.type === "TSPropertySignature" ||
+            member.type === "TSMethodSignature") &&
           staticPropertyName(member.key) === TAG_PROPERTY
         ) {
           context.report({ messageId: "interfaceTag", node: member.key });

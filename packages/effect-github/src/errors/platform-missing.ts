@@ -1,8 +1,11 @@
 import { Schema } from "effect";
 
-export class PlatformMissing extends Schema.TaggedError<PlatformMissing>()("PlatformMissing", {
-  platform: Schema.String,
-}) {
+export class PlatformMissing extends Schema.TaggedError<PlatformMissing>()(
+  "PlatformMissing",
+  {
+    platform: Schema.String,
+  }
+) {
   readonly code = "PLATFORM_MISSING";
 
   override get message() {

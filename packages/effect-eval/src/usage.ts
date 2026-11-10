@@ -1,6 +1,17 @@
-import { Context, Effect, Exit, Layer, MutableRef, Option, Ref, Schema, Stream } from "effect";
+import {
+  Context,
+  Effect,
+  Exit,
+  Layer,
+  MutableRef,
+  Option,
+  Ref,
+  Schema,
+  Stream,
+} from "effect";
 import { LanguageModel, Telemetry } from "effect/ai";
 import type { Response } from "effect/ai";
+
 import { whenDefined } from "./object.ts";
 
 const countFields = {
@@ -40,7 +51,8 @@ export const empty: Usage = {
   reasoningTokens: 0,
 };
 
-const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
+const sum = (values: readonly number[]) =>
+  values.reduce((total, value) => total + value, 0);
 
 const totalCounts = (usages: readonly UsageCounts[]): UsageCounts => {
   const used = usages.filter(
@@ -49,7 +61,7 @@ const totalCounts = (usages: readonly UsageCounts[]): UsageCounts => {
       usage.inputTokens > 0 ||
       usage.outputTokens > 0 ||
       usage.reasoningTokens > 0 ||
-      Option.isSome(usage.costUsd),
+      Option.isSome(usage.costUsd)
   );
 
   return {
@@ -73,8 +85,12 @@ export const total = (usages: readonly Usage[]): Usage => {
     labels: Object.fromEntries(
       names.map((name) => [
         name,
-        totalCounts(labelled.flatMap(([label, counts]) => (label === name ? [counts] : []))),
-      ]),
+        totalCounts(
+          labelled.flatMap(([label, counts]) =>
+            label === name ? [counts] : []
+          )
+        ),
+      ])
     ),
   };
 };
@@ -92,19 +108,23 @@ export const fromRecorded = (recorded: Recorded): Usage => {
 
   return {
     ...counts,
-    labels: { ...whenDefined(recorded.label, (label) => ({ [label]: counts })) },
+    labels: {
+      ...whenDefined(recorded.label, (label) => ({ [label]: counts })),
+    },
   };
 };
 
-export const Meter = Context.Reference<{ readonly record: (usage: Usage) => Effect.Effect<void> }>(
-  "effect-eval/Meter",
-  { defaultValue: () => ({ record: () => Effect.void }) },
-);
+export const Meter = Context.Reference<{
+  readonly record: (usage: Usage) => Effect.Effect<void>;
+}>("effect-eval/Meter", {
+  defaultValue: () => ({ record: () => Effect.void }),
+});
 
 export const recordUsage = (usage: Usage) =>
   Effect.service(Meter).pipe(Effect.flatMap((meter) => meter.record(usage)));
 
-export const record = (recorded: Recorded) => recordUsage(fromRecorded(recorded));
+export const record = (recorded: Recorded) =>
+  recordUsage(fromRecorded(recorded));
 
 export const labelled = (usage: Usage, label: string): Usage => {
   const counts: UsageCounts = {
@@ -125,21 +145,26 @@ export const fromResponse = (usage: Response.Usage): Recorded => ({
 });
 
 export const track = <A extends { readonly usage: Response.Usage }, E, R>(
-  self: Effect.Effect<A, E, R>,
+  self: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> =>
   self.pipe(Effect.tap((response) => record(fromResponse(response.usage))));
 
 export const observe = <A extends { readonly usage: Response.Usage }, E, R>(
-  request: Effect.Effect<A, E, R>,
+  request: Effect.Effect<A, E, R>
 ) =>
   Effect.uninterruptibleMask((restore) =>
     Effect.gen(function* observeRequest() {
       const seen = MutableRef.make(Option.none<Response.Usage>());
-      const parent = yield* Effect.serviceOption(Telemetry.CurrentSpanTransformer);
+
+      const parent = yield* Effect.serviceOption(
+        Telemetry.CurrentSpanTransformer
+      );
 
       const exit = yield* restore(request).pipe(
         Effect.provideService(Telemetry.CurrentSpanTransformer, (options) => {
-          const finish = options.response.find((part) => part.type === "finish");
+          const finish = options.response.find(
+            (part) => part.type === "finish"
+          );
 
           if (finish !== undefined && finish.type === "finish") {
             MutableRef.set(seen, Option.some(finish.usage));
@@ -149,30 +174,39 @@ export const observe = <A extends { readonly usage: Response.Usage }, E, R>(
             parent.value(options);
           }
         }),
-        Effect.exit,
+        Effect.exit
       );
 
       const usage = fromRecorded(
-        Option.match(Exit.isSuccess(exit) ? Option.some(exit.value.usage) : MutableRef.get(seen), {
-          onNone: () => ({}),
-          onSome: fromResponse,
-        }),
+        Option.match(
+          Exit.isSuccess(exit)
+            ? Option.some(exit.value.usage)
+            : MutableRef.get(seen),
+          {
+            onNone: () => ({}),
+            onSome: fromResponse,
+          }
+        )
       );
 
       return { exit, usage };
-    }),
+    })
   );
 
 const tracked = <
-  F extends (options: never) => Effect.Effect<{ readonly usage: Response.Usage }, unknown, unknown>,
+  F extends (
+    options: never
+  ) => Effect.Effect<{ readonly usage: Response.Usage }, unknown, unknown>,
 >(
-  generate: F,
+  generate: F
 ): F => {
   const wrapped = (options: never) =>
     Effect.uninterruptibleMask((restore) =>
       observe(restore(generate(options))).pipe(
-        Effect.flatMap(({ exit, usage }) => recordUsage(usage).pipe(Effect.andThen(exit))),
-      ),
+        Effect.flatMap(({ exit, usage }) =>
+          recordUsage(usage).pipe(Effect.andThen(exit))
+        )
+      )
     );
 
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: wrapped takes the options of generate and returns its effect unchanged, after it records one call with the usage of the response, when there is one, also when the request is interrupted.
@@ -192,14 +226,14 @@ export const trackLanguageModel: Layer.Layer<
       generateText: tracked(model.generateText),
       streamText: (<
         F extends (
-          options: never,
+          options: never
         ) => Stream.Stream<
           { readonly type: string; readonly usage?: Response.Usage },
           unknown,
           unknown
         >,
       >(
-        stream: F,
+        stream: F
       ): F => {
         const wrapped = (options: never) =>
           Stream.unwrap(
@@ -209,27 +243,30 @@ export const trackLanguageModel: Layer.Layer<
                   Stream.tap((part) =>
                     part.type === "finish" && part.usage !== undefined
                       ? Ref.set(seen, Option.some(part.usage))
-                      : Effect.void,
+                      : Effect.void
                   ),
                   Stream.onExit(() =>
                     Ref.get(seen).pipe(
                       Effect.flatMap((usage) =>
                         recordUsage(
                           fromRecorded(
-                            Option.match(usage, { onNone: () => ({}), onSome: fromResponse }),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+                            Option.match(usage, {
+                              onNone: () => ({}),
+                              onSome: fromResponse,
+                            })
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
           );
 
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: wrapped takes the options of stream and returns its parts unchanged, after it records one call per run of the stream with the usage of its finish part, when there is one, also when the stream fails or is interrupted.
         return wrapped as F;
       })(model.streamText),
-    })),
-  ),
+    }))
+  )
 );

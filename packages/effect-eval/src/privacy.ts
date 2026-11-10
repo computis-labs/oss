@@ -1,5 +1,6 @@
 import { Array, Config, Effect, Option } from "effect";
 import type { Schema } from "effect";
+
 import { isList, isRecord, isText } from "./json.ts";
 
 export interface Rule {
@@ -26,22 +27,27 @@ export const denylist = (name: string): Config.Config<readonly string[]> =>
       value
         .split(DENYLIST_SEPARATOR)
         .map((token) => token.trim().toLowerCase())
-        .filter((token) => token.length > 0),
-    ),
+        .filter((token) => token.length > 0)
+    )
   );
 
-const textsOf = (value: Schema.Json, path: string): readonly (readonly [string, string])[] => {
+const textsOf = (
+  value: Schema.Json,
+  path: string
+): readonly (readonly [string, string])[] => {
   if (isText(value)) {
     return [[path, value]];
   }
 
   if (isList(value)) {
-    return value.flatMap((item, index) => textsOf(item, `${path}[${String(index)}]`));
+    return value.flatMap((item, index) =>
+      textsOf(item, `${path}[${String(index)}]`)
+    );
   }
 
   if (isRecord(value)) {
     return Object.entries(value).flatMap(([key, item]) =>
-      textsOf(item, path === "" ? key : `${path}.${key}`),
+      textsOf(item, path === "" ? key : `${path}.${key}`)
     );
   }
 
@@ -51,7 +57,10 @@ const textsOf = (value: Schema.Json, path: string): readonly (readonly [string, 
 export const scan = (
   id: string,
   value: Schema.Json,
-  options: { readonly rules: readonly Rule[]; readonly denylist: readonly string[] },
+  options: {
+    readonly rules: readonly Rule[];
+    readonly denylist: readonly string[];
+  }
 ): readonly Finding[] =>
   textsOf(value, "").flatMap(([path, text]) => [
     ...options.rules
@@ -65,4 +74,6 @@ export const scan = (
 export const resolveDenylist = (privacy: Privacy) =>
   privacy.denylist === undefined
     ? Effect.succeed<readonly string[]>([])
-    : Config.option(privacy.denylist).pipe(Effect.map(Option.getOrElse(Array.empty<string>)));
+    : Config.option(privacy.denylist).pipe(
+        Effect.map(Option.getOrElse(Array.empty<string>))
+      );

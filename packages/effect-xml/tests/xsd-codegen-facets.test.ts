@@ -1,11 +1,15 @@
 import { fileURLToPath } from "node:url";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import { Array, Effect, Exit, Schema } from "effect";
-import * as Facets from "./fixtures/xsd-codegen/facets.gen.ts";
-import * as Xsd from "../src/xsd.ts";
 
-const FACETS_XSD = fileURLToPath(new URL("fixtures/xsd-codegen/facets.xsd", import.meta.url));
+import * as Xsd from "../src/xsd.ts";
+import * as Facets from "./fixtures/xsd-codegen/facets.gen.ts";
+
+const FACETS_XSD = fileURLToPath(
+  new URL("fixtures/xsd-codegen/facets.xsd", import.meta.url)
+);
 
 const SAMPLES = [
   "AB12CD",
@@ -102,9 +106,10 @@ const SAMPLES = [
   "2024-01-01T12:00:00.500",
   "2024-01-01T12:00:00.5Z",
   ...[
-    0x7f, 0x80, 0xff, 0x1_00, 0x1_7f, 0x1_80, 0x2_4f, 0x2_50, 0x2_af, 0x2_b0, 0x2_ff, 0x3_00,
-    0x3_6f, 0x3_70, 0x3_ff, 0x4_00, 0x4_ff, 0x5_00, 0x1d_ff, 0x1e_00, 0x1e_ff, 0x1f_00, 0x20_00,
-    0x20_6f, 0x20_70, 0x20_a0, 0x20_cf, 0x20_d0,
+    0x7f, 0x80, 0xff, 0x1_00, 0x1_7f, 0x1_80, 0x2_4f, 0x2_50, 0x2_af, 0x2_b0,
+    0x2_ff, 0x3_00, 0x3_6f, 0x3_70, 0x3_ff, 0x4_00, 0x4_ff, 0x5_00, 0x1d_ff,
+    0x1e_00, 0x1e_ff, 0x1f_00, 0x20_00, 0x20_6f, 0x20_70, 0x20_a0, 0x20_cf,
+    0x20_d0,
   ].map((codePoint) => String.fromCodePoint(codePoint)),
 ];
 
@@ -145,78 +150,87 @@ const MUTATIONS = [
   "\u{10000}",
 ];
 
-layer(NodeServices.layer, { timeout: 120_000 })("facets generated from an XSD", (it) => {
-  it.effect(
-    "accept the values libxml2 accepts, except malformed base64 that libxml2 lets through",
-    () =>
-      Effect.gen(function* test() {
-        const validator = yield* Xsd.make({ schema: { path: FACETS_XSD } });
+layer(NodeServices.layer, { timeout: 120_000 })(
+  "facets generated from an XSD",
+  (it) => {
+    it.effect(
+      "accept the values libxml2 accepts, except malformed base64 that libxml2 lets through",
+      () =>
+        Effect.gen(function* test() {
+          const validator = yield* Xsd.make({ schema: { path: FACETS_XSD } });
 
-        const states = Array.scan(
-          Array.makeBy(SAMPLES.length * 12 * 4, () => 0),
-          1,
-          (state) => (state * 1_103_515_245 + 12_345) % 2_147_483_648,
-        );
-
-        const random = (draw: number, bound: number) =>
-          Math.floor(((states[draw + 1] ?? 0) / 2_147_483_648) * bound);
-
-        const values = new Set(SAMPLES);
-
-        for (const [sampleIndex, sample] of SAMPLES.entries()) {
-          const chars = Array.map(
-            Array.fromIterable(sample.matchAll(/[\s\S]/gu)),
-            ([char]) => char,
+          const states = Array.scan(
+            Array.makeBy(SAMPLES.length * 12 * 4, () => 0),
+            1,
+            (state) => (state * 1_103_515_245 + 12_345) % 2_147_483_648
           );
 
-          for (let step = 0; step < 12; step += 1) {
-            const draw = (sampleIndex * 12 + step) * 4;
-            const position = random(draw, chars.length + 1);
-            const char = MUTATIONS[random(draw + 1, MUTATIONS.length)] ?? "";
-            chars.splice(
-              position,
-              random(draw + 2, 3) === 0 ? 0 : 1,
-              ...(random(draw + 3, 4) === 0 ? [] : [char]),
-            );
-            values.add(chars.join(""));
-          }
-        }
+          const random = (draw: number, bound: number) =>
+            Math.floor(((states[draw + 1] ?? 0) / 2_147_483_648) * bound);
 
-        const unsound: string[] = [];
-        const incomplete: string[] = [];
+          const values = new Set(SAMPLES);
 
-        for (const [name, schema] of Object.entries(Facets)) {
-          const accepts = Schema.is(schema);
-
-          for (const value of name === "Facets" ? [] : values) {
-            const text = value
-              .replaceAll("&", "&amp;")
-              .replaceAll("<", "&lt;")
-              .replaceAll(">", "&gt;")
-              .replaceAll("\r", "&#13;");
-
-            const exit = yield* Effect.exit(
-              validator.validate(`<Facets><${name}>${text}</${name}></Facets>`),
+          for (const [sampleIndex, sample] of SAMPLES.entries()) {
+            const chars = Array.map(
+              Array.fromIterable(sample.matchAll(/[\s\S]/gu)),
+              ([char]) => char
             );
 
-            if (accepts(value) && Exit.isFailure(exit)) {
-              unsound.push(
-                `${name} ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(value)}`,
+            for (let step = 0; step < 12; step += 1) {
+              const draw = (sampleIndex * 12 + step) * 4;
+              const position = random(draw, chars.length + 1);
+              const char = MUTATIONS[random(draw + 1, MUTATIONS.length)] ?? "";
+              chars.splice(
+                position,
+                random(draw + 2, 3) === 0 ? 0 : 1,
+                ...(random(draw + 3, 4) === 0 ? [] : [char])
               );
-            }
-
-            if (!accepts(value) && Exit.isSuccess(exit) && name !== "Base64") {
-              incomplete.push(
-                `${name} ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(value)}`,
-              );
+              values.add(chars.join(""));
             }
           }
-        }
 
-        expect(values.size).toBeGreaterThan(500);
-        expect(unsound).toStrictEqual([]);
-        expect(incomplete).toStrictEqual([]);
-      }),
-    60_000,
-  );
-});
+          const unsound: string[] = [];
+          const incomplete: string[] = [];
+
+          for (const [name, schema] of Object.entries(Facets)) {
+            const accepts = Schema.is(schema);
+
+            for (const value of name === "Facets" ? [] : values) {
+              const text = value
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll("\r", "&#13;");
+
+              const exit = yield* Effect.exit(
+                validator.validate(
+                  `<Facets><${name}>${text}</${name}></Facets>`
+                )
+              );
+
+              if (accepts(value) && Exit.isFailure(exit)) {
+                unsound.push(
+                  `${name} ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(value)}`
+                );
+              }
+
+              if (
+                !accepts(value) &&
+                Exit.isSuccess(exit) &&
+                name !== "Base64"
+              ) {
+                incomplete.push(
+                  `${name} ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(value)}`
+                );
+              }
+            }
+          }
+
+          expect(values.size).toBeGreaterThan(500);
+          expect(unsound).toStrictEqual([]);
+          expect(incomplete).toStrictEqual([]);
+        }),
+      60_000
+    );
+  }
+);

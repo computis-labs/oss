@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import type { PdfImage } from "./types.ts";
 
@@ -41,7 +42,9 @@ export interface PngScanlines {
   readonly scanlines: Uint8Array<ArrayBuffer>;
 }
 
-export type PdfImageDraft = PdfImage | (Omit<PdfImage, "bytes"> & { readonly png: PngScanlines });
+export type PdfImageDraft =
+  | PdfImage
+  | (Omit<PdfImage, "bytes"> & { readonly png: PngScanlines });
 
 const chunk = (type: string, data: Uint8Array) => {
   const out = new Uint8Array(CHUNK_OVERHEAD + data.length);
@@ -50,14 +53,18 @@ const chunk = (type: string, data: Uint8Array) => {
   out.set(ascii.encode(type), 4);
   out.set(data, 8);
 
-  const crc = out.subarray(4, 8 + data.length).reduce(
-    // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
-    (current, byte) => (CRC_TABLE[(current ^ byte) & BYTE_MASK] ?? 0) ^ (current >>> BITS_PER_BYTE),
-    CRC_INITIAL,
-  );
+  /* oxlint-disable no-bitwise -- CRC-32 is defined on bits */
+  const crc = out
+    .subarray(4, 8 + data.length)
+    .reduce(
+      (current, byte) =>
+        (CRC_TABLE[(current ^ byte) & BYTE_MASK] ?? 0) ^
+        (current >>> BITS_PER_BYTE),
+      CRC_INITIAL
+    );
 
-  // oxlint-disable-next-line no-bitwise -- CRC-32 is defined on bits
   view.setUint32(8 + data.length, (crc ^ CRC_INITIAL) >>> 0);
+  /* oxlint-enable no-bitwise */
 
   return out;
 };
@@ -72,11 +79,14 @@ export const packBilevel = (
   }: Pick<Raster, "height" | "width"> & {
     readonly start: number;
     readonly stride: number;
-  },
+  }
 ): Raster => {
   const rowBytes = Math.ceil(width / BITS_PER_BYTE);
   const whole = Math.floor(width / BITS_PER_BYTE);
-  const lit = (at: number, weight: number) => ((heap[at] ?? 0) >= INK_THRESHOLD ? weight : 0);
+
+  const lit = (at: number, weight: number) =>
+    (heap[at] ?? 0) >= INK_THRESHOLD ? weight : 0;
+
   const data = new Uint8Array(rowBytes * height);
 
   for (let row = 0; row < height; row += 1) {
@@ -97,9 +107,13 @@ export const packBilevel = (
     }
 
     if (width > whole * BITS_PER_BYTE) {
-      data[target + whole] = BIT_WEIGHTS.slice(0, width - whole * BITS_PER_BYTE).reduce(
-        (byte, weight, bit) => byte + lit(source + whole * BITS_PER_BYTE + bit, weight),
+      data[target + whole] = BIT_WEIGHTS.slice(
         0,
+        width - whole * BITS_PER_BYTE
+      ).reduce(
+        (byte, weight, bit) =>
+          byte + lit(source + whole * BITS_PER_BYTE + bit, weight),
+        0
       );
     }
   }
@@ -120,7 +134,7 @@ export const bgrToRgb = (
     readonly start: number;
     readonly stride: number;
   },
-  channels: 3 | 4,
+  channels: 3 | 4
 ): Raster => {
   const rowBytes = width * channels;
   const data = new Uint8Array(rowBytes * height);
@@ -157,7 +171,9 @@ export const pngScanlines = ({
   view.setUint8(8, bitDepth);
   view.setUint8(
     9,
-    ({ 1: 0, 3: 2, 4: 6 } as const satisfies Record<RasterChannels, number>)[channels],
+    ({ 1: 0, 3: 2, 4: 6 } as const satisfies Record<RasterChannels, number>)[
+      channels
+    ]
   );
   const lineBytes = Math.ceil((width * channels * bitDepth) / BITS_PER_BYTE);
   const scanlines = new Uint8Array((lineBytes + 1) * height);
@@ -165,7 +181,7 @@ export const pngScanlines = ({
   for (let row = 0; row < height; row += 1) {
     scanlines.set(
       data.subarray(row * rowBytes, row * rowBytes + lineBytes),
-      row * (lineBytes + 1) + 1,
+      row * (lineBytes + 1) + 1
     );
   }
 
@@ -177,7 +193,11 @@ export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
   scanlines,
 }: PngScanlines) {
   const compressed = yield* Effect.tryPromise({
-    catch: (cause) => new PdfEngineError({ cause, message: "The PNG could not be compressed." }),
+    catch: (cause) =>
+      new PdfEngineError({
+        cause,
+        message: "The PNG could not be compressed.",
+      }),
     try: async () => {
       const compression = new CompressionStream("deflate");
       const writer = compression.writable.getWriter();
@@ -199,7 +219,11 @@ export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
   const ihdr = chunk("IHDR", header);
   const idat = chunk("IDAT", compressed);
   const iend = chunk("IEND", new Uint8Array(0));
-  const png = new Uint8Array(SIGNATURE.length + ihdr.length + idat.length + iend.length);
+
+  const png = new Uint8Array(
+    SIGNATURE.length + ihdr.length + idat.length + iend.length
+  );
+
   png.set(SIGNATURE, 0);
   png.set(ihdr, SIGNATURE.length);
   png.set(idat, SIGNATURE.length + ihdr.length);
@@ -208,14 +232,16 @@ export const encodePng = Effect.fn("EffectPdf.encodePng")(function* encodePng({
   return png;
 });
 
-export const finishImage = Effect.fn("EffectPdf.finishImage")(function* finishImage(
-  draft: PdfImageDraft,
-): Effect.fn.Return<PdfImage, PdfEngineError> {
-  if ("bytes" in draft) {
-    return draft;
+export const finishImage = Effect.fn("EffectPdf.finishImage")(
+  function* finishImage(
+    draft: PdfImageDraft
+  ): Effect.fn.Return<PdfImage, PdfEngineError> {
+    if ("bytes" in draft) {
+      return draft;
+    }
+
+    const { height, mediaType, origin, png, width } = draft;
+
+    return { bytes: yield* encodePng(png), height, mediaType, origin, width };
   }
-
-  const { height, mediaType, origin, png, width } = draft;
-
-  return { bytes: yield* encodePng(png), height, mediaType, origin, width };
-});
+);

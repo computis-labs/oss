@@ -5,11 +5,14 @@ export const ActionOIDCErrorReason = {
   RequestFailed: "RequestFailed",
 } as const;
 
-export class ActionOIDCError extends Schema.TaggedError<ActionOIDCError>()("ActionOIDCError", {
-  cause: Schema.optionalKey(Schema.Defect()),
-  description: Schema.optionalKey(Schema.String),
-  reason: Schema.Literals(Object.values(ActionOIDCErrorReason)),
-}) {
+export class ActionOIDCError extends Schema.TaggedError<ActionOIDCError>()(
+  "ActionOIDCError",
+  {
+    cause: Schema.optionalKey(Schema.Defect()),
+    description: Schema.optionalKey(Schema.String),
+    reason: Schema.Literals(Object.values(ActionOIDCErrorReason)),
+  }
+) {
   readonly code = "ACTION_OIDC";
 
   override get message() {

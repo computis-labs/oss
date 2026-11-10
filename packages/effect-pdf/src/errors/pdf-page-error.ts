@@ -1,9 +1,12 @@
 import * as Schema from "effect/Schema";
 
-export class PdfPageError extends Schema.TaggedError<PdfPageError>()("PdfPageError", {
-  message: Schema.String,
-  page: Schema.Number,
-}) {
+export class PdfPageError extends Schema.TaggedError<PdfPageError>()(
+  "PdfPageError",
+  {
+    message: Schema.String,
+    page: Schema.Number,
+  }
+) {
   readonly code = "PDF_PAGE";
 
   static outOfRange(page: number, pageCount: number) {
@@ -14,7 +17,10 @@ export class PdfPageError extends Schema.TaggedError<PdfPageError>()("PdfPageErr
   }
 
   static unreadable(page: number) {
-    return new PdfPageError({ message: `PDFium could not load page ${page.toString()}.`, page });
+    return new PdfPageError({
+      message: `PDFium could not load page ${page.toString()}.`,
+      page,
+    });
   }
 
   static unreadableImage(page: number) {

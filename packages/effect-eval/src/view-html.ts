@@ -1,4 +1,5 @@
 import { Effect, Option, Ref, pipe } from "effect";
+
 import { lookup } from "./object.ts";
 import { computis, tones } from "./theme.ts";
 import type { Theme, Tone } from "./theme.ts";
@@ -22,11 +23,14 @@ export const escapeHtml = (text: string) =>
   text.replaceAll(
     SPECIAL,
     (character) =>
-      lookup({ '"': "&quot;", "&": "&amp;", "'": "&#39;", "<": "&lt;", ">": "&gt;" }, character) ??
-      character,
+      lookup(
+        { '"': "&quot;", "&": "&amp;", "'": "&#39;", "<": "&lt;", ">": "&gt;" },
+        character
+      ) ?? character
   );
 
-const toneClass = (tone: Tone) => (tone === tones.neutral ? "" : ` class="tone-${tone}"`);
+const toneClass = (tone: Tone) =>
+  tone === tones.neutral ? "" : ` class="tone-${tone}"`;
 
 const table = (data: TableData) =>
   `<table><thead><tr>${data.columns
@@ -34,11 +38,14 @@ const table = (data: TableData) =>
     .join("")}</tr></thead><tbody>${data.rows
     .map(
       (row) =>
-        `<tr>${row.map((cell) => `<td${toneClass(cell.tone)}>${escapeHtml(cell.text)}</td>`).join("")}</tr>`,
+        `<tr>${row.map((cell) => `<td${toneClass(cell.tone)}>${escapeHtml(cell.text)}</td>`).join("")}</tr>`
     )
     .join("")}</tbody></table>`;
 
-export const render = <E = never, R = never>(view: View, options: HtmlOptions<E, R>) =>
+export const render = <E = never, R = never>(
+  view: View,
+  options: HtmlOptions<E, R>
+) =>
   Effect.suspend(() => {
     const theme: Theme = options.theme ?? computis;
     const renderer = options.renderer ?? unsupported;
@@ -46,10 +53,15 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
     const groups = Ref.makeUnsafe(0);
     const widest = Ref.makeUnsafe(0);
 
-    const renderBlock = (block: Block, depth: number): Effect.Effect<string, E, R> =>
+    const renderBlock = (
+      block: Block,
+      depth: number
+    ): Effect.Effect<string, E, R> =>
       $match(block, {
         Badge: ({ label, tone }) =>
-          Effect.succeed(`<span class="badge tone-${tone}">${escapeHtml(label)}</span>`),
+          Effect.succeed(
+            `<span class="badge tone-${tone}">${escapeHtml(label)}</span>`
+          ),
         Figure: ({ chart, fallback }) =>
           drawWith(renderer)([chart], {
             accepts: [drawingKinds.html, drawingKinds.text],
@@ -63,14 +75,16 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
                   drawn.kind === drawingKinds.html
                     ? drawn.content
                     : `<pre class="chart">${escapeHtml(drawn.content)}</pre>`,
-              }),
-            ),
+              })
+            )
           ),
         Row: ({ children }) =>
           pipe(
             children,
             Effect.forEach((child) => renderBlock(child, depth)),
-            Effect.map((parts) => `<div class="row">${parts.join(LINE_BREAK)}</div>`),
+            Effect.map(
+              (parts) => `<div class="row">${parts.join(LINE_BREAK)}</div>`
+            )
           ),
         Section: ({ children, title }) =>
           pipe(
@@ -80,7 +94,7 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
               const level = String(Math.min(MAX_HEADING, depth));
 
               return `<section><h${level}>${escapeHtml(title)}</h${level}>${parts.join(LINE_BREAK)}</section>`;
-            }),
+            })
           ),
         Table: (data) => Effect.succeed(table(data)),
         Tabs: ({ tabs }) =>
@@ -90,8 +104,8 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
               pipe(
                 tab.children,
                 Effect.forEach((child) => renderBlock(child, depth + 1)),
-                Effect.map((parts) => parts.join(LINE_BREAK)),
-              ),
+                Effect.map((parts) => parts.join(LINE_BREAK))
+              )
             ),
             Effect.flatMap((panels) =>
               Ref.update(widest, (most) => Math.max(most, tabs.length)).pipe(
@@ -102,16 +116,17 @@ export const render = <E = never, R = never>(view: View, options: HtmlOptions<E,
                   return `<div class="tabs">${tabs
                     .map(
                       (tab, index) =>
-                        `<input type="radio" name="${name}" id="${name}-${String(index)}"${index === 0 ? " checked" : ""}><label for="${name}-${String(index)}">${escapeHtml(tab.title)}</label>`,
+                        `<input type="radio" name="${name}" id="${name}-${String(index)}"${index === 0 ? " checked" : ""}><label for="${name}-${String(index)}">${escapeHtml(tab.title)}</label>`
                     )
                     .join(
-                      "",
+                      ""
                     )}${panels.map((panel) => `<div class="panel">${panel}</div>`).join("")}</div>`;
-                }),
-              ),
-            ),
+                })
+              )
+            )
           ),
-        Text: ({ text, tone }) => Effect.succeed(`<p${toneClass(tone)}>${escapeHtml(text)}</p>`),
+        Text: ({ text, tone }) =>
+          Effect.succeed(`<p${toneClass(tone)}>${escapeHtml(text)}</p>`),
       });
 
     const sheet = (tabCount: number) => `
@@ -142,11 +157,13 @@ ${
       view,
       Effect.forEach((block) => renderBlock(block, 2)),
       Effect.flatMap((parts) =>
-        Ref.get(widest).pipe(Effect.map((tabCount) => [parts, tabCount] as const)),
+        Ref.get(widest).pipe(
+          Effect.map((tabCount) => [parts, tabCount] as const)
+        )
       ),
       Effect.map(
         ([parts, tabCount]) =>
-          `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${escapeHtml(options.title)}</title>\n<style>${sheet(tabCount)}</style>\n</head>\n<body>\n<h1>${escapeHtml(options.title)}</h1>\n${parts.join(LINE_BREAK)}\n</body>\n</html>\n`,
-      ),
+          `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${escapeHtml(options.title)}</title>\n<style>${sheet(tabCount)}</style>\n</head>\n<body>\n<h1>${escapeHtml(options.title)}</h1>\n${parts.join(LINE_BREAK)}\n</body>\n</html>\n`
+      )
     );
   });

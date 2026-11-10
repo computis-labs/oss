@@ -11,6 +11,7 @@ import {
   Stream,
   pipe,
 } from "effect";
+
 import { EvalDatasetError } from "./errors/eval-dataset-error.ts";
 import { EvalPrivacyError } from "./errors/eval-privacy-error.ts";
 import { whenDefined } from "./object.ts";
@@ -72,13 +73,15 @@ const NOT_JSON = "not JSON: the input cannot be scanned";
 
 export const fromItems = <A, E, R>(
   items: Stream.Stream<Item<A>, E, R>,
-  options: { readonly sensitive?: boolean } = {},
+  options: { readonly sensitive?: boolean } = {}
 ): Dataset<A, E, R> => ({
   items,
   sensitive: options.sensitive ?? false,
 });
 
-export const asSensitive = <A, E, R>(self: Dataset<A, E, R>): Dataset<A, E, R> => ({
+export const asSensitive = <A, E, R>(
+  self: Dataset<A, E, R>
+): Dataset<A, E, R> => ({
   ...self,
   sensitive: true,
 });
@@ -86,15 +89,24 @@ export const asSensitive = <A, E, R>(self: Dataset<A, E, R>): Dataset<A, E, R> =
 export const skip = (
   id: string,
   reason: string,
-  options: { readonly tags?: readonly string[] } = {},
-): Skip => SkipSchema.make({ id, reason, ...whenDefined(options.tags, (tags) => ({ tags })) });
+  options: { readonly tags?: readonly string[] } = {}
+): Skip =>
+  SkipSchema.make({
+    id,
+    reason,
+    ...whenDefined(options.tags, (tags) => ({ tags })),
+  });
 
 const caseItem = <A>(
   identify: Identify<A>,
   input: A,
-  raw: Option.Option<Schema.Json>,
+  raw: Option.Option<Schema.Json>
 ): Item<A> => ({
-  entry: Result.succeed({ id: identify.id(input), input, tags: identify.tags?.(input) ?? [] }),
+  entry: Result.succeed({
+    id: identify.id(input),
+    input,
+    tags: identify.tags?.(input) ?? [],
+  }),
   raw,
 });
 
@@ -112,7 +124,9 @@ const idOf = <A>(item: Item<A>) => Result.merge(item.entry).id;
 const datasetError = (path: string, message: string) => (cause: unknown) =>
   new EvalDatasetError({ cause, message, path });
 
-const resolveFile = Effect.fn("Dataset.resolveFile")(function* resolveFile(path: string | URL) {
+const resolveFile = Effect.fn("Dataset.resolveFile")(function* resolveFile(
+  path: string | URL
+) {
   if (Predicate.isString(path)) {
     return path;
   }
@@ -121,15 +135,23 @@ const resolveFile = Effect.fn("Dataset.resolveFile")(function* resolveFile(path:
 
   return yield* paths
     .fromFileUrl(path)
-    .pipe(Effect.mapError(datasetError(path.href, "The dataset URL is not a file URL.")));
+    .pipe(
+      Effect.mapError(
+        datasetError(path.href, "The dataset URL is not a file URL.")
+      )
+    );
 });
 
-const readText = Effect.fn("Dataset.readText")(function* readText(file: string) {
+const readText = Effect.fn("Dataset.readText")(function* readText(
+  file: string
+) {
   const fs = yield* FileSystem.FileSystem;
 
   return yield* fs
     .readFileString(file)
-    .pipe(Effect.mapError(datasetError(file, "The dataset file cannot be read.")));
+    .pipe(
+      Effect.mapError(datasetError(file, "The dataset file cannot be read."))
+    );
 });
 
 const isJson = Schema.is(Schema.Json);
@@ -138,16 +160,21 @@ const decodeElements = <S extends Schema.Top>(
   schema: S,
   identify: Identify<S["Type"]>,
   file: string,
-  raws: readonly Schema.Json[],
+  raws: readonly Schema.Json[]
 ) =>
   pipe(
     raws,
     Effect.forEach((raw, index) =>
       Schema.decodeUnknownEffect(schema)(raw).pipe(
-        Effect.mapError(datasetError(file, `Entry ${String(index)} does not match the schema.`)),
-        Effect.map((input) => caseItem(identify, input, Option.some(raw))),
-      ),
-    ),
+        Effect.mapError(
+          datasetError(
+            file,
+            `Entry ${String(index)} does not match the schema.`
+          )
+        ),
+        Effect.map((input) => caseItem(identify, input, Option.some(raw)))
+      )
+    )
   );
 
 const JsonArray = Schema.fromJsonString(Schema.Array(Schema.Json));
@@ -157,14 +184,14 @@ const JsonValue = Schema.fromJsonString(Schema.Json);
 const readJson = <S extends Schema.Top>(
   schema: S,
   path: string | URL,
-  identify: Identify<S["Type"]>,
+  identify: Identify<S["Type"]>
 ) =>
   Effect.gen(function* readJsonArray() {
     const file = yield* resolveFile(path);
     const text = yield* readText(file);
 
     const raws = yield* Schema.decodeUnknownEffect(JsonArray)(text).pipe(
-      Effect.mapError(datasetError(file, "The dataset is not a JSON array.")),
+      Effect.mapError(datasetError(file, "The dataset is not a JSON array."))
     );
 
     return yield* decodeElements(schema, identify, file, raws);
@@ -173,7 +200,7 @@ const readJson = <S extends Schema.Top>(
 export const json = <S extends Schema.Top>(
   schema: S,
   path: string | URL,
-  identify: Identify<S["Type"]>,
+  identify: Identify<S["Type"]>
 ): Dataset<
   S["Type"],
   EvalDatasetError,
@@ -183,7 +210,7 @@ export const json = <S extends Schema.Top>(
 export const jsonl = <S extends Schema.Top>(
   schema: S,
   path: string | URL,
-  identify: Identify<S["Type"]>,
+  identify: Identify<S["Type"]>
 ): Dataset<
   S["Type"],
   EvalDatasetError,
@@ -199,14 +226,16 @@ export const jsonl = <S extends Schema.Top>(
           text.split(LINE_BREAK).filter((line) => line.trim().length > 0),
           Effect.forEach((line, index) =>
             Schema.decodeUnknownEffect(JsonValue)(line).pipe(
-              Effect.mapError(datasetError(file, `Line ${String(index + 1)} is not JSON.`)),
-            ),
-          ),
+              Effect.mapError(
+                datasetError(file, `Line ${String(index + 1)} is not JSON.`)
+              )
+            )
+          )
         );
 
         return yield* decodeElements(schema, identify, file, raws);
-      }),
-    ),
+      })
+    )
   );
 
 export const directory = <A, E, R>(
@@ -214,7 +243,7 @@ export const directory = <A, E, R>(
   options: {
     readonly extension: string;
     readonly read: (file: string) => Effect.Effect<A, E, R>;
-  } & Identify<A>,
+  } & Identify<A>
 ): Dataset<A, E | EvalDatasetError, R | FileSystem.FileSystem | Path.Path> =>
   fromItems(
     Stream.fromIterableEffect(
@@ -224,44 +253,59 @@ export const directory = <A, E, R>(
 
         const names = yield* fs
           .readDirectory(path)
-          .pipe(Effect.mapError(datasetError(path, "The dataset folder cannot be read.")));
+          .pipe(
+            Effect.mapError(
+              datasetError(path, "The dataset folder cannot be read.")
+            )
+          );
 
         return yield* pipe(
           names.filter((name) => name.endsWith(options.extension)).toSorted(),
           Effect.forEach((name) =>
             options
               .read(paths.join(path, name))
-              .pipe(Effect.map((input) => caseItem(options, input, Option.none()))),
-          ),
+              .pipe(
+                Effect.map((input) => caseItem(options, input, Option.none()))
+              )
+          )
         );
-      }),
-    ),
+      })
+    )
   );
 
-export const fromIterable = <A>(entries: Iterable<A | Skip>, identify: Identify<A>): Dataset<A> =>
-  fromItems(Stream.fromIterable(Array.map(Array.fromIterable(entries), entryItem(identify))));
+export const fromIterable = <A>(
+  entries: Iterable<A | Skip>,
+  identify: Identify<A>
+): Dataset<A> =>
+  fromItems(
+    Stream.fromIterable(
+      Array.map(Array.fromIterable(entries), entryItem(identify))
+    )
+  );
 
 export const fromEffect = <A, E, R>(
   entries: Effect.Effect<Iterable<A | Skip>, E, R>,
-  identify: Identify<A>,
+  identify: Identify<A>
 ): Dataset<A, E, R> =>
   fromItems(
     Stream.fromIterableEffect(
       entries.pipe(
-        Effect.map((values) => Array.map(Array.fromIterable(values), entryItem(identify))),
-      ),
-    ),
+        Effect.map((values) =>
+          Array.map(Array.fromIterable(values), entryItem(identify))
+        )
+      )
+    )
   );
 
 export const stream = <A, E, R>(
   entries: Stream.Stream<A | Skip, E, R>,
-  identify: Identify<A>,
+  identify: Identify<A>
 ): Dataset<A, E, R> => fromItems(entries.pipe(Stream.map(entryItem(identify))));
 
 export const optional = <S extends Schema.Top>(
   path: Config.Config<string>,
   schema: S,
-  identify: Identify<S["Type"]>,
+  identify: Identify<S["Type"]>
 ): Dataset<
   S["Type"],
   EvalDatasetError | Config.ConfigError,
@@ -274,20 +318,25 @@ export const optional = <S extends Schema.Top>(
           Option.match({
             onNone: () => Effect.succeed<readonly Item<S["Type"]>[]>([]),
             onSome: (file) => readJson(schema, file, identify),
-          }),
-        ),
-      ),
+          })
+        )
+      )
     ),
-    { sensitive: true },
+    { sensitive: true }
   );
 
 const collected = <A, B, E, R, E2 = never, R2 = never>(
   self: Dataset<A, E, R>,
-  f: (items: readonly Item<A>[]) => Effect.Effect<readonly Item<B>[], E2, R2>,
+  f: (items: readonly Item<A>[]) => Effect.Effect<readonly Item<B>[], E2, R2>
 ): Dataset<B, E | E2, R | R2> =>
-  fromItems(Stream.fromIterableEffect(Stream.runCollect(self.items).pipe(Effect.flatMap(f))), {
-    sensitive: self.sensitive,
-  });
+  fromItems(
+    Stream.fromIterableEffect(
+      Stream.runCollect(self.items).pipe(Effect.flatMap(f))
+    ),
+    {
+      sensitive: self.sensitive,
+    }
+  );
 
 export const concat =
   <B, E2, R2>(that: Dataset<B, E2, R2>) =>
@@ -296,7 +345,8 @@ export const concat =
       sensitive: self.sensitive || that.sensitive,
     });
 
-const tagsOf = <A>(item: Item<A>): readonly string[] => Result.merge(item.entry).tags ?? [];
+const tagsOf = <A>(item: Item<A>): readonly string[] =>
+  Result.merge(item.entry).tags ?? [];
 
 export const filter =
   (options: FilterOptions) =>
@@ -308,7 +358,7 @@ export const filter =
       const kept = items.filter(
         (item) =>
           (ids === undefined || ids.has(idOf(item))) &&
-          (tags.size === 0 || tagsOf(item).some((tag) => tags.has(tag))),
+          (tags.size === 0 || tagsOf(item).some((tag) => tags.has(tag)))
       );
 
       return Effect.succeed(kept.slice(0, options.limit));
@@ -331,7 +381,7 @@ export const sample =
       const strata = Array.groupBy(shuffled, (item) =>
         options.stratifyBy === undefined
           ? ""
-          : (tagsOf(item).find((tag) => tag.startsWith(head)) ?? ""),
+          : (tagsOf(item).find((tag) => tag.startsWith(head)) ?? "")
       );
 
       const size = Math.min(options.size, cases.length);
@@ -342,29 +392,39 @@ export const sample =
         return { members, share, stratum, taken: Math.floor(share) };
       });
 
-      const missing = size - quotas.reduce((total, quota) => total + quota.taken, 0);
+      const missing =
+        size - quotas.reduce((total, quota) => total + quota.taken, 0);
 
       const bonus = new Set(
         quotas
-          .toSorted((left, right) => right.share - right.taken - (left.share - left.taken))
+          .toSorted(
+            (left, right) =>
+              right.share - right.taken - (left.share - left.taken)
+          )
           .slice(0, missing)
-          .map((quota) => quota.stratum),
+          .map((quota) => quota.stratum)
       );
 
       const chosen = new Set(
         quotas.flatMap((quota) =>
-          quota.members.slice(0, quota.taken + (bonus.has(quota.stratum) ? 1 : 0)).map(idOf),
-        ),
+          quota.members
+            .slice(0, quota.taken + (bonus.has(quota.stratum) ? 1 : 0))
+            .map(idOf)
+        )
       );
 
       return Effect.succeed(
-        items.filter((item) => Result.isFailure(item.entry) || chosen.has(idOf(item))),
+        items.filter(
+          (item) => Result.isFailure(item.entry) || chosen.has(idOf(item))
+        )
       );
     });
 
 export const guard =
   (privacy: Privacy) =>
-  <A, E, R>(self: Dataset<A, E, R>): Dataset<A, E | EvalPrivacyError | Config.ConfigError, R> =>
+  <A, E, R>(
+    self: Dataset<A, E, R>
+  ): Dataset<A, E | EvalPrivacyError | Config.ConfigError, R> =>
     collected(self, (items) =>
       Effect.gen(function* guardPrivacy() {
         const denylist = yield* resolveDenylist(privacy);
@@ -387,10 +447,11 @@ export const guard =
 
               return Array.dedupeWith(
                 found,
-                (left, right) => left.path === right.path && left.rule === right.rule,
+                (left, right) =>
+                  left.path === right.path && left.rule === right.rule
               );
             },
-          }),
+          })
         );
 
         if (findings.length > 0) {
@@ -398,10 +459,12 @@ export const guard =
         }
 
         return items;
-      }),
+      })
     );
 
-export const load = Effect.fn("Dataset.load")(function* load<A, E, R>(self: Dataset<A, E, R>) {
+export const load = Effect.fn("Dataset.load")(function* load<A, E, R>(
+  self: Dataset<A, E, R>
+) {
   const items = yield* Stream.runCollect(self.items);
   const ids = items.map(idOf);
   const duplicate = ids.find((id, index) => ids.indexOf(id) !== index);
@@ -415,6 +478,8 @@ export const load = Effect.fn("Dataset.load")(function* load<A, E, R>(self: Data
 
   return {
     cases: items.flatMap((item) => Option.toArray(caseOf(item))),
-    skipped: items.flatMap((item) => Option.toArray(Result.getFailure(item.entry))),
+    skipped: items.flatMap((item) =>
+      Option.toArray(Result.getFailure(item.entry))
+    ),
   } satisfies Loaded<A>;
 });

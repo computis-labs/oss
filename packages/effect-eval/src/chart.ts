@@ -1,5 +1,6 @@
 import { Array, Data, DateTime, Option } from "effect";
 import type { Schema } from "effect";
+
 import { within } from "./observation.ts";
 import type { Comparison, Run, VariantRun } from "./run.ts";
 import { seriesColor, verdictClasses } from "./theme.ts";
@@ -54,7 +55,11 @@ export type Chart = Data.TaggedEnum<{
     readonly metric: string;
     readonly points: readonly TrendPoint[];
   };
-  Variants: { readonly title: string; readonly metric: string; readonly bars: readonly Bar[] };
+  Variants: {
+    readonly title: string;
+    readonly metric: string;
+    readonly bars: readonly Bar[];
+  };
   Delta: { readonly title: string; readonly rows: readonly DeltaRow[] };
   CaseMap: {
     readonly title: string;
@@ -63,17 +68,34 @@ export type Chart = Data.TaggedEnum<{
     readonly columns: readonly Column[];
     readonly cells: readonly Cell[];
   };
-  Transitions: { readonly title: string; readonly cells: readonly Transition[] };
-  CostVsAccuracy: { readonly title: string; readonly points: readonly CostPoint[] };
+  Transitions: {
+    readonly title: string;
+    readonly cells: readonly Transition[];
+  };
+  CostVsAccuracy: {
+    readonly title: string;
+    readonly points: readonly CostPoint[];
+  };
 }>;
 
-export const { $is, $match, CaseMap, CostVsAccuracy, Delta, Transitions, Trend, Variants } =
-  Data.taggedEnum<Chart>();
+export const {
+  $is,
+  $match,
+  CaseMap,
+  CostVsAccuracy,
+  Delta,
+  Transitions,
+  Trend,
+  Variants,
+} = Data.taggedEnum<Chart>();
 
 const SHA_LENGTH = 7;
 const ACCURACY = "accuracy";
 
-const intervalOf = (variant: VariantRun, metric: string): Option.Option<Interval> =>
+const intervalOf = (
+  variant: VariantRun,
+  metric: string
+): Option.Option<Interval> =>
   Option.fromNullishOr(variant.summary.ratios[metric]).pipe(
     Option.flatMap((estimate) =>
       estimate.value.pipe(
@@ -81,16 +103,19 @@ const intervalOf = (variant: VariantRun, metric: string): Option.Option<Interval
           high: estimate.interval.pipe(Option.map(([, high]) => high)),
           low: estimate.interval.pipe(Option.map(([low]) => low)),
           value,
-        })),
-      ),
-    ),
+        }))
+      )
+    )
   );
 
 export const runLabel = (run: Run) =>
-  `${DateTime.formatIso(run.startedAt).slice(0, 10)} ${Option.match(run.git.sha, {
-    onNone: () => run.id.slice(0, SHA_LENGTH),
-    onSome: (sha) => sha.slice(0, SHA_LENGTH),
-  })}`;
+  `${DateTime.formatIso(run.startedAt).slice(0, 10)} ${Option.match(
+    run.git.sha,
+    {
+      onNone: () => run.id.slice(0, SHA_LENGTH),
+      onSome: (sha) => sha.slice(0, SHA_LENGTH),
+    }
+  )}`;
 
 export const trend = (runs: readonly Run[], metric: string = ACCURACY): Chart =>
   Trend({
@@ -103,9 +128,9 @@ export const trend = (runs: readonly Run[], metric: string = ACCURACY): Chart =>
             label: runLabel(run),
             run: run.id,
             variant: variant.variant,
-          })),
-        ),
-      ),
+          }))
+        )
+      )
     ),
     title: `${metric} over time`,
   });
@@ -117,8 +142,8 @@ export const variants = (run: Run, metric: string = ACCURACY): Chart =>
         Option.map(intervalOf(variant, metric), (interval) => ({
           ...interval,
           variant: variant.variant,
-        })),
-      ),
+        }))
+      )
     ),
     metric,
     title: `${metric} by variant`,
@@ -136,9 +161,9 @@ export const delta = (comparison: Comparison, variant: string): Chart =>
               low: row.interval.pipe(Option.map(([low]) => low)),
               metric: row.metric,
               value,
-            })),
-          ),
-        ),
+            }))
+          )
+        )
       ),
     title: `${variant}: run ${comparison.run} against ${comparison.baseline}`,
   });
@@ -147,20 +172,27 @@ const TRIAL_SEPARATOR = "#";
 
 const columnOf = (run: Run, trial: number): Column => ({
   id: `${run.id}${TRIAL_SEPARATOR}${String(trial)}`,
-  label: run.trials > 1 ? `${runLabel(run)} ${TRIAL_SEPARATOR}${String(trial)}` : runLabel(run),
+  label:
+    run.trials > 1
+      ? `${runLabel(run)} ${TRIAL_SEPARATOR}${String(trial)}`
+      : runLabel(run),
 });
 
 export const caseMap = (
   runs: readonly Run[],
-  options: { readonly onlyUnstable?: boolean } = {},
+  options: { readonly onlyUnstable?: boolean } = {}
 ): readonly Chart[] => {
-  const names = [...new Set(runs.flatMap((run) => run.variants.map((variant) => variant.variant)))];
+  const names = [
+    ...new Set(
+      runs.flatMap((run) => run.variants.map((variant) => variant.variant))
+    ),
+  ];
 
   return names.map((name) => {
     const columns = runs.flatMap((run) =>
       run.variants.some((variant) => variant.variant === name)
         ? Array.range(1, run.trials).map((trial) => columnOf(run, trial))
-        : [],
+        : []
     );
 
     const cells = runs.flatMap((run) =>
@@ -171,14 +203,15 @@ export const caseMap = (
             column: columnOf(run, scored.trial).id,
             row: within(scored.case, scored.observation.key),
             verdict: Verdicts.of(scored.observation),
-          })),
-        ),
+          }))
+        )
     );
 
     const rows = Object.entries(Array.groupBy(cells, (cell) => cell.row))
       .filter(
         ([, group]) =>
-          options.onlyUnstable !== true || new Set(group.map((cell) => cell.verdict)).size > 1,
+          options.onlyUnstable !== true ||
+          new Set(group.map((cell) => cell.verdict)).size > 1
       )
       .map(([row]) => row)
       .toSorted();
@@ -211,8 +244,8 @@ export const costVsAccuracy = (run: Run): Chart =>
           ...interval,
           cost: variant.usage.costUsd,
           variant: variant.variant,
-        })),
-      ),
+        }))
+      )
     ),
     title: "cost against accuracy",
   });
@@ -225,7 +258,8 @@ const SCHEMA_URL = "https://vega.github.io/schema/vega-lite/v6.json";
 const CHART_WIDTH = 480;
 const CHART_HEIGHT = 240;
 
-const optional = (value: Option.Option<number>): Schema.Json => Option.getOrNull(value);
+const optional = (value: Option.Option<number>): Schema.Json =>
+  Option.getOrNull(value);
 
 const intervalFields = (interval: Interval) => ({
   high: optional(interval.high),
@@ -246,7 +280,11 @@ const config = (theme: Theme): Schema.Json => ({
   axisX: { labelAngle: 0 },
   background: theme.surface,
   font: theme.font,
-  legend: { labelColor: theme.text, labelFont: theme.font, titleColor: theme.muted },
+  legend: {
+    labelColor: theme.text,
+    labelFont: theme.font,
+    titleColor: theme.muted,
+  },
   title: { color: theme.text, font: theme.font },
   view: { stroke: theme.border },
 });
@@ -258,15 +296,19 @@ const variantScale = (names: readonly string[], theme: Theme): Schema.Json => ({
 
 const labelled = (columns: readonly Column[]): Schema.Json => ({
   labelExpr: `${JSON.stringify(
-    Object.fromEntries(columns.map((column) => [column.id, column.label])),
+    Object.fromEntries(columns.map((column) => [column.id, column.label]))
   )}[datum.value]`,
 });
 
-export const trendColumns = (points: readonly TrendPoint[]): readonly Column[] =>
-  [...new Map(points.map((point) => [point.run, point.label]))].map(([id, label]) => ({
-    id,
-    label,
-  }));
+export const trendColumns = (
+  points: readonly TrendPoint[]
+): readonly Column[] =>
+  [...new Map(points.map((point) => [point.run, point.label]))].map(
+    ([id, label]) => ({
+      id,
+      label,
+    })
+  );
 
 export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
   const frame = {
@@ -283,7 +325,10 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
       encoding: {
         color: {
           field: "verdict",
-          scale: { domain: Object.keys(theme.verdicts), range: Object.values(theme.verdicts) },
+          scale: {
+            domain: Object.keys(theme.verdicts),
+            range: Object.values(theme.verdicts),
+          },
           type: "nominal",
         },
         x: {
@@ -308,9 +353,9 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
                 ...intervalFields(point),
                 cost,
                 variant: point.variant,
-              })),
-            ),
-          ),
+              }))
+            )
+          )
         ),
       },
       layer: [
@@ -328,7 +373,7 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
               field: "variant",
               scale: variantScale(
                 points.map((point) => point.variant),
-                theme,
+                theme
               ),
               type: "nominal",
             },
@@ -342,9 +387,17 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
     }),
     Delta: ({ rows, title }) => ({
       ...frame,
-      data: { values: rows.map((row) => ({ ...intervalFields(row), metric: row.metric })) },
+      data: {
+        values: rows.map((row) => ({
+          ...intervalFields(row),
+          metric: row.metric,
+        })),
+      },
       layer: [
-        { encoding: { x: { datum: 0 } }, mark: { color: theme.muted, type: "rule" } },
+        {
+          encoding: { x: { datum: 0 } },
+          mark: { color: theme.muted, type: "rule" },
+        },
         {
           encoding: {
             x: { field: "low", type: "quantitative" },
@@ -371,7 +424,12 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
       ...frame,
       data: { values: cells.map((cell) => ({ ...cell })) },
       encoding: {
-        x: { field: "to", sort: Object.values(verdictClasses), title: "now", type: "ordinal" },
+        x: {
+          field: "to",
+          sort: Object.values(verdictClasses),
+          title: "now",
+          type: "ordinal",
+        },
         y: {
           field: "from",
           sort: Object.values(verdictClasses),
@@ -412,7 +470,11 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
           })),
         },
         encoding: {
-          color: { field: "variant", scale: variantScale(names, theme), type: "nominal" },
+          color: {
+            field: "variant",
+            scale: variantScale(names, theme),
+            type: "nominal",
+          },
           x: {
             axis: labelled(columns),
             field: "run",
@@ -423,11 +485,16 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
         },
         layer: [
           {
-            encoding: { y: { field: "low", type: "quantitative" }, y2: { field: "high" } },
+            encoding: {
+              y: { field: "low", type: "quantitative" },
+              y2: { field: "high" },
+            },
             mark: { opacity: 0.2, type: "area" },
           },
           {
-            encoding: { y: { field: "value", title: metric, type: "quantitative" } },
+            encoding: {
+              y: { field: "value", title: metric, type: "quantitative" },
+            },
             mark: { point: true, type: "line" },
           },
         ],
@@ -436,8 +503,15 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
     },
     Variants: ({ bars, metric, title }) => ({
       ...frame,
-      data: { values: bars.map((bar) => ({ ...intervalFields(bar), variant: bar.variant })) },
-      encoding: { x: { field: "variant", sort: null, title: null, type: "nominal" } },
+      data: {
+        values: bars.map((bar) => ({
+          ...intervalFields(bar),
+          variant: bar.variant,
+        })),
+      },
+      encoding: {
+        x: { field: "variant", sort: null, title: null, type: "nominal" },
+      },
       layer: [
         {
           encoding: {
@@ -446,16 +520,24 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
               legend: null,
               scale: variantScale(
                 bars.map((bar) => bar.variant),
-                theme,
+                theme
               ),
               type: "nominal",
             },
-            y: { field: "value", scale: { domain: [0, 1] }, title: metric, type: "quantitative" },
+            y: {
+              field: "value",
+              scale: { domain: [0, 1] },
+              title: metric,
+              type: "quantitative",
+            },
           },
           mark: { type: "bar" },
         },
         {
-          encoding: { y: { field: "low", type: "quantitative" }, y2: { field: "high" } },
+          encoding: {
+            y: { field: "low", type: "quantitative" },
+            y2: { field: "high" },
+          },
           mark: { color: theme.muted, type: "rule" },
         },
       ],
@@ -464,7 +546,10 @@ export const toVegaLite = (chart: Chart, theme: Theme): VegaLiteSpec => {
   });
 };
 
-export const hconcat = (specs: readonly VegaLiteSpec[], theme: Theme): VegaLiteSpec => ({
+export const hconcat = (
+  specs: readonly VegaLiteSpec[],
+  theme: Theme
+): VegaLiteSpec => ({
   $schema: SCHEMA_URL,
   config: config(theme),
   hconcat: specs.map(({ $schema: _schema, config: _config, ...rest }) => rest),

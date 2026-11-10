@@ -1,7 +1,8 @@
-import { whenDefined } from "./object.ts";
 import { Schema } from "effect";
+
 import { locate } from "./errors.ts";
 import type { SourceFile } from "./errors.ts";
+import { whenDefined } from "./object.ts";
 
 export const PromptCompileErrorReason = {
   ConstantCondition: "ConstantCondition",
@@ -32,7 +33,7 @@ export class PromptCompileError extends Schema.TaggedError<PromptCompileError>()
     offset: Schema.Number,
     path: Schema.optionalKey(Schema.String),
     reason: Schema.Literals(Object.values(PromptCompileErrorReason)),
-  },
+  }
 ) {
   readonly code = "PROMPT_COMPILE";
 
@@ -45,7 +46,7 @@ export const compileError = (
   file: SourceFile,
   offset: number,
   reason: (typeof PromptCompileErrorReason)[keyof typeof PromptCompileErrorReason],
-  detail: string,
+  detail: string
 ) =>
   PromptCompileError.make({
     ...locate(file.text, offset),

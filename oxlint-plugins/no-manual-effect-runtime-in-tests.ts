@@ -1,5 +1,4 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
 
 const EFFECT_RUNTIME_METHODS = new Set([
@@ -26,8 +25,10 @@ const noManualEffectRuntime = defineRule({
         return;
       }
 
-      const isEffectRunner = object.name === "Effect" && EFFECT_RUNTIME_METHODS.has(property.name);
-      const isManagedRuntime = object.name === "ManagedRuntime" && property.name === "make";
+      const isEffectRunner =
+        object.name === "Effect" && EFFECT_RUNTIME_METHODS.has(property.name);
+      const isManagedRuntime =
+        object.name === "ManagedRuntime" && property.name === "make";
 
       if (isEffectRunner || isManagedRuntime) {
         context.report({ messageId: "noManualRuntime", node: callee });

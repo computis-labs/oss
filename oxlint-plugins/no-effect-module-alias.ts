@@ -1,11 +1,12 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
 
 const unaliasedModules = new Set(["Array", "Record", "String"]);
 
 const importedName = (specifier: ESTree.ImportSpecifier) =>
-  specifier.imported.type === "Identifier" ? specifier.imported.name : specifier.imported.value;
+  specifier.imported.type === "Identifier"
+    ? specifier.imported.name
+    : specifier.imported.value;
 
 const noEffectModuleAlias = defineRule({
   create: (context) => ({

@@ -1,9 +1,10 @@
 import { expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
+
+import { open } from "../src/index.ts";
 import { pdfEngineLayer } from "./fixtures/layer.ts";
 import { placedTextPdf } from "./fixtures/text.ts";
 import type { PlacedText } from "./fixtures/text.ts";
-import { open } from "../src/index.ts";
 
 const ROW_Y = 600;
 
@@ -30,7 +31,9 @@ const layoutLines = (cells: readonly PlacedText[]) =>
     const document = yield* open(placedTextPdf(cells));
     const [page] = yield* document.text({ layout: true });
 
-    return (page?.text ?? "").split("\n").map((line) => line.replaceAll(/\s+/gu, " ").trim());
+    return (page?.text ?? "")
+      .split("\n")
+      .map((line) => line.replaceAll(/\s+/gu, " ").trim());
   });
 
 layer(pdfEngineLayer)("text with layout", (it) => {
@@ -38,9 +41,11 @@ layer(pdfEngineLayer)("text with layout", (it) => {
     Effect.gen(function* () {
       const lines = yield* layoutLines([...header, ...tableRow]);
 
-      expect(lines.filter((line) => line.startsWith("101 "))).toStrictEqual([TABLE_LINE]);
+      expect(lines.filter((line) => line.startsWith("101 "))).toStrictEqual([
+        TABLE_LINE,
+      ]);
       expect(lines.slice(0, 2)).toStrictEqual(header.map(({ text }) => text));
-    }),
+    })
   );
 
   it.effect("spaces the cells of a row by the gap between them", () =>
@@ -49,20 +54,24 @@ layer(pdfEngineLayer)("text with layout", (it) => {
 
       const [page] = yield* document.text({ layout: true });
 
-      expect(page?.text).toMatch(/^101 {2,4}ARTICOLO DI PROVA {2,4}3 {2,4}12,00/u);
-    }),
+      expect(page?.text).toMatch(
+        /^101 {2,4}ARTICOLO DI PROVA {2,4}3 {2,4}12,00/u
+      );
+    })
   );
 
-  it.effect("does not chain a row into the next one through text of growing size", () =>
-    Effect.gen(function* () {
-      const lines = yield* layoutLines([
-        { size: 8, text: "ALFA", x: 40, y: 500 },
-        { size: 10, text: "BETA", x: 200, y: 497 },
-        { size: 12, text: "GAMMA", x: 400, y: 493 },
-      ]);
+  it.effect(
+    "does not chain a row into the next one through text of growing size",
+    () =>
+      Effect.gen(function* () {
+        const lines = yield* layoutLines([
+          { size: 8, text: "ALFA", x: 40, y: 500 },
+          { size: 10, text: "BETA", x: 200, y: 497 },
+          { size: 12, text: "GAMMA", x: 400, y: 493 },
+        ]);
 
-      expect(lines).toStrictEqual(["ALFA BETA", "GAMMA"]);
-    }),
+        expect(lines).toStrictEqual(["ALFA BETA", "GAMMA"]);
+      })
   );
 
   it.effect("keeps a word written in several pieces whole", () =>
@@ -72,7 +81,7 @@ layer(pdfEngineLayer)("text with layout", (it) => {
       ]);
 
       expect(lines).toStrictEqual(["FATTURA"]);
-    }),
+    })
   );
 
   it.effect("writes text drawn twice for a bold effect once", () =>
@@ -83,20 +92,22 @@ layer(pdfEngineLayer)("text with layout", (it) => {
       ]);
 
       expect(lines).toStrictEqual(["TOTALE"]);
-    }),
+    })
   );
 
-  it.effect("puts a rotated margin note after the rows without breaking them", () =>
-    Effect.gen(function* () {
-      const lines = yield* layoutLines([
-        ...header,
-        { rotated: true, text: "Nota a margine ruotata", x: 20, y: 300 },
-        ...tableRow,
-      ]);
+  it.effect(
+    "puts a rotated margin note after the rows without breaking them",
+    () =>
+      Effect.gen(function* () {
+        const lines = yield* layoutLines([
+          ...header,
+          { rotated: true, text: "Nota a margine ruotata", x: 20, y: 300 },
+          ...tableRow,
+        ]);
 
-      expect(lines.at(-1)).toBe("Nota a margine ruotata");
-      expect(lines).toContain(TABLE_LINE);
-    }),
+        expect(lines.at(-1)).toBe("Nota a margine ruotata");
+        expect(lines).toContain(TABLE_LINE);
+      })
   );
 
   it.effect("returns nothing for a page without text", () =>
@@ -104,6 +115,6 @@ layer(pdfEngineLayer)("text with layout", (it) => {
       const lines = yield* layoutLines([]);
 
       expect(lines).toStrictEqual([""]);
-    }),
+    })
   );
 });

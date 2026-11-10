@@ -7,7 +7,7 @@ export interface Variant<ROut, E = never, RIn = never> {
 
 export const make = <ROut, E, RIn>(
   name: string,
-  layer: Layer.Layer<ROut, E, RIn>,
+  layer: Layer.Layer<ROut, E, RIn>
 ): Variant<ROut, E, RIn> => ({ layer, name });
 
 export const none: Variant<never> = make("default", Layer.empty);
@@ -20,13 +20,18 @@ type Axes = Readonly<Record<string, readonly AnyVariant[]>>;
 
 type Chosen<A extends Axes> = A[keyof A][number];
 
-type Provided<V> = V extends Variant<infer ROut, unknown, unknown> ? ROut : never;
+type Provided<V> =
+  V extends Variant<infer ROut, unknown, unknown> ? ROut : never;
 
 type Failure<V> = V extends Variant<never, infer E, unknown> ? E : never;
 
 type Needed<V> = V extends Variant<never, unknown, infer RIn> ? RIn : never;
 
-type LackedBy<S, V> = V extends AnyVariant ? (S extends Provided<V> ? never : true) : never;
+type LackedBy<S, V> = V extends AnyVariant
+  ? S extends Provided<V>
+    ? never
+    : true
+  : never;
 
 type Common<V> =
   Provided<V> extends infer S
@@ -46,7 +51,7 @@ export type Combined<A extends Axes> = Variant<
 type Choice = readonly [axis: string, variant: AnyVariant];
 
 const combinations = (
-  axes: readonly (readonly [string, readonly AnyVariant[]])[],
+  axes: readonly (readonly [string, readonly AnyVariant[]])[]
 ): readonly (readonly Choice[])[] => {
   const [first, ...rest] = axes;
 
@@ -57,7 +62,7 @@ const combinations = (
   const tails = combinations(rest);
 
   return first[1].flatMap((variant) =>
-    tails.map((tail): readonly Choice[] => [[first[0], variant], ...tail]),
+    tails.map((tail): readonly Choice[] => [[first[0], variant], ...tail])
   );
 };
 
@@ -66,13 +71,15 @@ export const matrix = <const A extends Axes>(axes: A): readonly Combined<A>[] =>
     .filter(Array.isReadonlyArrayNonEmpty)
     .map((choices) => {
       const combined = make(
-        choices.map(([axis, variant]) => `${axis}=${variant.name}`).join(AXIS_SEPARATOR),
+        choices
+          .map(([axis, variant]) => `${axis}=${variant.name}`)
+          .join(AXIS_SEPARATOR),
         Layer.mergeAll(
           ...pipe(
             choices,
-            Array.map(([, variant]) => variant.layer),
-          ),
-        ),
+            Array.map(([, variant]) => variant.layer)
+          )
+        )
       );
 
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: each combination takes one variant of every axis, so its merged layer provides at least the services common to the alternatives of each axis, fails and needs at most what any of them does, which is what Combined<A> spells out.

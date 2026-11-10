@@ -11,7 +11,7 @@ export class ActionSummaryError extends Schema.TaggedError<ActionSummaryError>()
     cause: Schema.optionalKey(Schema.Defect()),
     description: Schema.optionalKey(Schema.String),
     reason: Schema.Literals(Object.values(ActionSummaryErrorReason)),
-  },
+  }
 ) {
   readonly code = "ACTION_SUMMARY";
 

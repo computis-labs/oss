@@ -1,4 +1,5 @@
 import { Option, Schema } from "effect";
+
 import { GateResultSchema } from "../events.ts";
 
 export class EvalGateFailed extends Schema.TaggedError<
@@ -16,9 +17,9 @@ export class EvalGateFailed extends Schema.TaggedError<
           `${result.variant}: ${result.gate}, got ${result.actual}${result.violations
             .map(
               (scored) =>
-                `\n  ${scored.case} ${scored.observation.key}: expected ${scored.observation.detail.expected}, got ${Option.getOrElse(scored.observation.failure, () => scored.observation.detail.actual)}`,
+                `\n  ${scored.case} ${scored.observation.key}: expected ${scored.observation.detail.expected}, got ${Option.getOrElse(scored.observation.failure, () => scored.observation.detail.actual)}`
             )
-            .join("")}`,
+            .join("")}`
       )
       .join("\n");
   }

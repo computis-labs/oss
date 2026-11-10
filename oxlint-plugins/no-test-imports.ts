@@ -1,12 +1,14 @@
 import path from "node:path";
+
 import { definePlugin, defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
-import { projectFor } from "./type-information.ts";
+
 import { isString } from "./predicates.ts";
+import { projectFor } from "./type-information.ts";
 
 const isTestSource = (filename: string) =>
   /(?:^|\/)(?:tests?|__tests__|e2e)(?:\/|$)|\.(?:test|spec|fixtures|stories)(?:\.[cm]?[jt]sx?)?$|(?:^|\/)test-(?:support|helpers|harness)(?:\.[cm]?[jt]sx?)?$/u.test(
-    filename,
+    filename
   );
 
 const noTestImports = defineRule({
@@ -21,12 +23,13 @@ const noTestImports = defineRule({
         const project = projectFor(context.physicalFilename);
         const symbol = project.checker.getSymbolAtPosition(
           context.physicalFilename,
-          source.end - 2,
+          source.end - 2
         );
         forbidden =
           symbol?.declarations.some(
             (declaration) =>
-              !declaration.path.includes("/node_modules/") && isTestSource(declaration.path),
+              !declaration.path.includes("/node_modules/") &&
+              isTestSource(declaration.path)
           ) ?? false;
       }
       if (forbidden) {
@@ -64,7 +67,10 @@ const noTestImports = defineRule({
     };
   },
   meta: {
-    docs: { description: "Keep test-only modules outside the production import graph." },
+    docs: {
+      description:
+        "Keep test-only modules outside the production import graph.",
+    },
     messages: {
       testImport:
         "Production code must not import test support. Move the production contract to its owning module.",

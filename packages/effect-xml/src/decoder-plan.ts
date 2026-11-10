@@ -26,7 +26,10 @@ export interface Frame {
   readonly value: { [key: string]: XmlValue };
 }
 
-export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node => {
+export const toNode = (
+  plan: ElementPlan,
+  nodes: Map<ElementPlan, Node>
+): Node => {
   const cached = nodes.get(plan);
 
   if (cached !== undefined) {
@@ -41,7 +44,8 @@ export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node =
     const many = child.arity === "many";
 
     const step: Step = {
-      element: child.node.kind === "element" ? toNode(child.node, nodes) : undefined,
+      element:
+        child.node.kind === "element" ? toNode(child.node, nodes) : undefined,
       index: child.index,
       many,
       name: child.name,
@@ -61,7 +65,7 @@ export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node =
     children,
     lists,
     required: plan.sequence.flatMap((child) =>
-      child.arity === "many" && !child.optional ? [child.name] : [],
+      child.arity === "many" && !child.optional ? [child.name] : []
     ),
     sequence,
   };
@@ -71,7 +75,11 @@ export const toNode = (plan: ElementPlan, nodes: Map<ElementPlan, Node>): Node =
   return node;
 };
 
-export const openFrame = (element: Node, child?: Step, parent?: Frame): Frame => ({
+export const openFrame = (
+  element: Node,
+  child?: Step,
+  parent?: Frame
+): Frame => ({
   child,
   element,
   lastIndex: -1,
@@ -96,4 +104,6 @@ export const store = (parent: Frame, child: Step, value: XmlValue) => {
 };
 
 export const segment = (child: Step, parent: Frame | undefined) =>
-  child.many ? `${child.name}[${String(parent?.lists?.[child.slot]?.length ?? 0)}]` : child.name;
+  child.many
+    ? `${child.name}[${String(parent?.lists?.[child.slot]?.length ?? 0)}]`
+    : child.name;

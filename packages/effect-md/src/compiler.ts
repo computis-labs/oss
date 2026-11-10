@@ -1,6 +1,6 @@
-import { lookup } from "./object.ts";
 import { Array, Effect, Match, Option, Path, Predicate, Result } from "effect";
 import { absurd } from "effect/Function";
+
 import {
   ComparisonOperators,
   DataVariables,
@@ -9,16 +9,20 @@ import {
   Roles,
 } from "./ast.ts";
 import type * as Ast from "./ast.ts";
-import { compileError, PromptCompileErrorReason as Reason } from "./compile-error.ts";
+import {
+  compileError,
+  PromptCompileErrorReason as Reason,
+} from "./compile-error.ts";
 import type { PromptCompileError } from "./compile-error.ts";
 import { didYouMean } from "./errors.ts";
 import type { SourceFile } from "./errors.ts";
+import { lookup } from "./object.ts";
 import { parse } from "./parser.ts";
 
 const posix = Effect.runSync(
   Effect.gen(function* posixPath() {
     return yield* Path.Path;
-  }).pipe(Effect.provide(Path.layer)),
+  }).pipe(Effect.provide(Path.layer))
 );
 
 type Compiled<A> = Result.Result<A, PromptCompileError>;
@@ -93,7 +97,7 @@ const fail = (
   ctx: Context,
   offset: number,
   reason: (typeof Reason)[keyof typeof Reason],
-  detail: string,
+  detail: string
 ) => Result.fail(compileError(ctx.file, offset, reason, detail));
 
 const flush = (emitter: Emitter) => {
@@ -117,7 +121,7 @@ const flush = (emitter: Emitter) => {
                   .replaceAll("${", "\\${")
                   .replaceAll("\n", "\\n")
                   .replaceAll("\r", "\\r")
-              : `\${${piece.value}}`,
+              : `\${${piece.value}}`
           )
           .join("")}\``;
 
@@ -177,9 +181,12 @@ const describeType = (node: Ast.TypeNode): string =>
   });
 
 const displayName = (value: Ast.ValueExpression) =>
-  Predicate.isTagged(value, "Data") ? `@${value.name}` : [value.root, ...value.segments].join(".");
+  Predicate.isTagged(value, "Data")
+    ? `@${value.name}`
+    : [value.root, ...value.segments].join(".");
 
-const isMissing = (binding: Binding) => binding.type.optional || binding.type.nullable;
+const isMissing = (binding: Binding) =>
+  binding.type.optional || binding.type.nullable;
 
 const withAlias = (ctx: Context, binding: Binding): Binding => {
   const alias = ctx.aliases.get(binding.expression);
@@ -204,7 +211,10 @@ const presenceChecks = (binding: Binding) => {
   ];
 };
 
-const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Binding> => {
+const resolveValue = (
+  ctx: Context,
+  value: Ast.ValueExpression
+): Compiled<Binding> => {
   if (Predicate.isTagged(value, "Data")) {
     const { loop } = ctx;
 
@@ -213,7 +223,7 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
         ctx,
         value.span.start,
         Reason.UnknownVariable,
-        `'@${value.name}' is only available inside '{{#each}}'.`,
+        `'@${value.name}' is only available inside '{{#each}}'.`
       );
     }
 
@@ -252,66 +262,80 @@ const resolveValue = (ctx: Context, value: Ast.ValueExpression): Compiled<Bindin
       ctx,
       value.span.start,
       Reason.UnknownVariable,
-      `Unknown variable '${value.root}'. Declare it under 'input' in the frontmatter.${didYouMean(value.root, ctx.scope.keys())}`,
+      `Unknown variable '${value.root}'. Declare it under 'input' in the frontmatter.${didYouMean(value.root, ctx.scope.keys())}`
     );
   }
 
   const resolvedRoot: Compiled<Binding> = Result.succeed(
-    withAlias(ctx, root ?? { expression: `$input.${value.root}`, type: present }),
+    withAlias(
+      ctx,
+      root ?? { expression: `$input.${value.root}`, type: present }
+    )
   );
 
-  return Array.reduce(value.segments, resolvedRoot, (resolved, segment, index) =>
-    resolved.pipe(
-      Result.flatMap((binding) => {
-        const { node } = binding.type;
-        const name = [value.root, ...value.segments.slice(0, index)].join(".");
+  return Array.reduce(
+    value.segments,
+    resolvedRoot,
+    (resolved, segment, index) =>
+      resolved.pipe(
+        Result.flatMap((binding) => {
+          const { node } = binding.type;
 
-        if (node === undefined) {
+          const name = [value.root, ...value.segments.slice(0, index)].join(
+            "."
+          );
+
+          if (node === undefined) {
+            return Result.succeed(
+              withAlias(ctx, {
+                expression: `${binding.expression}.${segment}`,
+                type: present,
+              })
+            );
+          }
+
+          if (isMissing(binding)) {
+            return fail(
+              ctx,
+              value.span.start,
+              Reason.MissingValue,
+              `'${name}' may be missing. Check it first with '{{#if ${name}}}'.`
+            );
+          }
+
+          if (!Predicate.isTagged(node, "Struct")) {
+            return fail(
+              ctx,
+              value.span.start,
+              Reason.NotAStruct,
+              `'${name}' is ${describeType(node)}, so it has no field '${segment}'.`
+            );
+          }
+
+          const field = node.fields.find(
+            (candidate) => candidate.name === segment
+          );
+
+          if (field === undefined) {
+            return fail(
+              ctx,
+              value.span.start,
+              Reason.UnknownField,
+              `'${name}' has no field '${segment}'.${didYouMean(
+                segment,
+                node.fields.map((candidate) => candidate.name)
+              )}`
+            );
+          }
+
           return Result.succeed(
-            withAlias(ctx, { expression: `${binding.expression}.${segment}`, type: present }),
+            withAlias(ctx, {
+              expression: `${binding.expression}.${segment}`,
+              type: normalizeType(field.type, field.optional),
+            })
           );
-        }
-
-        if (isMissing(binding)) {
-          return fail(
-            ctx,
-            value.span.start,
-            Reason.MissingValue,
-            `'${name}' may be missing. Check it first with '{{#if ${name}}}'.`,
-          );
-        }
-
-        if (!Predicate.isTagged(node, "Struct")) {
-          return fail(
-            ctx,
-            value.span.start,
-            Reason.NotAStruct,
-            `'${name}' is ${describeType(node)}, so it has no field '${segment}'.`,
-          );
-        }
-
-        const field = node.fields.find((candidate) => candidate.name === segment);
-
-        if (field === undefined) {
-          return fail(
-            ctx,
-            value.span.start,
-            Reason.UnknownField,
-            `'${name}' has no field '${segment}'.${didYouMean(
-              segment,
-              node.fields.map((candidate) => candidate.name),
-            )}`,
-          );
-        }
-
-        return Result.succeed(
-          withAlias(ctx, {
-            expression: `${binding.expression}.${segment}`,
-            type: normalizeType(field.type, field.optional),
-          }),
-        );
-      }),
-    ),
+        })
+      )
   );
 };
 
@@ -328,17 +352,20 @@ const kindChecks = {
     Predicate.isTagged(node, "Primitive") && node.name === PrimitiveTypes.File,
   printable: (node: Ast.TypeNode) =>
     Predicate.isTagged(node, "Literal") ||
-    (Predicate.isTagged(node, "Primitive") && printablePrimitives.has(node.name)),
+    (Predicate.isTagged(node, "Primitive") &&
+      printablePrimitives.has(node.name)),
   string: (node: Ast.TypeNode) =>
-    (Predicate.isTagged(node, "Primitive") && node.name === PrimitiveTypes.String) ||
-    (Predicate.isTagged(node, "Literal") && node.values.every(Predicate.isString)),
+    (Predicate.isTagged(node, "Primitive") &&
+      node.name === PrimitiveTypes.String) ||
+    (Predicate.isTagged(node, "Literal") &&
+      node.values.every(Predicate.isString)),
 };
 
 const requireValue = (
   ctx: Context,
   binding: Binding,
   value: Ast.ValueExpression,
-  kind: (typeof ValueKinds)[keyof typeof ValueKinds],
+  kind: (typeof ValueKinds)[keyof typeof ValueKinds]
 ): Compiled<Binding> => {
   const name = displayName(value);
 
@@ -347,7 +374,7 @@ const requireValue = (
       ctx,
       value.span.start,
       Reason.MissingValue,
-      `'${name}' may be missing. Check it first with '{{#if ${name}}}'.`,
+      `'${name}' may be missing. Check it first with '{{#if ${name}}}'.`
     );
   }
 
@@ -367,7 +394,7 @@ const requireValue = (
           File: " Use '{{file value}}' to attach it.",
           Json: " Use '{{json value}}' to print it as JSON.",
         },
-        primitiveType.name,
+        primitiveType.name
       ) ?? "",
     Struct: () => " Use '{{json value}}' to print it as JSON.",
   });
@@ -383,13 +410,13 @@ const requireValue = (
         printable: "a String, a Number, a Boolean or a Literal",
         string: "a String",
       }[kind]
-    } is expected here.${hint}`,
+    } is expected here.${hint}`
   );
 };
 
 const emitCondition = (
   ctx: Context,
-  condition: Ast.Condition,
+  condition: Ast.Condition
 ): Compiled<{
   readonly code: string;
   readonly constant: boolean | null;
@@ -434,7 +461,7 @@ const emitCondition = (
                     Number: Predicate.isNumber,
                     String: Predicate.isString,
                   },
-                  primitiveType.name,
+                  primitiveType.name
                 )?.(literal) ?? false,
               Struct: () => false,
             });
@@ -444,7 +471,7 @@ const emitCondition = (
               ctx,
               compare.right.span.start,
               Reason.LiteralMismatch,
-              `'${displayName(compare.left)}' is ${describeType(node)}, so it is never ${JSON.stringify(literal)}.`,
+              `'${displayName(compare.left)}' is ${describeType(node)}, so it is never ${JSON.stringify(literal)}.`
             );
           }
 
@@ -467,7 +494,7 @@ const emitCondition = (
             ctx,
             compare.right.span.start,
             Reason.ConstantCondition,
-            `'${displayName(compare.left)}' is never null, so this condition is always ${equals ? "false" : "true"}.`,
+            `'${displayName(compare.left)}' is never null, so this condition is always ${equals ? "false" : "true"}.`
           );
         }
 
@@ -478,7 +505,10 @@ const emitCondition = (
           code: equals ? absent.join(" || ") : checks.join(" && "),
           constant: null,
           cost: checks.length - 1,
-          negated: !equals && checks.length === 1 && single !== undefined ? single : null,
+          negated:
+            !equals && checks.length === 1 && single !== undefined
+              ? single
+              : null,
           whenFalse: equals ? narrows : [],
           whenTrue: equals ? [] : narrows,
         };
@@ -503,7 +533,12 @@ const emitCondition = (
 
           return {
             code: "",
-            constant: !(value === null || value === false || value === 0 || value === ""),
+            constant: !(
+              value === null ||
+              value === false ||
+              value === 0 ||
+              value === ""
+            ),
             cost: 0,
             negated: null,
             whenFalse: [],
@@ -520,8 +555,14 @@ const emitCondition = (
                   literalType.values.every(Predicate.isBoolean)
                     ? [expression]
                     : literalType.values
-                        .filter((value) => value === false || value === 0 || value === "")
-                        .map((value) => `${expression} !== ${JSON.stringify(value)}`),
+                        .filter(
+                          (value) =>
+                            value === false || value === 0 || value === ""
+                        )
+                        .map(
+                          (value) =>
+                            `${expression} !== ${JSON.stringify(value)}`
+                        ),
                 NullOr: () => [],
                 Primitive: (primitiveType) => {
                   const fill = lookup(
@@ -531,7 +572,7 @@ const emitCondition = (
                       Number: (operand: string) => `${operand} !== 0`,
                       String: (operand: string) => `${operand} !== ""`,
                     },
-                    primitiveType.name,
+                    primitiveType.name
                   );
 
                   return fill === undefined ? [] : [fill(expression)];
@@ -546,7 +587,7 @@ const emitCondition = (
             ctx,
             truthy.value.span.start,
             Reason.ConstantCondition,
-            `'${displayName(truthy.value)}' is always present, so this condition is always true.`,
+            `'${displayName(truthy.value)}' is always present, so this condition is always true.`
           );
         }
 
@@ -557,7 +598,9 @@ const emitCondition = (
           constant: null,
           cost: checks.length - 1,
           negated:
-            checks.length === 1 && single !== undefined && single.includes(" !== ")
+            checks.length === 1 &&
+            single !== undefined &&
+            single.includes(" !== ")
               ? single.replace(" !== ", " === ")
               : null,
           whenFalse: [],
@@ -571,7 +614,7 @@ const hashLiteral = (
   helper: Extract<Ast.Node, { readonly _tag: "Helper" }>,
   allowed: string | null,
   accepts: (value: Ast.LiteralValue) => boolean,
-  expected: string,
+  expected: string
 ): Compiled<string> => {
   const unknown = helper.hash.find((argument) => argument.name !== allowed);
 
@@ -580,7 +623,7 @@ const hashLiteral = (
       ctx,
       unknown.span.start,
       Reason.InvalidHelperArgument,
-      `'{{${helper.name}}}' does not accept '${unknown.name}'.${allowed === null ? "" : ` It accepts only '${allowed}'.`}`,
+      `'{{${helper.name}}}' does not accept '${unknown.name}'.${allowed === null ? "" : ` It accepts only '${allowed}'.`}`
     );
   }
 
@@ -590,17 +633,22 @@ const hashLiteral = (
     return Result.succeed("");
   }
 
-  return Predicate.isTagged(option.value, "Literal") && accepts(option.value.value)
+  return Predicate.isTagged(option.value, "Literal") &&
+    accepts(option.value.value)
     ? Result.succeed(`, ${JSON.stringify(option.value.value)}`)
     : fail(
         ctx,
         option.span.start,
         Reason.InvalidHelperArgument,
-        `'${option.name}' must be ${expected}.`,
+        `'${option.name}' must be ${expected}.`
       );
 };
 
-const declareAliases = (ctx: Context, emitter: Emitter, expressions: readonly string[]) => {
+const declareAliases = (
+  ctx: Context,
+  emitter: Emitter,
+  expressions: readonly string[]
+) => {
   const aliases = new Map(ctx.aliases);
   const declared: { readonly name: string; readonly line: number }[] = [];
 
@@ -616,7 +664,7 @@ const declareAliases = (ctx: Context, emitter: Emitter, expressions: readonly st
 
 const pruneAliases = (
   emitter: Emitter,
-  declared: readonly { readonly name: string; readonly line: number }[],
+  declared: readonly { readonly name: string; readonly line: number }[]
 ) => {
   flush(emitter);
 
@@ -629,7 +677,10 @@ const pruneAliases = (
   }
 };
 
-const splitWhenComplex = (emitter: Emitter, emit: () => Compiled<null>): Compiled<null> => {
+const splitWhenComplex = (
+  emitter: Emitter,
+  emit: () => Compiled<null>
+): Compiled<null> => {
   if (emitter.frame.complexity < complexityBudget) {
     return emit();
   }
@@ -646,7 +697,11 @@ const splitWhenComplex = (emitter: Emitter, emit: () => Compiled<null>): Compile
   return result;
 };
 
-const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): Compiled<null> =>
+const emitNodes = (
+  ctx: Context,
+  emitter: Emitter,
+  nodes: readonly Ast.Node[]
+): Compiled<null> =>
   Result.gen(function* nodesProgram() {
     for (const node of nodes) {
       yield* Match.valueTags(node, {
@@ -654,7 +709,14 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
           splitWhenComplex(emitter, () =>
             Result.gen(function* eachProgram() {
               const found = yield* resolveValue(ctx, each.iterable);
-              const iterable = yield* requireValue(ctx, found, each.iterable, ValueKinds.array);
+
+              const iterable = yield* requireValue(
+                ctx,
+                found,
+                each.iterable,
+                ValueKinds.array
+              );
+
               const id = fresh(emitter.counter);
               const items = `$xs${id}`;
               const index = `$i${id}`;
@@ -675,7 +737,8 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
               const iterableNode = iterable.type.node;
 
               const element =
-                iterableNode !== undefined && Predicate.isTagged(iterableNode, "Array")
+                iterableNode !== undefined &&
+                Predicate.isTagged(iterableNode, "Array")
                   ? normalizeType(iterableNode.element, false)
                   : present;
 
@@ -689,7 +752,11 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 });
               }
 
-              yield* emitNodes({ ...ctx, loop: { index, items }, scope }, emitter, each.body);
+              yield* emitNodes(
+                { ...ctx, loop: { index, items }, scope },
+                emitter,
+                each.body
+              );
               close(emitter, "}");
               const body = emitter.lines.slice(header + 1).join("\n");
               const usesItem = usesIdentifier(body, item);
@@ -699,14 +766,15 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 ? `const [${index}, ${item}] of ${items}.entries()`
                 : `const ${item} of ${items}`;
 
-              emitter.lines[header] = `${headerIndent}for (${usesItem ? iterating : counting}) {`;
+              emitter.lines[header] =
+                `${headerIndent}for (${usesItem ? iterating : counting}) {`;
 
               if (each.alternate.length > 0) {
                 close(emitter, "}");
               }
 
               return null;
-            }),
+            })
           ),
         Helper: (helper) =>
           Result.gen(function* helperProgram() {
@@ -717,7 +785,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 ctx,
                 helper.span.start,
                 Reason.UnknownHelper,
-                `Unknown helper '${helper.name}'. Use 'untrusted', 'json' or 'file'.${didYouMean(helper.name, helperNames)}`,
+                `Unknown helper '${helper.name}'. Use 'untrusted', 'json' or 'file'.${didYouMean(helper.name, helperNames)}`
               );
             }
 
@@ -730,7 +798,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 ctx,
                 helper.span.start,
                 Reason.InvalidHelperArgument,
-                `'{{${helper.name}}}' takes one variable, for example '{{${helper.name} value}}'.`,
+                `'{{${helper.name}}}' takes one variable, for example '{{${helper.name} value}}'.`
               );
             }
 
@@ -743,7 +811,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                   helper,
                   "indent",
                   Predicate.isNumber,
-                  "a number",
+                  "a number"
                 );
 
                 emitter.pieces.push({
@@ -755,14 +823,19 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
               }
 
               case Helpers.untrusted: {
-                const text = yield* requireValue(ctx, binding, argument, ValueKinds.string);
+                const text = yield* requireValue(
+                  ctx,
+                  binding,
+                  argument,
+                  ValueKinds.string
+                );
 
                 const lang = yield* hashLiteral(
                   ctx,
                   helper,
                   "lang",
                   Predicate.isString,
-                  "a string",
+                  "a string"
                 );
 
                 emitter.pieces.push({
@@ -774,21 +847,33 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
               }
 
               default: {
-                yield* hashLiteral(ctx, helper, null, Predicate.isString, "nothing");
-                const attachment = yield* requireValue(ctx, binding, argument, ValueKinds.file);
+                yield* hashLiteral(
+                  ctx,
+                  helper,
+                  null,
+                  Predicate.isString,
+                  "nothing"
+                );
+
+                const attachment = yield* requireValue(
+                  ctx,
+                  binding,
+                  argument,
+                  ValueKinds.file
+                );
 
                 if (ctx.parts === null) {
                   return yield* fail(
                     ctx,
                     helper.span.start,
                     Reason.FileNotAllowed,
-                    ctx.fileBlocked,
+                    ctx.fileBlocked
                   );
                 }
 
                 statement(
                   emitter,
-                  `${ctx.parts}.push($t, Runtime.file(${attachment.expression}));`,
+                  `${ctx.parts}.push($t, Runtime.file(${attachment.expression}));`
                 );
                 statement(emitter, `$t = "";`);
 
@@ -801,7 +886,9 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
             Result.gen(function* ifProgram() {
               const evaluated: {
                 readonly body: readonly Ast.Node[];
-                readonly condition: Result.Result.Success<ReturnType<typeof emitCondition>>;
+                readonly condition: Result.Result.Success<
+                  ReturnType<typeof emitCondition>
+                >;
               }[] = [];
 
               for (const branch of block.branches) {
@@ -813,11 +900,13 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 }
               }
 
-              const branches = evaluated.filter(({ condition }) => condition.constant === null);
+              const branches = evaluated.filter(
+                ({ condition }) => condition.constant === null
+              );
 
               const alternate =
-                evaluated.find(({ condition }) => condition.constant === true)?.body ??
-                block.alternate;
+                evaluated.find(({ condition }) => condition.constant === true)
+                  ?.body ?? block.alternate;
 
               if (branches.length === 0) {
                 return yield* emitNodes(ctx, emitter, alternate);
@@ -830,12 +919,16 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
 
               const swapped = Option.filter(
                 Option.fromNullishOr(branches.at(-1)),
-                (branch) => alternate.length > 0 && branch.condition.negated !== null,
+                (branch) =>
+                  alternate.length > 0 && branch.condition.negated !== null
               );
 
               for (const [index, { body, condition }] of branches.entries()) {
                 const swap = index === last && Option.isSome(swapped);
-                const code = (swap ? condition.negated : null) ?? condition.code;
+
+                const code =
+                  (swap ? condition.negated : null) ?? condition.code;
+
                 emitter.frame.complexity += 1 + condition.cost;
 
                 if (index === 0) {
@@ -849,7 +942,11 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                   ...(swap ? condition.whenFalse : condition.whenTrue),
                 ]);
 
-                yield* emitNodes(narrowed.ctx, emitter, swap ? alternate : body);
+                yield* emitNodes(
+                  narrowed.ctx,
+                  emitter,
+                  swap ? alternate : body
+                );
                 pruneAliases(emitter, narrowed.declared);
 
                 if (!swap) {
@@ -859,12 +956,20 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
 
               const otherwise = Option.match(swapped, {
                 onNone: () => ({ body: alternate, narrows: [] }),
-                onSome: (branch) => ({ body: branch.body, narrows: branch.condition.whenTrue }),
+                onSome: (branch) => ({
+                  body: branch.body,
+                  narrows: branch.condition.whenTrue,
+                }),
               });
 
               if (otherwise.body.length > 0) {
                 reopen(emitter, "} else {");
-                const narrowed = declareAliases(ctx, emitter, [...falsy, ...otherwise.narrows]);
+
+                const narrowed = declareAliases(ctx, emitter, [
+                  ...falsy,
+                  ...otherwise.narrows,
+                ]);
+
                 yield* emitNodes(narrowed.ctx, emitter, otherwise.body);
                 pruneAliases(emitter, narrowed.declared);
               }
@@ -875,21 +980,31 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
 
               const ternary = joined.replace(
                 ternaryPattern,
-                "$<indent>$$t += $<condition> ? $<whenTrue> : $<whenFalse>;",
+                "$<indent>$$t += $<condition> ? $<whenTrue> : $<whenFalse>;"
               );
 
-              if (ternary !== joined && !collapsible.some((line) => emitter.ternaries.has(line))) {
+              if (
+                ternary !== joined &&
+                !collapsible.some((line) => emitter.ternaries.has(line))
+              ) {
                 emitter.lines.splice(start, collapsible.length, ternary);
                 emitter.ternaries.add(ternary);
               }
 
               return null;
-            }),
+            })
           ),
         Output: (output) =>
           Result.gen(function* outputProgram() {
             const found = yield* resolveValue(ctx, output.value);
-            const binding = yield* requireValue(ctx, found, output.value, ValueKinds.printable);
+
+            const binding = yield* requireValue(
+              ctx,
+              found,
+              output.value,
+              ValueKinds.printable
+            );
+
             const outputNode = binding.type.node;
 
             const isString =
@@ -899,7 +1014,9 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
 
             emitter.pieces.push({
               isStatic: false,
-              value: isString ? binding.expression : `Runtime.show(${binding.expression})`,
+              value: isString
+                ? binding.expression
+                : `Runtime.show(${binding.expression})`,
             });
 
             return null;
@@ -911,14 +1028,14 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
 
             if (included === undefined) {
               const partials = [...ctx.documents.keys()].filter(
-                (path) => !path.endsWith(promptSuffix),
+                (path) => !path.endsWith(promptSuffix)
               );
 
               return yield* fail(
                 ctx,
                 partial.span.start,
                 Reason.MissingPartial,
-                `The partial '${partial.source}' does not exist (looked for '${target}').${didYouMean(target, partials)}`,
+                `The partial '${partial.source}' does not exist (looked for '${target}').${didYouMean(target, partials)}`
               );
             }
 
@@ -927,7 +1044,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 ctx,
                 partial.span.start,
                 Reason.CyclicPartial,
-                `The partials include each other: ${[...ctx.includes, target].join(" → ")}.`,
+                `The partials include each other: ${[...ctx.includes, target].join(" → ")}.`
               );
             }
 
@@ -938,7 +1055,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 ctx,
                 partial.span.start,
                 Reason.InvalidPartial,
-                `The partial '${partial.source}' uses role tags. Only prompt files can use '<system>', '<user>' and '<assistant>'.`,
+                `The partial '${partial.source}' uses role tags. Only prompt files can use '<system>', '<user>' and '<assistant>'.`
               );
             }
 
@@ -957,7 +1074,11 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                       ? { nullable: true, optional: false }
                       : {
                           ...present,
-                          node: { _tag: "Literal", span: value.span, values: [literal] },
+                          node: {
+                            _tag: "Literal",
+                            span: value.span,
+                            values: [literal],
+                          },
                         },
                 });
               } else {
@@ -968,8 +1089,12 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
             const input = frontmatter?.input;
 
             const needed =
-              input !== undefined && Predicate.isTagged(input, "Inline") && !ctx.dynamicInput
-                ? input.type.fields.find((field) => !field.optional && !scope.has(field.name))
+              input !== undefined &&
+              Predicate.isTagged(input, "Inline") &&
+              !ctx.dynamicInput
+                ? input.type.fields.find(
+                    (field) => !field.optional && !scope.has(field.name)
+                  )
                 : undefined;
 
             if (needed !== undefined) {
@@ -977,7 +1102,7 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
                 ctx,
                 partial.span.start,
                 Reason.MissingPartialInput,
-                `The partial '${partial.source}' needs '${needed.name}'. Pass it with '{{> ${partial.source} ${needed.name}=...}}'.`,
+                `The partial '${partial.source}' needs '${needed.name}'. Pass it with '{{> ${partial.source} ${needed.name}=...}}'.`
               );
             }
 
@@ -999,15 +1124,16 @@ const emitNodes = (ctx: Context, emitter: Emitter, nodes: readonly Ast.Node[]): 
             yield* emitNodes(
               {
                 ...inner,
-                fileBlocked: "'{{file}}' cannot be used in an indented partial.",
+                fileBlocked:
+                  "'{{file}}' cannot be used in an indented partial.",
                 parts: null,
               },
               emitter,
-              body.nodes,
+              body.nodes
             );
             statement(
               emitter,
-              `$t = \`\${${saved}}\${Runtime.indent($t, ${JSON.stringify(partial.indent)})}\`;`,
+              `$t = \`\${${saved}}\${Runtime.indent($t, ${JSON.stringify(partial.indent)})}\`;`
             );
 
             return null;
@@ -1032,7 +1158,9 @@ const schemaCode = (node: Ast.TypeNode): string =>
         : `Schema.Literals([${literal.values.map((value) => JSON.stringify(value)).join(", ")}])`,
     NullOr: (nullable) => `Schema.NullOr(${schemaCode(nullable.type)})`,
     Primitive: (primitiveType) =>
-      primitiveType.name === PrimitiveTypes.File ? "Runtime.File" : `Schema.${primitiveType.name}`,
+      primitiveType.name === PrimitiveTypes.File
+        ? "Runtime.File"
+        : `Schema.${primitiveType.name}`,
     Struct: (struct) =>
       `Schema.Struct({ ${struct.fields
         .toSorted((left, right) => (left.name < right.name ? -1 : 1))
@@ -1046,23 +1174,30 @@ const schemaCode = (node: Ast.TypeNode): string =>
 
 export const compile = (
   sources: readonly { readonly path: string; readonly text: string }[],
-  options: { readonly runtime?: string; readonly displayPath?: (path: string) => string } = {},
+  options: {
+    readonly runtime?: string;
+    readonly displayPath?: (path: string) => string;
+  } = {}
 ) =>
   Effect.gen(function* compileProgram() {
     const parsed = yield* Effect.all(
       sources.map((source) => {
         const path = posix.normalize(source.path);
-        const file: SourceFile = { path: options.displayPath?.(path) ?? path, text: source.text };
+
+        const file: SourceFile = {
+          path: options.displayPath?.(path) ?? path,
+          text: source.text,
+        };
 
         return Effect.map(
           parse(source.text, { path: file.path ?? path }),
-          (document) => [path, { document, file }] as const,
+          (document) => [path, { document, file }] as const
         );
-      }),
+      })
     );
 
     const documents: ReadonlyMap<string, SourceDocument> = new Map(
-      parsed.toSorted(([left], [right]) => (left < right ? -1 : 1)),
+      parsed.toSorted(([left], [right]) => (left < right ? -1 : 1))
     );
 
     const runtime = options.runtime ?? defaultRuntime;
@@ -1073,9 +1208,16 @@ export const compile = (
         const hoisted: string[] = [];
         const imports: string[] = [];
         const names = new Set<string>();
-        const leaves: { readonly keys: readonly string[]; readonly code: string }[] = [];
 
-        const compilePrompt = (path: string, source: SourceDocument): Compiled<string> =>
+        const leaves: {
+          readonly keys: readonly string[];
+          readonly code: string;
+        }[] = [];
+
+        const compilePrompt = (
+          path: string,
+          source: SourceDocument
+        ): Compiled<string> =>
           Result.gen(function* promptProgram() {
             const { document, file } = source;
             const input = document.frontmatter?.input;
@@ -1085,7 +1227,8 @@ export const compile = (
               documents,
               dynamicInput: false,
               file,
-              fileBlocked: "Files are allowed only in '<user>' and '<assistant>' messages.",
+              fileBlocked:
+                "Files are allowed only in '<user>' and '<assistant>' messages.",
               includes: new Set([path]),
               loop: null,
               parts: null,
@@ -1094,8 +1237,14 @@ export const compile = (
             };
 
             const { ctx, inputCode } = Match.value(input).pipe(
-              Match.withReturnType<{ readonly ctx: Context; readonly inputCode: string }>(),
-              Match.when(Match.undefined, () => ({ ctx: base, inputCode: "Schema.Void" })),
+              Match.withReturnType<{
+                readonly ctx: Context;
+                readonly inputCode: string;
+              }>(),
+              Match.when(Match.undefined, () => ({
+                ctx: base,
+                inputCode: "Schema.Void",
+              })),
               Match.tag("Inline", (inline) => ({
                 ctx: {
                   ...base,
@@ -1106,7 +1255,7 @@ export const compile = (
                         expression: `$input.${field.name}`,
                         type: normalizeType(field.type, field.optional),
                       },
-                    ]),
+                    ])
                   ),
                 },
                 inputCode: schemaCode(inline.type),
@@ -1119,15 +1268,21 @@ export const compile = (
                   : reference.module;
 
                 imports.push(
-                  `import { ${reference.exportName} as ${schemaName} } from ${JSON.stringify(module)};`,
+                  `import { ${reference.exportName} as ${schemaName} } from ${JSON.stringify(module)};`
                 );
 
-                return { ctx: { ...base, dynamicInput: true }, inputCode: schemaName };
+                return {
+                  ctx: { ...base, dynamicInput: true },
+                  inputCode: schemaName,
+                };
               }),
-              Match.exhaustive,
+              Match.exhaustive
             );
 
-            const messages: readonly Ast.Message[] = Predicate.isTagged(document.body, "Fragment")
+            const messages: readonly Ast.Message[] = Predicate.isTagged(
+              document.body,
+              "Fragment"
+            )
               ? [
                   {
                     body: document.body.nodes,
@@ -1141,7 +1296,10 @@ export const compile = (
             const staticMessages: string[] = [];
             const frame = { complexity: 1 };
 
-            const emitMessage = (message: Ast.Message, index: number): Compiled<null> =>
+            const emitMessage = (
+              message: Ast.Message,
+              index: number
+            ): Compiled<null> =>
               Result.gen(function* messageProgram() {
                 const emitter: Emitter = {
                   counter,
@@ -1152,7 +1310,9 @@ export const compile = (
                   ternaries: new Set(),
                 };
 
-                const parts = message.role === Roles.system ? null : `$p${fresh(counter)}`;
+                const parts =
+                  message.role === Roles.system ? null : `$p${fresh(counter)}`;
+
                 yield* emitNodes({ ...ctx, parts }, emitter, message.body);
 
                 const builder = {
@@ -1161,11 +1321,17 @@ export const compile = (
                   user: "Runtime.user",
                 }[message.role];
 
-                if (emitter.lines.length === 0 && emitter.pieces.every((piece) => piece.isStatic)) {
-                  const text = JSON.stringify(emitter.pieces.map((piece) => piece.value).join(""));
+                if (
+                  emitter.lines.length === 0 &&
+                  emitter.pieces.every((piece) => piece.isStatic)
+                ) {
+                  const text = JSON.stringify(
+                    emitter.pieces.map((piece) => piece.value).join("")
+                  );
+
                   const name = `$m${fresh(counter)}`;
                   hoisted.push(
-                    `const ${name} = ${builder}(${parts === null ? text : `[${text}]`});`,
+                    `const ${name} = ${builder}(${parts === null ? text : `[${text}]`});`
                   );
                   staticMessages.push(name);
                   renderLines.push(`    $messages.push(${name});`);
@@ -1180,7 +1346,10 @@ export const compile = (
                 }
 
                 if (parts === null) {
-                  renderLines.push(...emitter.lines, `    $messages.push(${builder}($t));`);
+                  renderLines.push(
+                    ...emitter.lines,
+                    `    $messages.push(${builder}($t));`
+                  );
 
                   return null;
                 }
@@ -1189,7 +1358,7 @@ export const compile = (
                   `    const ${parts}: Runtime.Part[] = [];`,
                   ...emitter.lines,
                   `    ${parts}.push($t);`,
-                  `    $messages.push(${builder}(${parts}));`,
+                  `    $messages.push(${builder}(${parts}));`
                 );
 
                 return null;
@@ -1200,11 +1369,13 @@ export const compile = (
             }
 
             const staticPrompt =
-              staticMessages.length < messages.length ? undefined : `$prompt${fresh(counter)}`;
+              staticMessages.length < messages.length
+                ? undefined
+                : `$prompt${fresh(counter)}`;
 
             if (staticPrompt !== undefined) {
               hoisted.push(
-                `const ${staticPrompt} = Prompt.fromMessages([${staticMessages.join(", ")}]);`,
+                `const ${staticPrompt} = Prompt.fromMessages([${staticMessages.join(", ")}]);`
               );
             }
 
@@ -1219,7 +1390,9 @@ export const compile = (
             const description = document.frontmatter?.description;
 
             const fields = [
-              ...(description === undefined ? [] : [`description: ${JSON.stringify(description)}`]),
+              ...(description === undefined
+                ? []
+                : [`description: ${JSON.stringify(description)}`]),
               `input: ${inputCode}`,
               `name: ${JSON.stringify(path.slice(0, -promptSuffix.length))}`,
               `render: ${render}`,
@@ -1237,9 +1410,10 @@ export const compile = (
             .slice(0, -promptSuffix.length)
             .split("/")
             .map((segment) =>
-              segment.replaceAll(/[-_.](?<char>[A-Za-z0-9])/gu, (_, char: string) =>
-                char.toUpperCase(),
-              ),
+              segment.replaceAll(
+                /[-_.](?<char>[A-Za-z0-9])/gu,
+                (_, char: string) => char.toUpperCase()
+              )
             );
 
           const invalid = keys.find((key) => !identifierPattern.test(key));
@@ -1250,15 +1424,18 @@ export const compile = (
                 source.file,
                 0,
                 Reason.InvalidPromptName,
-                `The path '${path}' does not give a valid name: '${invalid}'. Use letters, digits and '-' in file and folder names, and do not start with a digit.`,
-              ),
+                `The path '${path}' does not give a valid name: '${invalid}'. Use letters, digits and '-' in file and folder names, and do not start with a digit.`
+              )
             );
           }
 
           const key = keys.join(".");
 
           const clashes = [...names].some(
-            (other) => other === key || other.startsWith(`${key}.`) || key.startsWith(`${other}.`),
+            (other) =>
+              other === key ||
+              other.startsWith(`${key}.`) ||
+              key.startsWith(`${other}.`)
           );
 
           if (clashes) {
@@ -1267,8 +1444,8 @@ export const compile = (
                 source.file,
                 0,
                 Reason.DuplicatePromptName,
-                `Another prompt already uses the name '${key}'.`,
-              ),
+                `Another prompt already uses the name '${key}'.`
+              )
             );
           }
 
@@ -1276,20 +1453,33 @@ export const compile = (
           leaves.push({ code: yield* compilePrompt(path, source), keys });
         }
 
-        const renderTree = (prefix: readonly string[], depth: number): string => {
+        const renderTree = (
+          prefix: readonly string[],
+          depth: number
+        ): string => {
           const indent = "  ".repeat(depth);
           const entries = new Map<string, string>();
 
           for (const leaf of leaves) {
             const next = leaf.keys[prefix.length];
-            const matches = prefix.every((key, index) => leaf.keys[index] === key);
 
-            if (matches && next !== undefined && leaf.keys.length === prefix.length + 1) {
-              entries.set(next, `${indent}${next}: ${leaf.code.replaceAll("\n", `\n${indent}`)},`);
+            const matches = prefix.every(
+              (key, index) => leaf.keys[index] === key
+            );
+
+            if (
+              matches &&
+              next !== undefined &&
+              leaf.keys.length === prefix.length + 1
+            ) {
+              entries.set(
+                next,
+                `${indent}${next}: ${leaf.code.replaceAll("\n", `\n${indent}`)},`
+              );
             } else if (matches && next !== undefined && !entries.has(next)) {
               entries.set(
                 next,
-                `${indent}${next}: {\n${renderTree([...prefix, next], depth + 1)}\n${indent}},`,
+                `${indent}${next}: {\n${renderTree([...prefix, next], depth + 1)}\n${indent}},`
               );
             }
           }
@@ -1300,19 +1490,25 @@ export const compile = (
             .join("\n");
         };
 
-        const body = [...hoisted, "", `export const prompts = {\n${renderTree([], 1)}\n};`].join(
-          "\n",
-        );
+        const body = [
+          ...hoisted,
+          "",
+          `export const prompts = {\n${renderTree([], 1)}\n};`,
+        ].join("\n");
 
         const header = [
           "// This file is generated by @computis/effect-md. Do not edit it.",
-          ...(body.includes("Schema.") ? [`import { Schema } from "effect";`] : []),
-          ...(body.includes("Prompt.") ? [`import { Prompt } from "effect/ai";`] : []),
+          ...(body.includes("Schema.")
+            ? [`import { Schema } from "effect";`]
+            : []),
+          ...(body.includes("Prompt.")
+            ? [`import { Prompt } from "effect/ai";`]
+            : []),
           `import * as Runtime from ${JSON.stringify(runtime)};`,
           ...imports,
         ];
 
         return `${header.join("\n")}\n\n${body}\n`;
-      }),
+      })
     );
   });

@@ -21,9 +21,12 @@ export const canonical = (value: Schema.Json): string => {
 
 export const sha256 = (text: string) =>
   Effect.promise(
-    async () => await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
+    async () =>
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))
   ).pipe(
     Effect.map((buffer) =>
-      Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join(""),
-    ),
+      Array.from(new Uint8Array(buffer), (byte) =>
+        byte.toString(16).padStart(2, "0")
+      ).join("")
+    )
   );

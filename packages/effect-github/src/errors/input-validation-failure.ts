@@ -15,7 +15,7 @@ export class InputValidationFailure extends Schema.TaggedError<InputValidationFa
     message: Schema.String,
     reason: Schema.Literals(Object.values(InputValidationFailureReason)),
     value: Schema.String,
-  },
+  }
 ) {
   readonly code = "INPUT_VALIDATION_FAILURE";
 

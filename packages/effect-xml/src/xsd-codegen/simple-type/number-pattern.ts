@@ -18,7 +18,11 @@ const tokens = (node: RegexNode): string => {
     return node.items.map(tokens).join("");
   }
 
-  const { max, min, node: item } = node.kind === "repeat" ? node : { max: 1, min: 1, node };
+  const {
+    max,
+    min,
+    node: item,
+  } = node.kind === "repeat" ? node : { max: 1, min: 1, node };
 
   if (isWithin(item, DIGITS)) {
     return min >= 1 ? "d" : "o";
@@ -40,7 +44,10 @@ const tokens = (node: RegexNode): string => {
  * xs:decimal when `fraction` is true. The pattern is read as tokens: `s` sign, `d` required digits,
  * `o` optional digits, `.` dot, `f` optional fraction group, `x` anything else.
  */
-export const impliesNumberLexical = (node: RegexNode, fraction: boolean): boolean =>
+export const impliesNumberLexical = (
+  node: RegexNode,
+  fraction: boolean
+): boolean =>
   node.kind === "choice"
     ? node.branches.every((branch) => impliesNumberLexical(branch, fraction))
     : (fraction ? DECIMAL_TOKENS : INTEGER_TOKENS).test(tokens(node));

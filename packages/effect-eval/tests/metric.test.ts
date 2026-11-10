@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Option } from "effect";
+
 import * as Agreement from "../src/agreement.ts";
 import * as Metric from "../src/metric.ts";
 import * as Observation from "../src/observation.ts";
@@ -7,7 +8,8 @@ import { actualStates, expectedStates } from "../src/observation.ts";
 
 const detail = { actual: "", expected: "" };
 
-const right = (key: string) => Observation.compared({ agreement: Agreement.exact, detail, key });
+const right = (key: string) =>
+  Observation.compared({ agreement: Agreement.exact, detail, key });
 
 const wrong = (key: string) =>
   Observation.compared({ agreement: Agreement.different, detail, key });
@@ -16,25 +18,49 @@ const partial = (key: string, score: number) =>
   Observation.compared({ agreement: Agreement.partial(score), detail, key });
 
 const missed = (key: string) =>
-  Observation.make({ actual: actualStates.absent, detail, expected: expectedStates.present, key });
+  Observation.make({
+    actual: actualStates.absent,
+    detail,
+    expected: expectedStates.present,
+    key,
+  });
 
 const abstained = (key: string) =>
-  Observation.make({ actual: actualStates.absent, detail, expected: expectedStates.absent, key });
+  Observation.make({
+    actual: actualStates.absent,
+    detail,
+    expected: expectedStates.absent,
+    key,
+  });
 
 const falsePositive = (key: string) =>
-  Observation.make({ actual: actualStates.present, detail, expected: expectedStates.absent, key });
+  Observation.make({
+    actual: actualStates.present,
+    detail,
+    expected: expectedStates.absent,
+    key,
+  });
 
 const unscored = (key: string) =>
-  Observation.make({ actual: actualStates.present, detail, expected: expectedStates.unknown, key });
+  Observation.make({
+    actual: actualStates.present,
+    detail,
+    expected: expectedStates.unknown,
+    key,
+  });
 
 const errored = (key: string) =>
   Observation.errored(key, "timeout", { expected: expectedStates.present });
 
-const ratio = (metric: Metric.RatioMetric, observations: readonly Observation.Observation[]) =>
-  Metric.estimate(metric, Metric.judge(observations));
+const ratio = (
+  metric: Metric.RatioMetric,
+  observations: readonly Observation.Observation[]
+) => Metric.estimate(metric, Metric.judge(observations));
 
-const valueOf = (metric: Metric.RatioMetric, observations: readonly Observation.Observation[]) =>
-  Option.getOrElse(ratio(metric, observations).value, () => Number.NaN);
+const valueOf = (
+  metric: Metric.RatioMetric,
+  observations: readonly Observation.Observation[]
+) => Option.getOrElse(ratio(metric, observations).value, () => Number.NaN);
 
 describe("the reconciliation example of the spec", () => {
   const movements = [
@@ -121,7 +147,10 @@ describe("Metric.read", () => {
       n: 3,
       value: Option.some(2 / 3),
     });
-    expect(Metric.read(summary, Metric.answered)).toMatchObject({ hits: 4, n: 6 });
+    expect(Metric.read(summary, Metric.answered)).toMatchObject({
+      hits: 4,
+      n: 6,
+    });
   });
 
   it("reads a count as a number", () => {
@@ -149,7 +178,10 @@ describe("Metric.read", () => {
 
   it("reads the credit of partial answers as hits", () => {
     expect(
-      Metric.read(Metric.summary([right("a"), partial("b", 0.5), wrong("c")]), Metric.accuracy),
+      Metric.read(
+        Metric.summary([right("a"), partial("b", 0.5), wrong("c")]),
+        Metric.accuracy
+      )
     ).toMatchObject({ hits: 1.5, n: 3 });
   });
 
@@ -179,12 +211,17 @@ describe("Metric.excluded", () => {
 
 describe("Metric.answered", () => {
   it("does not count an errored observation as an answer", () => {
-    expect(valueOf(Metric.answered, [right("a"), errored("b")])).toBeCloseTo(1 / 2);
+    expect(valueOf(Metric.answered, [right("a"), errored("b")])).toBeCloseTo(
+      1 / 2
+    );
   });
 
   it("leaves the excluded observations out of the denominator", () => {
     expect(
-      ratio(Metric.answered, [right("a"), Observation.exclude("pending")(missed("b"))]),
+      ratio(Metric.answered, [
+        right("a"),
+        Observation.exclude("pending")(missed("b")),
+      ])
     ).toMatchObject({ n: 1 });
   });
 });
@@ -192,28 +229,50 @@ describe("Metric.answered", () => {
 describe("Metric.accuracy", () => {
   it("credits a partial agreement with its score", () => {
     expect(
-      valueOf(Metric.accuracy, [right("a"), partial("b", 0.5), wrong("c"), missed("d")]),
+      valueOf(Metric.accuracy, [
+        right("a"),
+        partial("b", 0.5),
+        wrong("c"),
+        missed("d"),
+      ])
     ).toBeCloseTo(1.5 / 4);
   });
 
   it("counts an errored observation as wrong and leaves an unscored one out", () => {
-    const estimate = ratio(Metric.accuracy, [right("a"), errored("b"), unscored("c")]);
+    const estimate = ratio(Metric.accuracy, [
+      right("a"),
+      errored("b"),
+      unscored("c"),
+    ]);
 
     expect(estimate.n).toBe(2);
-    expect(Option.getOrElse(estimate.value, () => Number.NaN)).toBeCloseTo(1 / 2);
+    expect(Option.getOrElse(estimate.value, () => Number.NaN)).toBeCloseTo(
+      1 / 2
+    );
   });
 
   it("leaves out a case with an unknown expected value whether its task answered or failed", () => {
-    const failed = Observation.errored("c", "timeout", { expected: expectedStates.unknown });
+    const failed = Observation.errored("c", "timeout", {
+      expected: expectedStates.unknown,
+    });
 
     expect(ratio(Metric.accuracy, [right("a"), wrong("b"), failed])).toEqual(
-      ratio(Metric.accuracy, [right("a"), wrong("b"), unscored("c")]),
+      ratio(Metric.accuracy, [right("a"), wrong("b"), unscored("c")])
     );
   });
 
   it("uses a Wilson interval without partial credit", () => {
-    const estimate = ratio(Metric.accuracy, [right("a"), right("b"), right("c"), wrong("d")]);
-    const [low, high] = Option.getOrElse(estimate.interval, () => [Number.NaN, Number.NaN]);
+    const estimate = ratio(Metric.accuracy, [
+      right("a"),
+      right("b"),
+      right("c"),
+      wrong("d"),
+    ]);
+
+    const [low, high] = Option.getOrElse(estimate.interval, () => [
+      Number.NaN,
+      Number.NaN,
+    ]);
 
     expect(low).toBeCloseTo(0.3006, 3);
     expect(high).toBeCloseTo(0.9544, 3);
@@ -227,19 +286,29 @@ describe("Metric.accuracy", () => {
       wrong("d"),
     ]);
 
-    const [low, high] = Option.getOrElse(estimate.interval, () => [Number.NaN, Number.NaN]);
+    const [low, high] = Option.getOrElse(estimate.interval, () => [
+      Number.NaN,
+      Number.NaN,
+    ]);
 
     expect(low).toBeLessThanOrEqual(0.4375);
     expect(high).toBeGreaterThanOrEqual(0.4375);
     expect(
-      ratio(Metric.accuracy, [right("a"), partial("b", 0.5), partial("c", 0.25), wrong("d")])
-        .interval,
+      ratio(Metric.accuracy, [
+        right("a"),
+        partial("b", 0.5),
+        partial("c", 0.25),
+        wrong("d"),
+      ]).interval
     ).toEqual(estimate.interval);
   });
 
   it("is not measurable without evaluated observations", () => {
     expect(
-      ratio(Metric.accuracy, [unscored("a"), Observation.exclude("pending")(right("b"))]),
+      ratio(Metric.accuracy, [
+        unscored("a"),
+        Observation.exclude("pending")(right("b")),
+      ])
     ).toEqual({
       hits: 0,
       interval: Option.none(),
@@ -252,17 +321,22 @@ describe("Metric.accuracy", () => {
 describe("Metric.meanAgreement", () => {
   it("averages the credit where both sides are present", () => {
     expect(
-      valueOf(Metric.meanAgreement, [right("a"), partial("b", 0.5), wrong("c"), missed("d")]),
+      valueOf(Metric.meanAgreement, [
+        right("a"),
+        partial("b", 0.5),
+        wrong("c"),
+        missed("d"),
+      ])
     ).toBeCloseTo(1.5 / 3);
   });
 
   it("takes a bootstrap interval, also when every agreement is exact", () => {
-    expect(ratio(Metric.meanAgreement, [right("a"), right("b")]).interval).toEqual(
-      Option.some([1, 1]),
-    );
-    expect(ratio(Metric.accuracy, [right("a"), right("b")]).interval).not.toEqual(
-      Option.some([1, 1]),
-    );
+    expect(
+      ratio(Metric.meanAgreement, [right("a"), right("b")]).interval
+    ).toEqual(Option.some([1, 1]));
+    expect(
+      ratio(Metric.accuracy, [right("a"), right("b")]).interval
+    ).not.toEqual(Option.some([1, 1]));
   });
 });
 
@@ -271,8 +345,8 @@ describe("Metric.falsePositives", () => {
     expect(
       Metric.count(
         Metric.falsePositives,
-        Metric.judge([falsePositive("a"), wrong("b"), abstained("c")]),
-      ),
+        Metric.judge([falsePositive("a"), wrong("b"), abstained("c")])
+      )
     ).toBe(1);
   });
 });
@@ -312,13 +386,18 @@ describe("Metric.formatEstimate", () => {
         interval: Option.some([0.25, 0.75]),
         n: 8,
         value: Option.some(0.5),
-      }),
+      })
     ).toBe("0.500 [0.250, 0.750] (n=8)");
   });
 
   it("says a ratio without a denominator is not measurable", () => {
     expect(
-      Metric.formatEstimate({ hits: 0, interval: Option.none(), n: 0, value: Option.none() }),
+      Metric.formatEstimate({
+        hits: 0,
+        interval: Option.none(),
+        n: 0,
+        value: Option.none(),
+      })
     ).toBe("not measurable");
   });
 });
@@ -327,9 +406,9 @@ describe("Metric.value", () => {
   it("measures a count and a ratio alike", () => {
     const judged = Metric.judge([right("a"), wrong("b")]);
 
-    expect([Metric.value(Metric.wrong, judged), Metric.value(Metric.accuracy, judged)]).toEqual([
-      Option.some(1),
-      Option.some(0.5),
-    ]);
+    expect([
+      Metric.value(Metric.wrong, judged),
+      Metric.value(Metric.accuracy, judged),
+    ]).toEqual([Option.some(1), Option.some(0.5)]);
   });
 });

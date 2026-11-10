@@ -1,6 +1,6 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
+
 import { isImportedElsewhere } from "./import-index.ts";
 import { isObject, isString } from "./predicates.ts";
 
@@ -69,7 +69,7 @@ const soleChildKey = (node: NodeLike) =>
 const walk = (
   node: NodeLike,
   visit: (node: NodeLike, contract: boolean) => void,
-  contract = false,
+  contract = false
 ) => {
   visit(node, contract);
 
@@ -111,7 +111,9 @@ const walk = (
 };
 
 const isPlainFunction = (node: unknown): node is NodeLike =>
-  isNode(node) && (node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression");
+  isNode(node) &&
+  (node.type === "ArrowFunctionExpression" ||
+    node.type === "FunctionExpression");
 
 const EFFECT_FN_MEMBERS = new Set(["fn", "fnUntraced"]);
 
@@ -153,7 +155,11 @@ const isFunctionValue = (node: unknown): node is NodeLike =>
 
 const CONSTANT_LITERALS = new Set(["ArrayExpression", "ObjectExpression"]);
 const TYPE_WRAPPERS = new Set(["TSAsExpression", "TSSatisfiesExpression"]);
-const COMPUTED_VALUES = new Set(["CallExpression", "NewExpression", "TaggedTemplateExpression"]);
+const COMPUTED_VALUES = new Set([
+  "CallExpression",
+  "NewExpression",
+  "TaggedTemplateExpression",
+]);
 
 const unwrapTypeAssertions = (node: NodeLike): NodeLike =>
   TYPE_WRAPPERS.has(node.type) && isNode(node.expression)
@@ -180,14 +186,19 @@ const isConstantValue = (node: unknown): node is NodeLike => {
     return false;
   }
   const literal = unwrapTypeAssertions(node);
-  return CONSTANT_LITERALS.has(literal.type) && !isEmptyLiteral(literal) && !computesValue(literal);
+  return (
+    CONSTANT_LITERALS.has(literal.type) &&
+    !isEmptyLiteral(literal) &&
+    !computesValue(literal)
+  );
 };
 
 const isTopLevelValue = (node: unknown): node is NodeLike =>
   isFunctionValue(node) || isConstantValue(node);
 
 const isTypeKind = (candidate: Candidate | undefined) =>
-  candidate !== undefined && (candidate.kind === "interface" || candidate.kind === "type alias");
+  candidate !== undefined &&
+  (candidate.kind === "interface" || candidate.kind === "type alias");
 
 // A `value is T` signature cannot survive inlining: the narrowing lives in the annotation,
 // not the expression, so the call site would silently fall back to `boolean`.
@@ -226,7 +237,10 @@ const counters = (declaration: Span, exported: boolean, scope: NodeLike) => ({
 // holds the only reference.
 const PORT_CONTRACT_CALLEES = new Set(["GenericTag", "Service", "Tag"]);
 
-const CALLABLE_MEMBERS = new Set(["TSCallSignatureDeclaration", "TSConstructSignatureDeclaration"]);
+const CALLABLE_MEMBERS = new Set([
+  "TSCallSignatureDeclaration",
+  "TSConstructSignatureDeclaration",
+]);
 
 /**
  * Declarations that other type rules need to stay named. A generic interface fights
@@ -243,7 +257,10 @@ const isUninlinableInterface = (declaration: ESTree.Node) => {
 
   const members = declaration.body.body;
 
-  return members.length > 0 && members.every((member) => CALLABLE_MEMBERS.has(member.type));
+  return (
+    members.length > 0 &&
+    members.every((member) => CALLABLE_MEMBERS.has(member.type))
+  );
 };
 
 const calleeTail = (callee: unknown): string | null => {
@@ -273,7 +290,11 @@ const typeReferenceNames = (typeArguments: unknown, names: Set<string>) => {
 
     const { typeName } = node;
 
-    if (isNode(typeName) && typeName.type === "Identifier" && isString(typeName.name)) {
+    if (
+      isNode(typeName) &&
+      typeName.type === "Identifier" &&
+      isString(typeName.name)
+    ) {
       names.add(typeName.name);
     }
   });
@@ -306,7 +327,7 @@ const collectPortContractNames = (program: NodeLike) => {
 const exemptNames = (
   program: NodeLike,
   candidates: ReadonlyMap<string, Candidate>,
-  filename: string,
+  filename: string
 ) => {
   const exempt = new Set<string>();
 
@@ -316,7 +337,11 @@ const exemptNames = (
     }
   }
   for (const [name, candidate] of candidates) {
-    if (isTypeKind(candidate) && candidate.exported && isImportedElsewhere(name, filename)) {
+    if (
+      isTypeKind(candidate) &&
+      candidate.exported &&
+      isImportedElsewhere(name, filename)
+    ) {
       exempt.add(name);
     }
   }
@@ -362,7 +387,7 @@ const exemptNames = (
 const namedCandidate = (
   declaration: ESTree.Node,
   exported: boolean,
-  scope: NodeLike,
+  scope: NodeLike
 ): Candidate | null => {
   if (declaration.type === "TSInterfaceDeclaration") {
     return declaration.declare || isUninlinableInterface(declaration)
@@ -401,24 +426,30 @@ const variableCandidates = (
   declaration: ESTree.VariableDeclaration,
   exported: boolean,
   scope: NodeLike,
-  isCandidateValue: (init: unknown) => init is NodeLike,
+  isCandidateValue: (init: unknown) => init is NodeLike
 ) =>
   declaration.declarations.flatMap((declarator) =>
     declarator.id.type === "Identifier" &&
     isCandidateValue(declarator.init) &&
-    !(isConstantValue(declarator.init) && declarator.id.typeAnnotation != null) &&
+    !(
+      isConstantValue(declarator.init) && declarator.id.typeAnnotation != null
+    ) &&
     !isTypePredicate(declarator.init)
       ? [
           {
             ...counters(declarator, exported, scope),
             id: declarator.id,
-            kind: isConstantValue(declarator.init) ? ("constant" as const) : ("helper" as const),
+            kind: isConstantValue(declarator.init)
+              ? ("constant" as const)
+              : ("helper" as const),
           },
         ]
-      : [],
+      : []
   );
 
-const isVariableDeclaration = (node: unknown): node is ESTree.VariableDeclaration =>
+const isVariableDeclaration = (
+  node: unknown
+): node is ESTree.VariableDeclaration =>
   isNode(node) && node.type === "VariableDeclaration";
 
 // A helper declared inside a function body is scoped to that block. Only the `Effect.fn`
@@ -433,7 +464,9 @@ const collectNestedCandidates = (program: NodeLike) => {
     }
     for (const statement of node.body) {
       if (isVariableDeclaration(statement)) {
-        nested.push(...variableCandidates(statement, false, node, isEffectFnValue));
+        nested.push(
+          ...variableCandidates(statement, false, node, isEffectFnValue)
+        );
       }
     }
   });
@@ -443,7 +476,7 @@ const collectNestedCandidates = (program: NodeLike) => {
 
 const markExportedSpecifiers = (
   program: ESTree.Program,
-  candidates: ReadonlyMap<string, Candidate>,
+  candidates: ReadonlyMap<string, Candidate>
 ) => {
   for (const statement of program.body) {
     if (statement.type !== "ExportNamedDeclaration" || statement.source) {
@@ -451,7 +484,9 @@ const markExportedSpecifiers = (
     }
     for (const specifier of statement.specifiers) {
       const candidate =
-        specifier.local.type === "Identifier" ? candidates.get(specifier.local.name) : undefined;
+        specifier.local.type === "Identifier"
+          ? candidates.get(specifier.local.name)
+          : undefined;
 
       if (candidate !== undefined) {
         candidate.exported = true;
@@ -471,7 +506,12 @@ const collectCandidates = (program: ESTree.Program & NodeLike): Candidates => {
       continue;
     }
     if (declaration.type === "VariableDeclaration") {
-      for (const candidate of variableCandidates(declaration, exported, program, isTopLevelValue)) {
+      for (const candidate of variableCandidates(
+        declaration,
+        exported,
+        program,
+        isTopLevelValue
+      )) {
         topLevel.set(candidate.id.name, candidate);
       }
       continue;
@@ -491,7 +531,11 @@ const collectCandidates = (program: ESTree.Program & NodeLike): Candidates => {
 
 // The innermost block that declares the name owns the reference; a nested helper shadows a
 // top-level one of the same name inside its block.
-const resolveCandidate = (candidates: Candidates, name: string, position: number) => {
+const resolveCandidate = (
+  candidates: Candidates,
+  name: string,
+  position: number
+) => {
   let innermost: Candidate | undefined;
 
   for (const candidate of candidates.nested) {
@@ -521,7 +565,9 @@ const returnedValue = (node: NodeLike) => {
 const returnedObject = (node: NodeLike): NodeLike | undefined => {
   const argument = returnedValue(node);
 
-  return isNode(argument) && argument.type === "ObjectExpression" ? argument : undefined;
+  return isNode(argument) && argument.type === "ObjectExpression"
+    ? argument
+    : undefined;
 };
 
 // A nested helper handed out through the returned object literal is the surface of the
@@ -533,17 +579,29 @@ const markExposedHelpers = (node: NodeLike, candidates: Candidates) => {
     return;
   }
   for (const property of object.properties) {
-    if (!isNode(property) || property.type !== "Property" || property.computed === true) {
+    if (
+      !isNode(property) ||
+      property.type !== "Property" ||
+      property.computed === true
+    ) {
       continue;
     }
 
     const { value } = property;
 
-    if (!isNode(value) || value.type !== "Identifier" || !isString(value.name)) {
+    if (
+      !isNode(value) ||
+      value.type !== "Identifier" ||
+      !isString(value.name)
+    ) {
       continue;
     }
 
-    const candidate = resolveCandidate(candidates, value.name, spanStart(value));
+    const candidate = resolveCandidate(
+      candidates,
+      value.name,
+      spanStart(value)
+    );
 
     if (candidate !== undefined && candidate.nested) {
       candidate.exposed = true;
@@ -569,7 +627,10 @@ const countReferences = (program: NodeLike, candidates: Candidates) => {
     if (position === spanStart(candidate.id)) {
       return;
     }
-    if (position >= candidate.declarationStart && position < candidate.declarationEnd) {
+    if (
+      position >= candidate.declarationStart &&
+      position < candidate.declarationEnd
+    ) {
       candidate.selfReferences += 1;
       return;
     }
@@ -610,7 +671,11 @@ const isIterationCallback = (fn: NodeLike) => {
     return false;
   }
   const { property } = call.callee;
-  return isNode(property) && isString(property.name) && ITERATION_METHODS.has(property.name);
+  return (
+    isNode(property) &&
+    isString(property.name) &&
+    ITERATION_METHODS.has(property.name)
+  );
 };
 
 // A constant read in a loop, an iteration callback, or a default parameter is built once on
@@ -619,7 +684,10 @@ const isRepeatedlyEvaluated = (reference: NodeLike) => {
   let child = reference;
   let current = reference.parent;
   while (isNode(current) && current.type !== "Program") {
-    if (LOOPS.has(current.type) && (current.body === child || current.right === child)) {
+    if (
+      LOOPS.has(current.type) &&
+      (current.body === child || current.right === child)
+    ) {
       return true;
     }
     if (FUNCTIONS.has(current.type) && isIterationCallback(current)) {
@@ -652,16 +720,22 @@ const candidateMessageId = (candidate: Candidate) => {
   if (candidate.kind === "constant") {
     return "singleUseConstant";
   }
-  return candidate.kind === "interface" ? "singleUseInterface" : "singleUseTypeAlias";
+  return candidate.kind === "interface"
+    ? "singleUseInterface"
+    : "singleUseTypeAlias";
 };
 
 const noSingleUseHelpers = defineRule({
   create: (context) => {
     const [option] = context.options;
     const checkFunctions =
-      !isObject(option) || !("checkFunctions" in option) || option.checkFunctions !== false;
+      !isObject(option) ||
+      !("checkFunctions" in option) ||
+      option.checkFunctions !== false;
     const checkConstants =
-      !isObject(option) || !("checkConstants" in option) || option.checkConstants !== false;
+      !isObject(option) ||
+      !("checkConstants" in option) ||
+      option.checkConstants !== false;
     const checksKind = (candidate: Candidate) => {
       if (candidate.kind === "helper") {
         return checkFunctions;
@@ -686,7 +760,11 @@ const noSingleUseHelpers = defineRule({
 
         countReferences(program, candidates);
 
-        const exempt = exemptNames(program, candidates.topLevel, context.filename);
+        const exempt = exemptNames(
+          program,
+          candidates.topLevel,
+          context.filename
+        );
         const report = (candidate: Candidate) => {
           context.report({
             data: { name: candidate.id.name },

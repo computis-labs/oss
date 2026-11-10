@@ -28,25 +28,26 @@ export const make = (...ranges: readonly Range[]): CharSet => normalize(ranges);
 
 export const single = (codePoint: number): CharSet => [[codePoint, codePoint]];
 
-export const union = (...sets: readonly CharSet[]): CharSet => normalize(sets.flat());
+export const union = (...sets: readonly CharSet[]): CharSet =>
+  normalize(sets.flat());
 
 export const XML_CHAR: CharSet = make(
   [TAB, LINE_FEED],
   [CARRIAGE_RETURN, CARRIAGE_RETURN],
   [SPACE, 0xd7_ff],
   [0xe0_00, 0xff_fd],
-  [0x1_00_00, 0x10_ff_ff],
+  [0x1_00_00, 0x10_ff_ff]
 );
 
 export const WHITESPACE: CharSet = make(
   [TAB, LINE_FEED],
   [CARRIAGE_RETURN, CARRIAGE_RETURN],
-  [SPACE, SPACE],
+  [SPACE, SPACE]
 );
 
 export const LINE_BREAKS: CharSet = make(
   [LINE_FEED, LINE_FEED],
-  [CARRIAGE_RETURN, CARRIAGE_RETURN],
+  [CARRIAGE_RETURN, CARRIAGE_RETURN]
 );
 
 export const intersect = (left: CharSet, right: CharSet): CharSet =>
@@ -56,17 +57,24 @@ export const intersect = (left: CharSet, right: CharSet): CharSet =>
       const end = Math.min(leftEnd, rightEnd);
 
       return start <= end ? [[start, end]] : [];
-    }),
+    })
   );
 
 export const subtract = (set: CharSet, removed: CharSet): CharSet =>
   set.flatMap(([start, end]) => {
     const overlapping = removed.filter(
-      ([removedStart, removedEnd]) => removedEnd >= start && removedStart <= end,
+      ([removedStart, removedEnd]) => removedEnd >= start && removedStart <= end
     );
 
-    const gapStarts = [start, ...overlapping.map(([, removedEnd]) => removedEnd + 1)];
-    const gapEnds = [...overlapping.map(([removedStart]) => removedStart - 1), end];
+    const gapStarts = [
+      start,
+      ...overlapping.map(([, removedEnd]) => removedEnd + 1),
+    ];
+
+    const gapEnds = [
+      ...overlapping.map(([removedStart]) => removedStart - 1),
+      end,
+    ];
 
     return gapStarts.flatMap((gapStart, index): Range[] => {
       const gapEnd = gapEnds[index] ?? end;

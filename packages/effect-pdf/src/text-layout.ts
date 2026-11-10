@@ -1,10 +1,11 @@
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import * as Order from "effect/Order";
+import * as Result from "effect/Result";
+
 import { PdfPageError } from "./errors/pdf-page-error.ts";
-import type { Pdfium } from "./pdfium.ts";
 import { BYTES_PER_DOUBLE, readDoubles, readFloats } from "./memory.ts";
+import type { Pdfium } from "./pdfium.ts";
 
 const ROW_TOLERANCE = 0.5;
 const BASELINE_TOLERANCE = 0.1;
@@ -39,7 +40,12 @@ const byX = Order.mapInput(Order.Number, (run: Run) => run.x);
 
 export const charOrigin = (lib: Pdfium, textPage: number, index: number) =>
   readDoubles(lib, 2, (pointer) =>
-    lib.FPDFText_GetCharOrigin(textPage, index, pointer, pointer + BYTES_PER_DOUBLE),
+    lib.FPDFText_GetCharOrigin(
+      textPage,
+      index,
+      pointer,
+      pointer + BYTES_PER_DOUBLE
+    )
   );
 
 export const layoutText = (
@@ -49,14 +55,14 @@ export const layoutText = (
     count,
     page,
     stream,
-  }: { readonly count: number; readonly page: number; readonly stream: string },
+  }: { readonly count: number; readonly page: number; readonly stream: string }
 ): Result.Result<string, PdfPageError> => {
   if (RIGHT_TO_LEFT.test(stream)) {
     return Result.succeed(stream.trim());
   }
 
   const codes = Array.from({ length: count }, (_, index) =>
-    lib.FPDFText_GetUnicode(textPage, index),
+    lib.FPDFText_GetUnicode(textPage, index)
   );
 
   const kept = codes.flatMap((code, index) =>
@@ -64,21 +70,24 @@ export const layoutText = (
     (code < FIRST_PRINTABLE && code !== LINE_END_HYPHEN) ||
     ZERO_WIDTH.test(String.fromCodePoint(code))
       ? []
-      : [index],
+      : [index]
   );
 
   const measured = kept.flatMap((index, position) => {
     const origin = charOrigin(lib, textPage, index);
 
     const box = readFloats(lib, 4, (pointer) =>
-      lib.FPDFText_GetLooseCharBox(textPage, index, pointer),
+      lib.FPDFText_GetLooseCharBox(textPage, index, pointer)
     );
 
     const matrix = readFloats(lib, 6, (pointer) =>
-      lib.FPDFText_GetMatrix(textPage, index, pointer),
+      lib.FPDFText_GetMatrix(textPage, index, pointer)
     );
 
-    const skipped = codes.slice(position === 0 ? 0 : (kept[position - 1] ?? 0) + 1, index);
+    const skipped = codes.slice(
+      position === 0 ? 0 : (kept[position - 1] ?? 0) + 1,
+      index
+    );
 
     return origin === null || box === null || matrix === null
       ? []
@@ -89,23 +98,31 @@ export const layoutText = (
     return Result.fail(PdfPageError.unmeasurable(page));
   }
 
-  const glyphs = measured.map(({ box, code, index, matrix, origin, skipped }): Run => {
-    const [x = 0, y = 0] = origin;
-    const [left = x, top = y, right = x, bottom = y] = box;
-    const [a = 1, b = 0, c = 0, d = 1] = matrix;
-    const size = lib.FPDFText_GetFontSize(textPage, index) * Math.hypot(c, d);
+  const glyphs = measured.map(
+    ({ box, code, index, matrix, origin, skipped }): Run => {
+      const [x = 0, y = 0] = origin;
+      const [left = x, top = y, right = x, bottom = y] = box;
+      const [a = 1, b = 0, c = 0, d = 1] = matrix;
+      const size = lib.FPDFText_GetFontSize(textPage, index) * Math.hypot(c, d);
 
-    return {
-      end: right,
-      horizontal: a > 0 && d > 0 && Math.abs(b) < AXIS_EPSILON && Math.abs(c) < AXIS_EPSILON,
-      lineBreakBefore: skipped.some((skippedCode) => LINE_BREAKS.has(skippedCode)),
-      size: size > 0 ? size : top - bottom,
-      spaceBefore: skipped.includes(SPACE),
-      text: code === LINE_END_HYPHEN ? "-" : String.fromCodePoint(code),
-      x: left,
-      y,
-    };
-  });
+      return {
+        end: right,
+        horizontal:
+          a > 0 &&
+          d > 0 &&
+          Math.abs(b) < AXIS_EPSILON &&
+          Math.abs(c) < AXIS_EPSILON,
+        lineBreakBefore: skipped.some((skippedCode) =>
+          LINE_BREAKS.has(skippedCode)
+        ),
+        size: size > 0 ? size : top - bottom,
+        spaceBefore: skipped.includes(SPACE),
+        text: code === LINE_END_HYPHEN ? "-" : String.fromCodePoint(code),
+        x: left,
+        y,
+      };
+    }
+  );
 
   const grouped = Arr.reduce(
     glyphs,
@@ -138,12 +155,15 @@ export const layoutText = (
             }),
           }
         : { closed: [...closed, run], open: Option.some(glyph) };
-    },
+    }
   );
 
   const runs = [...grouped.closed, ...Option.toArray(grouped.open)];
 
-  const noRows: readonly { readonly anchor: Run; readonly runs: Arr.NonEmptyArray<Run> }[] = [];
+  const noRows: readonly {
+    readonly anchor: Run;
+    readonly runs: Arr.NonEmptyArray<Run>;
+  }[] = [];
 
   const rows = Arr.reduce(
     runs
@@ -153,48 +173,61 @@ export const layoutText = (
     (found, run) => {
       const index = found.findIndex(
         ({ anchor }) =>
-          Math.abs(anchor.y - run.y) <= ROW_TOLERANCE * Math.min(anchor.size, run.size),
+          Math.abs(anchor.y - run.y) <=
+          ROW_TOLERANCE * Math.min(anchor.size, run.size)
       );
 
       return index === -1
         ? [...found, { anchor: run, runs: Arr.of(run) }]
         : found.map((row, position) =>
-            position === index ? { ...row, runs: Arr.append(row.runs, run) } : row,
+            position === index
+              ? { ...row, runs: Arr.append(row.runs, run) }
+              : row
           );
-    },
+    }
   );
 
   const lines = rows.map(({ runs: cells }) => {
     const [first, ...rest] = Arr.sort(cells, byX);
 
-    return Arr.reduce(rest, { line: first.text, previous: first }, ({ line, previous }, run) => {
-      const size = Math.min(previous.size, run.size);
+    return Arr.reduce(
+      rest,
+      { line: first.text, previous: first },
+      ({ line, previous }, run) => {
+        const size = Math.min(previous.size, run.size);
 
-      if (run.text === previous.text && Math.abs(run.x - previous.x) < OVERSTRIKE * size) {
-        return { line, previous };
+        if (
+          run.text === previous.text &&
+          Math.abs(run.x - previous.x) < OVERSTRIKE * size
+        ) {
+          return { line, previous };
+        }
+
+        const gap = run.x - previous.end;
+
+        const separated =
+          !TRAILING_SPACE.test(previous.text) &&
+          !LEADING_SPACE.test(run.text) &&
+          gap > WORD_GAP * size;
+
+        const separator = separated
+          ? " ".repeat(
+              Math.min(MAX_GAP_SPACES, Math.max(1, Math.round(gap / size)))
+            )
+          : "";
+
+        return {
+          line: line + separator + run.text,
+          previous:
+            run.end > previous.end ? run : { ...run, end: previous.end },
+        };
       }
-
-      const gap = run.x - previous.end;
-
-      const separated =
-        !TRAILING_SPACE.test(previous.text) &&
-        !LEADING_SPACE.test(run.text) &&
-        gap > WORD_GAP * size;
-
-      const separator = separated
-        ? " ".repeat(Math.min(MAX_GAP_SPACES, Math.max(1, Math.round(gap / size))))
-        : "";
-
-      return {
-        line: line + separator + run.text,
-        previous: run.end > previous.end ? run : { ...run, end: previous.end },
-      };
-    }).line.trimEnd();
+    ).line.trimEnd();
   });
 
   const turned = runs
     .flatMap(({ horizontal, lineBreakBefore, text }) =>
-      horizontal ? [] : [lineBreakBefore ? `\n${text}` : text],
+      horizontal ? [] : [lineBreakBefore ? `\n${text}` : text]
     )
     .join("")
     .trim();
@@ -203,6 +236,6 @@ export const layoutText = (
     [...lines, turned]
       .filter((line) => line.length > 0)
       .join("\n")
-      .trim(),
+      .trim()
   );
 };

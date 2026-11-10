@@ -1,6 +1,7 @@
 import { Effect, FileSystem, Stream } from "effect";
 import type { Path } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
 import { XsdCodegenError } from "../errors/xsd-codegen-error.ts";
 import * as Xsd from "../xsd.ts";
 import type { XsdSchemaSource } from "../xsd.ts";
@@ -32,7 +33,7 @@ interface FormatOptions {
 }
 
 export const generate: (
-  options: GenerateOptions,
+  options: GenerateOptions
 ) => Effect.Effect<
   string,
   XsdCodegenError,
@@ -51,8 +52,8 @@ export const generate: (
                   cause,
                   message: "The XSD file could not be read.",
                   path: xsd.path,
-                }),
-            ),
+                })
+            )
           ),
           url: xsd.path,
         }
@@ -60,11 +61,16 @@ export const generate: (
 
   yield* Effect.scoped(Xsd.make({ schema: source })).pipe(
     Effect.mapError(
-      (cause) => new XsdCodegenError({ cause, message: cause.message, path: source.url }),
-    ),
+      (cause) =>
+        new XsdCodegenError({ cause, message: cause.message, path: source.url })
+    )
   );
   const document = yield* readSchemaDocument(source);
-  const domain = options.domain === undefined ? undefined : yield* loadDomain(options.domain);
+
+  const domain =
+    options.domain === undefined
+      ? undefined
+      : yield* loadDomain(options.domain);
 
   const code = yield* Effect.fromResult(
     compileSchema(document, {
@@ -73,7 +79,7 @@ export const generate: (
       root: options.root,
       runtime: options.runtime ?? DEFAULT_RUNTIME,
       source: source.url.split(/[\\/]/u).at(-1) ?? source.url,
-    }),
+    })
   );
 
   if (options.format === undefined) {
@@ -92,7 +98,7 @@ export const generate: (
         const handle = yield* spawner.spawn(
           ChildProcess.make(command, args, {
             stdin: Stream.make(new TextEncoder().encode(code)),
-          }),
+          })
         );
 
         return yield* Effect.all(
@@ -101,9 +107,9 @@ export const generate: (
             Stream.mkString(Stream.decodeText(handle.stderr)),
             handle.exitCode,
           ],
-          { concurrency: "unbounded" },
+          { concurrency: "unbounded" }
         );
-      }),
+      })
     ).pipe(
       Effect.mapError(
         (cause) =>
@@ -111,8 +117,8 @@ export const generate: (
             cause,
             message: `Cannot run '${command}': ${cause.message}`,
             path,
-          }),
-      ),
+          })
+      )
     );
 
     if (exitCode !== 0) {

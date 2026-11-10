@@ -1,5 +1,6 @@
 import { Array, Effect, Option, Stream } from "effect";
 import type { DateTime, Schema } from "effect";
+
 import { EvalHistoryError } from "./errors/eval-history-error.ts";
 import {
   isCaseErrored,
@@ -93,11 +94,13 @@ const caseIdentityOf = (entry: {
 
 export const succeededObservations = (run: Run): readonly Scored[] => {
   const succeeded = new Set(
-    run.outputs.filter((output) => Option.isNone(output.failure)).map(caseIdentityOf),
+    run.outputs
+      .filter((output) => Option.isNone(output.failure))
+      .map(caseIdentityOf)
   );
 
   return run.variants.flatMap((variant) =>
-    variant.observations.filter((entry) => succeeded.has(caseIdentityOf(entry))),
+    variant.observations.filter((entry) => succeeded.has(caseIdentityOf(entry)))
   );
 };
 
@@ -109,14 +112,16 @@ export const variantRun = (
   observations: readonly Scored[],
   trials: number,
   usage: Usage,
-  durationMs: number,
+  durationMs: number
 ): VariantRun => {
   const plain = observations.map((item) => item.observation);
 
   const perTrial = Array.makeBy(trials, (index) =>
     Metric.summary(
-      observations.flatMap((item) => (item.trial === index + 1 ? [item.observation] : [])),
-    ),
+      observations.flatMap((item) =>
+        item.trial === index + 1 ? [item.observation] : []
+      )
+    )
   );
 
   const evaluated = observations.filter((scored) => {
@@ -126,7 +131,9 @@ export const variantRun = (
   });
 
   const keyed = Object.values(
-    Array.groupBy(evaluated, (scored) => JSON.stringify([scored.case, scored.observation.key])),
+    Array.groupBy(evaluated, (scored) =>
+      JSON.stringify([scored.case, scored.observation.key])
+    )
   ).map((items) => ({
     case: items[0].case,
     key: items[0].observation.key,
@@ -135,18 +142,21 @@ export const variantRun = (
 
   const complete = keyed.filter((group) => group.verdicts.length >= trials);
 
-  const averaged = (estimator: (n: number, correct: number, k: number) => number) =>
+  const averaged = (
+    estimator: (n: number, correct: number, k: number) => number
+  ) =>
     Option.map(
       measured(
         complete.map((group) =>
           estimator(
             group.verdicts.length,
-            group.verdicts.filter((verdict) => verdict === verdicts.right).length,
-            trials,
-          ),
-        ),
+            group.verdicts.filter((verdict) => verdict === verdicts.right)
+              .length,
+            trials
+          )
+        )
       ),
-      mean,
+      mean
     );
 
   return {
@@ -170,22 +180,26 @@ export const variantRun = (
                   name: metric.name,
                   valueOf: (summary: Metric.Summary) =>
                     Option.fromNullishOr(summary.ratios[metric.name]).pipe(
-                      Option.flatMap((estimate) => estimate.value),
+                      Option.flatMap((estimate) => estimate.value)
                     ),
                 })),
               ].map(({ name, valueOf }) => {
                 const values = measured(
-                  perTrial.flatMap((summary) => Option.toArray(valueOf(summary))),
+                  perTrial.flatMap((summary) =>
+                    Option.toArray(valueOf(summary))
+                  )
                 );
 
                 return [
                   name,
                   {
                     mean: values.pipe(Option.map(mean)),
-                    standardDeviation: values.pipe(Option.map(standardDeviation)),
+                    standardDeviation: values.pipe(
+                      Option.map(standardDeviation)
+                    ),
                   },
                 ];
-              }),
+              })
             ),
             passAtK: averaged(passAtK),
             passHatK: averaged(passHatK),
@@ -197,15 +211,23 @@ export const variantRun = (
   };
 };
 
-export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly EvalEvent[]) {
+export const fold = Effect.fn("Run.fold")(function* foldEvents(
+  events: readonly EvalEvent[]
+) {
   const started = events.find(isRunStarted);
 
   if (started === undefined) {
-    return yield* new EvalHistoryError({ message: "The events of the run have no RunStarted." });
+    return yield* new EvalHistoryError({
+      message: "The events of the run have no RunStarted.",
+    });
   }
 
   const finished = Option.fromNullishOr(events.find(isRunFinished));
-  const cases = events.filter((event) => isCaseFinished(event) || isCaseErrored(event));
+
+  const cases = events.filter(
+    (event) => isCaseFinished(event) || isCaseErrored(event)
+  );
+
   const variantEvents = events.filter(isVariantFinished);
 
   const unreported = Option.match(finished, {
@@ -226,11 +248,13 @@ export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly 
         observation,
         trial: event.trial,
         variant,
-      })),
+      }))
     );
 
     return Option.match(
-      Option.fromNullishOr(variantEvents.find((event) => event.variant === variant)),
+      Option.fromNullishOr(
+        variantEvents.find((event) => event.variant === variant)
+      ),
       {
         onNone: () =>
           variantRun(
@@ -238,7 +262,7 @@ export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly 
             observations,
             started.trials,
             Usages.total([...own.map((event) => event.usage), ...pending]),
-            0,
+            0
           ),
         onSome: (reported) => ({
           durationMs: reported.durationMs,
@@ -249,13 +273,16 @@ export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly 
           usage: Usages.total([reported.usage, ...pending]),
           variant,
         }),
-      },
+      }
     );
   });
 
   const run: Run = {
     datasetHash: started.datasetHash,
-    durationMs: Option.match(finished, { onNone: () => 0, onSome: (event) => event.durationMs }),
+    durationMs: Option.match(finished, {
+      onNone: () => 0,
+      onSome: (event) => event.durationMs,
+    }),
     eval: started.eval,
     failedReporters: Option.match(finished, {
       onNone: () => [],
@@ -274,7 +301,7 @@ export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly 
               violations: event.violations,
             },
           ]
-        : [],
+        : []
     ),
     git: started.git,
     id: started.runId,
@@ -284,7 +311,9 @@ export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly 
     }),
     outputs: cases.map((event) => ({
       case: event.case,
-      failure: isCaseErrored(event) ? Option.some(event.failure) : Option.none(),
+      failure: isCaseErrored(event)
+        ? Option.some(event.failure)
+        : Option.none(),
       inputHash: event.inputHash,
       judgements: event.judgements,
       output: isCaseFinished(event) ? event.output : Option.none(),
@@ -297,7 +326,7 @@ export const fold = Effect.fn("Run.fold")(function* foldEvents(events: readonly 
     rescoreOf: started.rescoreOf,
     sensitive: started.sensitive,
     skipped: events.flatMap((event) =>
-      isCaseSkipped(event) ? [{ id: event.id, reason: event.reason }] : [],
+      isCaseSkipped(event) ? [{ id: event.id, reason: event.reason }] : []
     ),
     startedAt: started.at,
     trials: started.trials,
@@ -350,7 +379,12 @@ export interface Comparison {
 }
 
 const pairKey = (scored: Scored) =>
-  JSON.stringify([scored.variant, scored.case, scored.observation.key, scored.trial]);
+  JSON.stringify([
+    scored.variant,
+    scored.case,
+    scored.observation.key,
+    scored.trial,
+  ]);
 
 export const observationLabel = (scored: Scored) =>
   [
@@ -359,35 +393,43 @@ export const observationLabel = (scored: Scored) =>
     `${TRIAL_MARK}${String(scored.trial)}`,
   ].join(LABEL_SEPARATOR);
 
-const isRight = (scored: Scored) => Verdicts.of(scored.observation) === verdicts.right;
+const isRight = (scored: Scored) =>
+  Verdicts.of(scored.observation) === verdicts.right;
 
 export const transitionsOf = (
   before: readonly Scored[],
-  after: readonly Scored[],
+  after: readonly Scored[]
 ): readonly Transition[] => {
   const previous = new Map(before.map((scored) => [pairKey(scored), scored]));
 
   return after.flatMap((scored) =>
     Option.toArray(
-      Option.map(Option.fromNullishOr(previous.get(pairKey(scored))), (earlier) => ({
-        after: scored,
-        before: earlier,
-        case: scored.case,
-        from: Verdicts.of(earlier.observation),
-        key: scored.observation.key,
-        to: Verdicts.of(scored.observation),
-        trial: scored.trial,
-        variant: scored.variant,
-      })),
-    ),
+      Option.map(
+        Option.fromNullishOr(previous.get(pairKey(scored))),
+        (earlier) => ({
+          after: scored,
+          before: earlier,
+          case: scored.case,
+          from: Verdicts.of(earlier.observation),
+          key: scored.observation.key,
+          to: Verdicts.of(scored.observation),
+          trial: scored.trial,
+          variant: scored.variant,
+        })
+      )
+    )
   );
 };
 
 export const regressionsOf = (transitions: readonly Transition[]) =>
-  transitions.filter((transition) => isRight(transition.before) && !isRight(transition.after));
+  transitions.filter(
+    (transition) => isRight(transition.before) && !isRight(transition.after)
+  );
 
 export const fixesOf = (transitions: readonly Transition[]) =>
-  transitions.filter((transition) => !isRight(transition.before) && isRight(transition.after));
+  transitions.filter(
+    (transition) => !isRight(transition.before) && isRight(transition.after)
+  );
 
 const unpaired = (from: readonly Scored[], against: readonly Scored[]) => {
   const present = new Set(against.map(pairKey));
@@ -409,57 +451,68 @@ export const compare = (run: Run, baseline: Run): Comparison => {
   const classes = Object.values(verdictClasses);
 
   const names = [
-    ...new Set([...run.variants, ...baseline.variants].map((variant) => variant.variant)),
+    ...new Set(
+      [...run.variants, ...baseline.variants].map((variant) => variant.variant)
+    ),
   ];
 
   return {
     added: unpaired(after, before),
     baseline: baseline.id,
     deltas: names.flatMap((name) => {
-      const own = transitions.filter((transition) => transition.variant === name);
+      const own = transitions.filter(
+        (transition) => transition.variant === name
+      );
 
       const bothEvaluated = own.filter(
         (transition) =>
           Metric.accuracy.admits(judgedOf(transition.before)) &&
-          Metric.accuracy.admits(judgedOf(transition.after)),
+          Metric.accuracy.admits(judgedOf(transition.after))
       );
 
       const pValue =
         bothEvaluated.length === 0
           ? Option.none<number>()
           : Option.some(
-              mcnemar(regressionsOf(bothEvaluated).length, fixesOf(bothEvaluated).length).pValue,
+              mcnemar(
+                regressionsOf(bothEvaluated).length,
+                fixesOf(bothEvaluated).length
+              ).pValue
             );
 
       return Metric.ratios.map((metric) => {
         const measuredPairs = own.filter(
           (transition) =>
-            metric.admits(judgedOf(transition.before)) && metric.admits(judgedOf(transition.after)),
+            metric.admits(judgedOf(transition.before)) &&
+            metric.admits(judgedOf(transition.after))
         );
 
         const left = Metric.estimate(
           metric,
-          measuredPairs.map((transition) => judgedOf(transition.before)),
+          measuredPairs.map((transition) => judgedOf(transition.before))
         );
 
         const right = Metric.estimate(
           metric,
-          measuredPairs.map((transition) => judgedOf(transition.after)),
+          measuredPairs.map((transition) => judgedOf(transition.after))
         );
 
         return {
           after: right,
           before: left,
-          delta: Option.map(Option.all([left.value, right.value]), ([from, to]) => to - from),
+          delta: Option.map(
+            Option.all([left.value, right.value]),
+            ([from, to]) => to - from
+          ),
           interval: pairedBootstrap(
             measuredPairs.map(
               (transition) =>
                 [
                   metric.weight(judgedOf(transition.before)),
                   metric.weight(judgedOf(transition.after)),
-                ] as const,
+                ] as const
             ),
-            { seed: DELTA_SEED },
+            { seed: DELTA_SEED }
           ),
           metric: metric.name,
           pValue: metric === Metric.accuracy ? pValue : Option.none(),
@@ -478,18 +531,19 @@ export const compare = (run: Run, baseline: Run): Comparison => {
               Option.all([
                 Verdicts.classOf(transition.before.observation),
                 Verdicts.classOf(transition.after.observation),
-              ]),
+              ])
             )
-          : [],
+          : []
       );
 
       return classes.flatMap((from) =>
         classes.map((to) => ({
-          count: own.filter(([left, right]) => left === from && right === to).length,
+          count: own.filter(([left, right]) => left === from && right === to)
+            .length,
           from,
           to,
           variant: name,
-        })),
+        }))
       );
     }),
   };

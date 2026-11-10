@@ -1,4 +1,5 @@
 import { Effect, Option } from "effect";
+
 import * as Charts from "./chart.ts";
 import { fenced } from "./text.ts";
 import { drawing, drawingKinds } from "./view.ts";
@@ -10,9 +11,11 @@ const QUOTE = /"/gu;
 const BREAKS = /\r?\n|\r/gu;
 const MERMAID = "mermaid";
 
-const quoted = (text: string) => `"${text.replaceAll(QUOTE, "'").replaceAll(BREAKS, " ")}"`;
+const quoted = (text: string) =>
+  `"${text.replaceAll(QUOTE, "'").replaceAll(BREAKS, " ")}"`;
 
-const axis = (labels: readonly string[]) => `[${labels.map(quoted).join(", ")}]`;
+const axis = (labels: readonly string[]) =>
+  `[${labels.map(quoted).join(", ")}]`;
 
 const values = (numbers: readonly number[]) =>
   `[${numbers.map((number) => number.toFixed(DIGITS)).join(", ")}]`;
@@ -36,7 +39,7 @@ export const renderer = (): ChartRenderer => (charts) =>
                     `  x-axis ${axis(rows.map((row) => row.metric))}`,
                     `  y-axis "delta"`,
                     `  bar ${values(rows.map((row) => row.value))}`,
-                  ]),
+                  ])
                 ),
           Transitions: () => Option.none(),
           Trend: ({ metric, points, title }) => {
@@ -55,14 +58,16 @@ export const renderer = (): ChartRenderer => (charts) =>
                       Option.map(
                         Option.fromNullishOr(
                           points.find(
-                            (point) => point.variant === variant && point.run === column.id,
-                          ),
+                            (point) =>
+                              point.variant === variant &&
+                              point.run === column.id
+                          )
                         ),
-                        (point) => point.value,
-                      ),
-                    ),
-                  ),
-                ),
+                        (point) => point.value
+                      )
+                    )
+                  )
+                )
               ),
               (series) =>
                 series
@@ -72,9 +77,9 @@ export const renderer = (): ChartRenderer => (charts) =>
                       `  x-axis ${axis(columns.map((column) => column.label))}`,
                       `  y-axis ${quoted(metric)} 0 --> 1`,
                       `  line ${values(line)}`,
-                    ]),
+                    ])
                   )
-                  .join(`${LINE_BREAK}${LINE_BREAK}`),
+                  .join(`${LINE_BREAK}${LINE_BREAK}`)
             );
           },
           Variants: ({ bars, metric, title }) =>
@@ -86,13 +91,13 @@ export const renderer = (): ChartRenderer => (charts) =>
                     `  x-axis ${axis(bars.map((bar) => bar.variant))}`,
                     `  y-axis ${quoted(metric)} 0 --> 1`,
                     `  bar ${values(bars.map((bar) => bar.value))}`,
-                  ]),
+                  ])
                 ),
-        }),
-      ),
+        })
+      )
     ).pipe(
       Option.map((drawn) =>
-        drawing(drawingKinds.markdown, drawn.join(`${LINE_BREAK}${LINE_BREAK}`)),
-      ),
-    ),
+        drawing(drawingKinds.markdown, drawn.join(`${LINE_BREAK}${LINE_BREAK}`))
+      )
+    )
   );

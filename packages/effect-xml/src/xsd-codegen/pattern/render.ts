@@ -1,4 +1,5 @@
 import { Match } from "effect";
+
 import * as CharSet from "../charset.ts";
 import type { RegexNode } from "./parse.ts";
 
@@ -6,7 +7,7 @@ export type WhiteSpace = "collapse" | "preserve" | "replace";
 
 const WHITESPACE_CONTROLS = CharSet.make(
   [CharSet.TAB, CharSet.LINE_FEED],
-  [CharSet.CARRIAGE_RETURN, CharSet.CARRIAGE_RETURN],
+  [CharSet.CARRIAGE_RETURN, CharSet.CARRIAGE_RETURN]
 );
 
 const WHITESPACE_CLASS = String.raw`[\t\n\r ]`;
@@ -34,7 +35,9 @@ const escapeCodePoint = (codePoint: number, special: string) => {
     return special.includes(char) ? `\\${char}` : char;
   }
 
-  return codePoint <= 0xff_ff ? `\\u${hex(codePoint, 4)}` : `\\u{${hex(codePoint, 1)}}`;
+  return codePoint <= 0xff_ff
+    ? `\\u${hex(codePoint, 4)}`
+    : `\\u{${hex(codePoint, 1)}}`;
 };
 
 const renderSet = (value: CharSet.CharSet) => {
@@ -82,7 +85,9 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
     return {
       atomic: false,
       choice: false,
-      source: node.items.map((item) => groupChoice(renderNode(item, rendering))).join(""),
+      source: node.items
+        .map((item) => groupChoice(renderNode(item, rendering)))
+        .join(""),
     };
   }
 
@@ -90,7 +95,9 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
     return {
       atomic: false,
       choice: true,
-      source: node.branches.map((branch) => renderNode(branch, rendering).source).join("|"),
+      source: node.branches
+        .map((branch) => renderNode(branch, rendering).source)
+        .join("|"),
     };
   }
 
@@ -100,17 +107,20 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
     const quantifier = Match.value({ max: node.max, min: node.min }).pipe(
       Match.when(
         ({ max, min }) => min === max,
-        ({ min }) => (min === 1 ? "" : `{${String(min)}}`),
+        ({ min }) => (min === 1 ? "" : `{${String(min)}}`)
       ),
       Match.when(
         ({ max, min }) => min === 0 && max === 1,
-        () => "?",
+        () => "?"
       ),
       Match.when(
         ({ max, min }) => max === undefined && min <= 1,
-        ({ min }) => (min === 0 ? "*" : "+"),
+        ({ min }) => (min === 0 ? "*" : "+")
       ),
-      Match.orElse(({ max, min }) => `{${String(min)},${max === undefined ? "" : String(max)}}`),
+      Match.orElse(
+        ({ max, min }) =>
+          `{${String(min)},${max === undefined ? "" : String(max)}}`
+      )
     );
 
     return {
@@ -147,7 +157,11 @@ const renderNode = (node: RegexNode, rendering: Rendering): Rendered => {
 
   return CharSet.isEmpty(visible)
     ? { atomic: false, choice: false, source: INNER_WHITESPACE }
-    : { atomic: false, choice: true, source: `${renderSet(visible)}|${INNER_WHITESPACE}` };
+    : {
+        atomic: false,
+        choice: true,
+        source: `${renderSet(visible)}|${INNER_WHITESPACE}`,
+      };
 };
 
 export const render = (node: RegexNode, rendering: Rendering) => {

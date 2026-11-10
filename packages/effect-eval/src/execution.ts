@@ -14,12 +14,13 @@ export type BatchedExecution = Data.TaggedEnum.Value<Execution, "Batched">;
 
 export type WholeExecution = Data.TaggedEnum.Value<Execution, "Whole">;
 
-export const perCase = (options: { readonly concurrency?: number } = {}): PerCaseExecution =>
-  PerCase({ concurrency: options.concurrency ?? 1 });
+export const perCase = (
+  options: { readonly concurrency?: number } = {}
+): PerCaseExecution => PerCase({ concurrency: options.concurrency ?? 1 });
 
 export const batched = (
   size: number,
-  options: { readonly concurrency?: number } = {},
+  options: { readonly concurrency?: number } = {}
 ): BatchedExecution => Batched({ concurrency: options.concurrency ?? 1, size });
 
 export const whole: WholeExecution = Whole();
@@ -28,7 +29,7 @@ export const isPerCase = $is("PerCase");
 
 export const batchesOf = <A>(
   execution: Execution,
-  items: readonly A[],
+  items: readonly A[]
 ): readonly Array.NonEmptyReadonlyArray<A>[] =>
   $match(execution, {
     Batched: ({ size }) => Array.chunksOf(items, size),

@@ -1,11 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
 import { readFileSync } from "node:fs";
+
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, Result } from "effect";
 import { XmlCData, XmlDocument, XmlElement, XmlText } from "libxml2-wasm";
 import type { XmlTreeNode } from "libxml2-wasm";
-import { startsWith } from "./fixtures/messages.ts";
+
 import { tokenize } from "../src/tokenizer.ts";
 import type { TokenHandler, TokenizeOptions } from "../src/types.ts";
+import { startsWith } from "./fixtures/messages.ts";
 
 type Event =
   | readonly ["attribute", string, string, number]
@@ -14,7 +16,10 @@ type Event =
   | readonly ["openStart", string, number]
   | readonly ["text", string, number];
 
-const recordingHandler = (events: Event[], stopAfter = Number.POSITIVE_INFINITY) => {
+const recordingHandler = (
+  events: Event[],
+  stopAfter = Number.POSITIVE_INFINITY
+) => {
   const push = (event: Event) => {
     events.push(event);
 
@@ -22,7 +27,8 @@ const recordingHandler = (events: Event[], stopAfter = Number.POSITIVE_INFINITY)
   };
 
   const handler: TokenHandler = {
-    attribute: (qname, value, offset) => push(["attribute", qname, value, offset]),
+    attribute: (qname, value, offset) =>
+      push(["attribute", qname, value, offset]),
     close: () => push(["close"]),
     openEnd: () => push(["openEnd"]),
     openStart: (qname, offset) => push(["openStart", qname, offset]),
@@ -35,50 +41,60 @@ const recordingHandler = (events: Event[], stopAfter = Number.POSITIVE_INFINITY)
 const record = (xml: string, options?: Partial<TokenizeOptions>) => {
   const events: Event[] = [];
 
-  return Effect.fromResult(tokenize(xml, recordingHandler(events), options)).pipe(
-    Effect.map(() => events),
-  );
+  return Effect.fromResult(
+    tokenize(xml, recordingHandler(events), options)
+  ).pipe(Effect.map(() => events));
 };
 
 const texts = (xml: string, options?: Partial<TokenizeOptions>) =>
   record(xml, options).pipe(
-    Effect.map((events) => events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))),
+    Effect.map((events) =>
+      events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))
+    )
   );
 
 const keptTexts = (xml: string) => {
   const events: Event[] = [];
 
   return Effect.fromResult(
-    tokenize(xml, { ...recordingHandler(events), keepWhitespace: () => true }),
-  ).pipe(Effect.map(() => events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))));
+    tokenize(xml, { ...recordingHandler(events), keepWhitespace: () => true })
+  ).pipe(
+    Effect.map(() =>
+      events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))
+    )
+  );
 };
 
 const attributes = (xml: string) =>
   record(xml).pipe(
     Effect.map((events) =>
-      events.flatMap((event) => (event[0] === "attribute" ? [[event[1], event[2]]] : [])),
-    ),
+      events.flatMap((event) =>
+        event[0] === "attribute" ? [[event[1], event[2]]] : []
+      )
+    )
   );
 
 const parseError = (xml: string, options?: Partial<TokenizeOptions>) =>
   Effect.flip(Effect.fromResult(tokenize(xml, recordingHandler([]), options)));
 
 describe("tokenize events", () => {
-  it.effect("emits open, attribute, text and close events with source offsets", () =>
-    Effect.gen(function* emitsEvents() {
-      const events = yield* record(`<a x="1"><b>hi</b></a>`);
+  it.effect(
+    "emits open, attribute, text and close events with source offsets",
+    () =>
+      Effect.gen(function* emitsEvents() {
+        const events = yield* record(`<a x="1"><b>hi</b></a>`);
 
-      expect(events).toStrictEqual([
-        ["openStart", "a", 0],
-        ["attribute", "x", "1", 3],
-        ["openEnd"],
-        ["openStart", "b", 9],
-        ["openEnd"],
-        ["text", "hi", 12],
-        ["close"],
-        ["close"],
-      ]);
-    }),
+        expect(events).toStrictEqual([
+          ["openStart", "a", 0],
+          ["attribute", "x", "1", 3],
+          ["openEnd"],
+          ["openStart", "b", 9],
+          ["openEnd"],
+          ["text", "hi", 12],
+          ["close"],
+          ["close"],
+        ]);
+      })
   );
 
   it.effect("reports an empty-element tag as openEnd followed by close", () =>
@@ -94,17 +110,19 @@ describe("tokenize events", () => {
         ["close"],
         ["close"],
       ]);
-    }),
+    })
   );
 
   it.effect("keeps namespace prefixes in element and attribute names", () =>
     Effect.gen(function* rawQnames() {
-      const events = yield* record(`<p:Fattura xmlns:p="urn:x" p:v="1"></p:Fattura>`);
+      const events = yield* record(
+        `<p:Fattura xmlns:p="urn:x" p:v="1"></p:Fattura>`
+      );
 
       expect(events).toContainEqual(["openStart", "p:Fattura", 0]);
       expect(events).toContainEqual(["attribute", "xmlns:p", "urn:x", 11]);
       expect(events).toContainEqual(["attribute", "p:v", "1", 27]);
-    }),
+    })
   );
 
   it.effect("accepts whitespace around '=' and before '>' in tags", () =>
@@ -115,7 +133,7 @@ describe("tokenize events", () => {
         ["x", "1"],
         ["y", "2"],
       ]);
-    }),
+    })
   );
 
   it.effect("keeps the other quote character inside an attribute value", () =>
@@ -126,7 +144,7 @@ describe("tokenize events", () => {
         ["x", "it's"],
         ["y", 'say "hi"'],
       ]);
-    }),
+    })
   );
 
   it.effect(
@@ -134,11 +152,15 @@ describe("tokenize events", () => {
     () =>
       Effect.gen(function* ignoredMarkup() {
         const events = yield* record(
-          `\uFEFF<?xml version="1.0"?>\n<!-- c --><?pi data?><a><!-- <b> --><?x y?></a><!-- end -->`,
+          `\uFEFF<?xml version="1.0"?>\n<!-- c --><?pi data?><a><!-- <b> --><?x y?></a><!-- end -->`
         );
 
-        expect(events).toStrictEqual([["openStart", "a", 44], ["openEnd"], ["close"]]);
-      }),
+        expect(events).toStrictEqual([
+          ["openStart", "a", 44],
+          ["openEnd"],
+          ["close"],
+        ]);
+      })
   );
 
   it.effect("emits CDATA content as text without decoding it", () =>
@@ -146,7 +168,7 @@ describe("tokenize events", () => {
       const values = yield* texts(`<a><![CDATA[<b>&amp;</b>]]></a>`);
 
       expect(values).toStrictEqual(["<b>&amp;</b>"]);
-    }),
+    })
   );
 
   it.effect("splits text around CDATA into separate text events", () =>
@@ -154,28 +176,36 @@ describe("tokenize events", () => {
       const values = yield* texts(`<a>x &lt; <![CDATA[y]]> z</a>`);
 
       expect(values).toStrictEqual(["x < ", "y", " z"]);
-    }),
+    })
   );
 
   it.effect("returns true when the whole document is tokenized", () =>
     Effect.gen(function* completes() {
-      const completed = yield* Effect.fromResult(tokenize("<a>x</a>", recordingHandler([])));
-
-      expect(completed).toBe(true);
-    }),
-  );
-
-  it.effect("stops and returns false as soon as the handler returns false", () =>
-    Effect.gen(function* stops() {
-      const events: Event[] = [];
-
       const completed = yield* Effect.fromResult(
-        tokenize("<a><b>x</b><c/></a>", recordingHandler(events, 3)),
+        tokenize("<a>x</a>", recordingHandler([]))
       );
 
-      expect(completed).toBe(false);
-      expect(events).toStrictEqual([["openStart", "a", 0], ["openEnd"], ["openStart", "b", 3]]);
-    }),
+      expect(completed).toBe(true);
+    })
+  );
+
+  it.effect(
+    "stops and returns false as soon as the handler returns false",
+    () =>
+      Effect.gen(function* stops() {
+        const events: Event[] = [];
+
+        const completed = yield* Effect.fromResult(
+          tokenize("<a><b>x</b><c/></a>", recordingHandler(events, 3))
+        );
+
+        expect(completed).toBe(false);
+        expect(events).toStrictEqual([
+          ["openStart", "a", 0],
+          ["openEnd"],
+          ["openStart", "b", 3],
+        ]);
+      })
   );
 });
 
@@ -185,15 +215,17 @@ describe("tokenize whitespace", () => {
       const values = yield* texts("<a>\n  <b> x </b>\n</a>");
 
       expect(values).toStrictEqual([" x "]);
-    }),
+    })
   );
 
-  it.effect("emits whitespace-only text inside the root when the handler keeps whitespace", () =>
-    Effect.gen(function* keepsWhitespace() {
-      const values = yield* keptTexts("\n<a>\n  <b> x </b>\n</a>\n");
+  it.effect(
+    "emits whitespace-only text inside the root when the handler keeps whitespace",
+    () =>
+      Effect.gen(function* keepsWhitespace() {
+        const values = yield* keptTexts("\n<a>\n  <b> x </b>\n</a>\n");
 
-      expect(values).toStrictEqual(["\n  ", " x ", "\n"]);
-    }),
+        expect(values).toStrictEqual(["\n  ", " x ", "\n"]);
+      })
   );
 
   it.effect("normalizes CRLF and CR line endings in text to LF", () =>
@@ -201,25 +233,27 @@ describe("tokenize whitespace", () => {
       const values = yield* texts("<a>1\r\n2\r3\n4<![CDATA[5\r\n6]]></a>");
 
       expect(values).toStrictEqual(["1\n2\n3\n4", "5\n6"]);
-    }),
+    })
   );
 
-  it.effect("decodes entities and line endings in text longer than 128 characters", () =>
-    Effect.gen(function* longText() {
-      const plain = "p".repeat(200);
-      const encoded = `${"a".repeat(150)}&amp;${"b".repeat(150)}`;
-      const carriageReturn = `${"c".repeat(150)}\r${"d".repeat(150)}`;
+  it.effect(
+    "decodes entities and line endings in text longer than 128 characters",
+    () =>
+      Effect.gen(function* longText() {
+        const plain = "p".repeat(200);
+        const encoded = `${"a".repeat(150)}&amp;${"b".repeat(150)}`;
+        const carriageReturn = `${"c".repeat(150)}\r${"d".repeat(150)}`;
 
-      const values = yield* texts(
-        `<r><x>${plain}</x><y>${encoded}</y><z>${carriageReturn}</z></r>`,
-      );
+        const values = yield* texts(
+          `<r><x>${plain}</x><y>${encoded}</y><z>${carriageReturn}</z></r>`
+        );
 
-      expect(values).toStrictEqual([
-        plain,
-        `${"a".repeat(150)}&${"b".repeat(150)}`,
-        `${"c".repeat(150)}\n${"d".repeat(150)}`,
-      ]);
-    }),
+        expect(values).toStrictEqual([
+          plain,
+          `${"a".repeat(150)}&${"b".repeat(150)}`,
+          `${"c".repeat(150)}\n${"d".repeat(150)}`,
+        ]);
+      })
   );
 
   it.effect.each([1023, 1024, 1025, 1026])(
@@ -230,71 +264,87 @@ describe("tokenize whitespace", () => {
         const values = yield* texts(`<a>&lt;\r\n${middle}\r&amp;\r\n</a>`);
 
         expect(values).toStrictEqual([`<\n${middle}\n&\n`]);
-      }),
+      })
   );
 
   it.effect("normalizes every CRLF of a long wrapped text", () =>
     Effect.gen(function* wrappedText() {
-      const lines = Array.from({ length: 40 }, (_, index) => String(index).padEnd(76, "A"));
+      const lines = Array.from({ length: 40 }, (_, index) =>
+        String(index).padEnd(76, "A")
+      );
 
       const values = yield* texts(`<a>${lines.join("\r\n")}\r\n</a>`);
 
       expect(values).toStrictEqual([`${lines.join("\n")}\n`]);
-    }),
+    })
   );
 
-  it.effect("normalizes a CR that ends a long text before CDATA that starts with LF", () =>
-    Effect.gen(function* splitLineEnding() {
-      const long = "z".repeat(2000);
+  it.effect(
+    "normalizes a CR that ends a long text before CDATA that starts with LF",
+    () =>
+      Effect.gen(function* splitLineEnding() {
+        const long = "z".repeat(2000);
 
-      const values = yield* texts(`<a>${long}\r<![CDATA[\n${long}\r]]></a>`);
+        const values = yield* texts(`<a>${long}\r<![CDATA[\n${long}\r]]></a>`);
 
-      expect(values).toStrictEqual([`${long}\n`, `\n${long}\n`]);
-    }),
+        expect(values).toStrictEqual([`${long}\n`, `\n${long}\n`]);
+      })
   );
 
   it.effect("normalizes CR and CRLF but keeps entities in long CDATA", () =>
     Effect.gen(function* longCdata() {
       const long = "c".repeat(1500);
 
-      const values = yield* texts(`<a><![CDATA[${long}\r\n${long}\r&amp;\t]]></a>`);
+      const values = yield* texts(
+        `<a><![CDATA[${long}\r\n${long}\r&amp;\t]]></a>`
+      );
 
       expect(values).toStrictEqual([`${long}\n${long}\n&amp;\t`]);
-    }),
+    })
   );
 
-  it.effect("normalizes whitespace and decodes references in a long attribute value", () =>
-    Effect.gen(function* longAttribute() {
-      const long = "v".repeat(1500);
+  it.effect(
+    "normalizes whitespace and decodes references in a long attribute value",
+    () =>
+      Effect.gen(function* longAttribute() {
+        const long = "v".repeat(1500);
 
-      const values = yield* attributes(`<a x="${long}\t${long}&#10;\r\n\n&amp;"/>`);
+        const values = yield* attributes(
+          `<a x="${long}\t${long}&#10;\r\n\n&amp;"/>`
+        );
 
-      expect(values).toStrictEqual([["x", `${long} ${long}\n  &`]]);
-    }),
+        expect(values).toStrictEqual([["x", `${long} ${long}\n  &`]]);
+      })
   );
 
-  it.effect("normalizes CR in whitespace-only text when the handler keeps whitespace", () =>
-    Effect.gen(function* whitespaceCarriageReturn() {
-      const values = yield* keptTexts("<a>\r\n  <b/>\r</a>");
+  it.effect(
+    "normalizes CR in whitespace-only text when the handler keeps whitespace",
+    () =>
+      Effect.gen(function* whitespaceCarriageReturn() {
+        const values = yield* keptTexts("<a>\r\n  <b/>\r</a>");
 
-      expect(values).toStrictEqual(["\n  ", "\n"]);
-    }),
+        expect(values).toStrictEqual(["\n  ", "\n"]);
+      })
   );
 
-  it.effect("normalizes tab, LF, CR and CRLF in attribute values to one space each", () =>
-    Effect.gen(function* attributeWhitespace() {
-      const values = yield* attributes(`<a x="1\t2\n3\r4\r\n5"/>`);
+  it.effect(
+    "normalizes tab, LF, CR and CRLF in attribute values to one space each",
+    () =>
+      Effect.gen(function* attributeWhitespace() {
+        const values = yield* attributes(`<a x="1\t2\n3\r4\r\n5"/>`);
 
-      expect(values).toStrictEqual([["x", "1 2 3 4 5"]]);
-    }),
+        expect(values).toStrictEqual([["x", "1 2 3 4 5"]]);
+      })
   );
 
-  it.effect("keeps whitespace written as character references in attribute values", () =>
-    Effect.gen(function* attributeReferences() {
-      const values = yield* attributes(`<a x="1&#10;2&#9;3&#13;4"/>`);
+  it.effect(
+    "keeps whitespace written as character references in attribute values",
+    () =>
+      Effect.gen(function* attributeReferences() {
+        const values = yield* attributes(`<a x="1&#10;2&#9;3&#13;4"/>`);
 
-      expect(values).toStrictEqual([["x", "1\n2\t3\r4"]]);
-    }),
+        expect(values).toStrictEqual([["x", "1\n2\t3\r4"]]);
+      })
   );
 });
 
@@ -304,23 +354,29 @@ describe("tokenize entities", () => {
       const values = yield* texts("<a>&lt;&gt;&amp;&quot;&apos;</a>");
 
       expect(values).toStrictEqual([`<>&"'`]);
-    }),
+    })
   );
 
-  it.effect("decodes predefined entities and character references in attribute values", () =>
-    Effect.gen(function* attributeEntities() {
-      const values = yield* attributes(`<a x="&lt;&amp;&quot;&#65;&#x42;"/>`);
+  it.effect(
+    "decodes predefined entities and character references in attribute values",
+    () =>
+      Effect.gen(function* attributeEntities() {
+        const values = yield* attributes(`<a x="&lt;&amp;&quot;&#65;&#x42;"/>`);
 
-      expect(values).toStrictEqual([["x", `<&"AB`]]);
-    }),
+        expect(values).toStrictEqual([["x", `<&"AB`]]);
+      })
   );
 
-  it.effect("decodes decimal and hexadecimal character references, including astral ones", () =>
-    Effect.gen(function* characterReferences() {
-      const values = yield* texts("<a>&#65;&#x42;&#xe8;&#128512;&#x1F600;</a>");
+  it.effect(
+    "decodes decimal and hexadecimal character references, including astral ones",
+    () =>
+      Effect.gen(function* characterReferences() {
+        const values = yield* texts(
+          "<a>&#65;&#x42;&#xe8;&#128512;&#x1F600;</a>"
+        );
 
-      expect(values).toStrictEqual(["ABè😀😀"]);
-    }),
+        expect(values).toStrictEqual(["ABè😀😀"]);
+      })
   );
 
   it.effect("fails with the position of an unknown entity", () =>
@@ -328,23 +384,27 @@ describe("tokenize entities", () => {
       const error = yield* parseError("<a>\nx &nbsp; y</a>");
 
       expect(error.position).toStrictEqual({ column: 3, line: 2, offset: 6 });
-    }),
+    })
   );
 
   it.effect.each([
     ["text", (value: string) => `<a>${value}</a>`, 3],
     ["an attribute value", (value: string) => `<a x="${value}"/>`, 6],
-  ] as const)("fails with the exact position of an unknown entity in long %s", ([, wrap, start]) =>
-    Effect.gen(function* longUnknownEntity() {
-      const head = `${"x".repeat(1500)}&amp;\r\n${"y".repeat(10)}`;
+  ] as const)(
+    "fails with the exact position of an unknown entity in long %s",
+    ([, wrap, start]) =>
+      Effect.gen(function* longUnknownEntity() {
+        const head = `${"x".repeat(1500)}&amp;\r\n${"y".repeat(10)}`;
 
-      const error = yield* parseError(wrap(`${head}&nbsp;${"z".repeat(1500)}`));
+        const error = yield* parseError(
+          wrap(`${head}&nbsp;${"z".repeat(1500)}`)
+        );
 
-      expect(error).toMatchObject({
-        message: startsWith("Unknown or malformed entity reference"),
-        position: { column: 11, line: 2, offset: start + head.length },
-      });
-    }),
+        expect(error).toMatchObject({
+          message: startsWith("Unknown or malformed entity reference"),
+          position: { column: 11, line: 2, offset: start + head.length },
+        });
+      })
   );
 
   it.effect("fails on an entity reference without a semicolon", () =>
@@ -352,7 +412,7 @@ describe("tokenize entities", () => {
       const error = yield* parseError("<a>fish &amp chips</a>");
 
       expect(error.position.offset).toBe(8);
-    }),
+    })
   );
 
   it.effect("fails on an unknown entity inside an attribute value", () =>
@@ -360,7 +420,7 @@ describe("tokenize entities", () => {
       const error = yield* parseError(`<a x="&copy;"/>`);
 
       expect(error.position.offset).toBe(6);
-    }),
+    })
   );
 
   it.effect("fails on character references that are not XML characters", () =>
@@ -372,7 +432,7 @@ describe("tokenize entities", () => {
       expect(nul.position.offset).toBe(3);
       expect(beyondUnicode.position.offset).toBe(3);
       expect(emptyHex.position.offset).toBe(3);
-    }),
+    })
   );
 });
 
@@ -387,7 +447,11 @@ describe("tokenize characters", () => {
     ["a control character next to an entity", "<a>&amp;\u0001</a>", 8],
     ["a control character in long text", `<a>${longText}\u001F</a>`, 203],
     ["U+FFFF in long text", `<a>${longText}\uFFFF</a>`, 203],
-    ["a control character in long text with a CR", `<a>${longText}\r\u0008</a>`, 204],
+    [
+      "a control character in long text with a CR",
+      `<a>${longText}\r\u0008</a>`,
+      204,
+    ],
     [
       "a control character after a CRLF in a text longer than 1024 characters",
       `<a>${longText.repeat(6)}&amp;\r\n\u0008</a>`,
@@ -412,14 +476,22 @@ describe("tokenize characters", () => {
     ["a low surrogate after a valid pair", "<a>😀\uDE00</a>", 5],
     ["a lone high surrogate before an entity", "<a>\uDBFF&amp;</a>", 3],
     ["a lone high surrogate in medium text", `<a>${longText}\uD800x</a>`, 203],
-    ["a lone low surrogate in medium text with an entity", `<a>&amp;${longText}\uDFFF</a>`, 208],
+    [
+      "a lone low surrogate in medium text with an entity",
+      `<a>&amp;${longText}\uDFFF</a>`,
+      208,
+    ],
     [
       "a lone low surrogate after a pair in text longer than 1024 characters",
       `<a>${longText.repeat(6)}&amp;😀\uDC00</a>`,
       1210,
     ],
     ["a lone high surrogate in CDATA", "<a><![CDATA[x\uD800]]></a>", 13],
-    ["a lone low surrogate in long CDATA with a CR", `<a><![CDATA[\r${longText}\uDC00]]></a>`, 213],
+    [
+      "a lone low surrogate in long CDATA with a CR",
+      `<a><![CDATA[\r${longText}\uDC00]]></a>`,
+      213,
+    ],
     ["a lone high surrogate in an attribute value", '<a x="1\uD83D"/>', 7],
     [
       "a lone low surrogate in an attribute longer than 1024 characters",
@@ -434,25 +506,27 @@ describe("tokenize characters", () => {
         message: startsWith("Character not allowed in XML 1.0"),
         position: { offset },
       });
-    }),
+    })
   );
 
   it.effect("accepts tab, LF and CR in short text, long text and CDATA", () =>
     Effect.gen(function* allowedWhitespace() {
       const values = yield* texts(
-        `<a><b>x\ty\nz</b><c>${longText}\t\n</c><d><![CDATA[p\tq]]></d></a>`,
+        `<a><b>x\ty\nz</b><c>${longText}\t\n</c><d><![CDATA[p\tq]]></d></a>`
       );
 
       expect(values).toStrictEqual(["x\ty\nz", `${longText}\t\n`, "p\tq"]);
-    }),
+    })
   );
 
-  it.effect("accepts characters outside the BMP and the last BMP character before U+FFFE", () =>
-    Effect.gen(function* allowedCharacters() {
-      const values = yield* texts("<a>\uFFFD😀</a>");
+  it.effect(
+    "accepts characters outside the BMP and the last BMP character before U+FFFE",
+    () =>
+      Effect.gen(function* allowedCharacters() {
+        const values = yield* texts("<a>\uFFFD😀</a>");
 
-      expect(values).toStrictEqual(["\uFFFD😀"]);
-    }),
+        expect(values).toStrictEqual(["\uFFFD😀"]);
+      })
   );
 
   it.effect.each([130, 1100])(
@@ -467,19 +541,25 @@ describe("tokenize characters", () => {
           ["v", "𐍈"],
           ["w", `${long}&`],
         ]);
-        expect(yield* texts(xml)).toStrictEqual(["𐍈&", `${long}\n`, `😀\n${long}`]);
-      }),
+        expect(yield* texts(xml)).toStrictEqual([
+          "𐍈&",
+          `${long}\n`,
+          `😀\n${long}`,
+        ]);
+      })
   );
 });
 
 describe("tokenize security", () => {
   it.effect("rejects a DOCTYPE declaration", () =>
     Effect.gen(function* doctype() {
-      const error = yield* parseError(`<?xml version="1.0"?>\n<!DOCTYPE a [<!ENTITY x "y">]><a/>`);
+      const error = yield* parseError(
+        `<?xml version="1.0"?>\n<!DOCTYPE a [<!ENTITY x "y">]><a/>`
+      );
 
       expect(error.message).toContain("DOCTYPE");
       expect(error.position).toStrictEqual({ column: 1, line: 2, offset: 22 });
-    }),
+    })
   );
 
   it.effect("rejects an ENTITY declaration", () =>
@@ -488,7 +568,7 @@ describe("tokenize security", () => {
 
       expect(error.message).toContain("ENTITY");
       expect(error.position.offset).toBe(0);
-    }),
+    })
   );
 });
 
@@ -499,24 +579,28 @@ describe("tokenize well-formedness", () => {
 
       expect(error.message).toContain("</c>");
       expect(error.position).toStrictEqual({ column: 6, line: 2, offset: 9 });
-    }),
+    })
   );
 
-  it.effect("fails on a closing tag whose name only starts with the open element name", () =>
-    Effect.gen(function* prefixClose() {
-      const error = yield* parseError("<a></ab>");
+  it.effect(
+    "fails on a closing tag whose name only starts with the open element name",
+    () =>
+      Effect.gen(function* prefixClose() {
+        const error = yield* parseError("<a></ab>");
 
-      expect(error.position.offset).toBe(3);
-    }),
+        expect(error.position.offset).toBe(3);
+      })
   );
 
-  it.effect("fails at the end of the document when elements are still open", () =>
-    Effect.gen(function* unclosed() {
-      const error = yield* parseError("<a><b>x</b>");
+  it.effect(
+    "fails at the end of the document when elements are still open",
+    () =>
+      Effect.gen(function* unclosed() {
+        const error = yield* parseError("<a><b>x</b>");
 
-      expect(error.message).toContain("<a>");
-      expect(error.position.offset).toBe(11);
-    }),
+        expect(error.message).toContain("<a>");
+        expect(error.position.offset).toBe(11);
+      })
   );
 
   it.effect("fails on an empty document", () =>
@@ -524,7 +608,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError("  ");
 
       expect(error.position.offset).toBe(2);
-    }),
+    })
   );
 
   it.effect("fails on a second root element", () =>
@@ -532,7 +616,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError("<a/>\n<b/>");
 
       expect(error.position).toStrictEqual({ column: 1, line: 2, offset: 5 });
-    }),
+    })
   );
 
   it.effect("fails on text before the root element", () =>
@@ -540,7 +624,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError("  hi<a/>");
 
       expect(error.position.offset).toBe(2);
-    }),
+    })
   );
 
   it.effect("fails on text after the root element", () =>
@@ -548,7 +632,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError("<a/>\n oops");
 
       expect(error.position).toStrictEqual({ column: 2, line: 2, offset: 6 });
-    }),
+    })
   );
 
   it.effect("fails on a duplicate attribute", () =>
@@ -557,17 +641,20 @@ describe("tokenize well-formedness", () => {
 
       expect(error.message).toContain("x");
       expect(error.position.offset).toBe(15);
-    }),
+    })
   );
 
   it.effect("fails on a duplicate attribute among many attributes", () =>
     Effect.gen(function* duplicateAmongMany() {
-      const many = Array.from({ length: 40 }, (_, index) => `a${String(index)}="v"`).join(" ");
+      const many = Array.from(
+        { length: 40 },
+        (_, index) => `a${String(index)}="v"`
+      ).join(" ");
 
       const error = yield* parseError(`<a ${many} a35="w"/>`);
 
       expect(error.message).toContain("a35");
-    }),
+    })
   );
 
   it.effect("fails on '<' inside an attribute value", () =>
@@ -575,20 +662,22 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError(`<a x="1<2"/>`);
 
       expect(error.position.offset).toBe(7);
-    }),
+    })
   );
 
-  it.effect("fails on '<' in a long attribute value before an earlier unknown entity", () =>
-    Effect.gen(function* ltInLongAttribute() {
-      const long = "v".repeat(1500);
+  it.effect(
+    "fails on '<' in a long attribute value before an earlier unknown entity",
+    () =>
+      Effect.gen(function* ltInLongAttribute() {
+        const long = "v".repeat(1500);
 
-      const error = yield* parseError(`<a x="${long}&nbsp;${long}<"/>`);
+        const error = yield* parseError(`<a x="${long}&nbsp;${long}<"/>`);
 
-      expect(error).toMatchObject({
-        message: startsWith("'<' is not allowed in attribute values"),
-        position: { offset: 3006 + 6 },
-      });
-    }),
+        expect(error).toMatchObject({
+          message: startsWith("'<' is not allowed in attribute values"),
+          position: { offset: 3006 + 6 },
+        });
+      })
   );
 
   it.effect("fails on an attribute without whitespace before it", () =>
@@ -596,7 +685,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError(`<a x="1"y="2"/>`);
 
       expect(error.position.offset).toBe(8);
-    }),
+    })
   );
 
   it.effect("fails on an unquoted attribute value", () =>
@@ -604,7 +693,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError(`<a x=1/>`);
 
       expect(error.position.offset).toBe(5);
-    }),
+    })
   );
 
   it.effect("fails on CDATA outside the root element", () =>
@@ -612,7 +701,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError("<a/><![CDATA[x]]>");
 
       expect(error.position.offset).toBe(4);
-    }),
+    })
   );
 
   it.effect("fails on an unterminated comment", () =>
@@ -620,7 +709,7 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError(`<a><!-- x</a>`);
 
       expect(error.position.offset).toBe(3);
-    }),
+    })
   );
 
   it.effect("fails on '--' inside a comment", () =>
@@ -631,7 +720,7 @@ describe("tokenize well-formedness", () => {
         message: startsWith("'--' is not allowed inside a comment"),
         position: { offset: 10 },
       });
-    }),
+    })
   );
 
   it.effect("fails on a comment that ends with '-'", () =>
@@ -639,15 +728,17 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError(`<a><!-- x ---></a>`);
 
       expect(error.position.offset).toBe(10);
-    }),
+    })
   );
 
-  it.effect("accepts an empty comment and single hyphens inside a comment", () =>
-    Effect.gen(function* validComments() {
-      const values = yield* texts(`<a><!----><!-- a-b - c -->t</a>`);
+  it.effect(
+    "accepts an empty comment and single hyphens inside a comment",
+    () =>
+      Effect.gen(function* validComments() {
+        const values = yield* texts(`<a><!----><!-- a-b - c -->t</a>`);
 
-      expect(values).toStrictEqual(["t"]);
-    }),
+        expect(values).toStrictEqual(["t"]);
+      })
   );
 
   it.effect("fails on an XML declaration that is not at the start", () =>
@@ -655,13 +746,17 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError(`\n<?xml version="1.0"?><a/>`);
 
       expect(error.position.offset).toBe(1);
-    }),
+    })
   );
 
   it.effect.each([
     ["short text", `<a>Roma]]>Centro</a>`, 7],
     ["long text", `<a>${"x".repeat(200)}]]>y</a>`, 203],
-    ["text after a CDATA section and an attribute value", `<a b="]]>"><![CDATA[q]]>t]]></a>`, 25],
+    [
+      "text after a CDATA section and an attribute value",
+      `<a b="]]>"><![CDATA[q]]>t]]></a>`,
+      25,
+    ],
   ] as const)("fails on ']]>' in %s", ([, xml, offset]) =>
     Effect.gen(function* cdataEndInText() {
       const error = yield* parseError(xml);
@@ -670,21 +765,22 @@ describe("tokenize well-formedness", () => {
         message: startsWith("']]>' is not allowed in text"),
         position: { offset },
       });
-    }),
+    })
   );
 
-  it.effect("accepts ']]>' in CDATA and attribute values and ']]' or '>' alone in text", () =>
-    Effect.gen(function* cdataEndElsewhere() {
-      const events = yield* record(`<a b="]]>"><![CDATA[x]]>]]<![CDATA[y]]>]] >&gt;</a>`);
+  it.effect(
+    "accepts ']]>' in CDATA and attribute values and ']]' or '>' alone in text",
+    () =>
+      Effect.gen(function* cdataEndElsewhere() {
+        const events = yield* record(
+          `<a b="]]>"><![CDATA[x]]>]]<![CDATA[y]]>]] >&gt;</a>`
+        );
 
-      expect(events).toContainEqual(["attribute", "b", "]]>", 3]);
-      expect(events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))).toStrictEqual([
-        "x",
-        "]]",
-        "y",
-        "]] >>",
-      ]);
-    }),
+        expect(events).toContainEqual(["attribute", "b", "]]>", 3]);
+        expect(
+          events.flatMap((event) => (event[0] === "text" ? [event[1]] : []))
+        ).toStrictEqual(["x", "]]", "y", "]] >>"]);
+      })
   );
 
   it.effect.each([
@@ -700,11 +796,11 @@ describe("tokenize well-formedness", () => {
 
       expect(error).toMatchObject({
         message: startsWith(
-          'Malformed XML declaration: expected version="1.x", then optional encoding and standalone',
+          'Malformed XML declaration: expected version="1.x", then optional encoding and standalone'
         ),
         position: { offset: 0 },
       });
-    }),
+    })
   );
 
   it.effect.each([
@@ -714,8 +810,12 @@ describe("tokenize well-formedness", () => {
     `<?xml\r\n  version="1.1"\tstandalone='yes'?><a/>`,
   ])("accepts the XML declaration %s", (xml) =>
     Effect.gen(function* validDeclaration() {
-      expect(yield* record(xml)).toContainEqual(["openStart", "a", xml.indexOf("<a")]);
-    }),
+      expect(yield* record(xml)).toContainEqual([
+        "openStart",
+        "a",
+        xml.indexOf("<a"),
+      ]);
+    })
   );
 
   it.effect("accepts nesting up to maxDepth", () =>
@@ -723,7 +823,7 @@ describe("tokenize well-formedness", () => {
       const events = yield* record("<a><b><c/></b></a>", { maxDepth: 3 });
 
       expect(events).toContainEqual(["openStart", "c", 6]);
-    }),
+    })
   );
 
   it.effect("fails when nesting exceeds maxDepth", () =>
@@ -731,35 +831,42 @@ describe("tokenize well-formedness", () => {
       const error = yield* parseError("<a><b><c/></b></a>", { maxDepth: 2 });
 
       expect(error.position.offset).toBe(6);
-    }),
+    })
   );
 
   it.effect("limits nesting to 256 elements by default", () =>
     Effect.gen(function* defaultDepth() {
       const accepted = yield* Effect.fromResult(
-        tokenize(`${"<a>".repeat(256)}${"</a>".repeat(256)}`, recordingHandler([])),
+        tokenize(
+          `${"<a>".repeat(256)}${"</a>".repeat(256)}`,
+          recordingHandler([])
+        )
       );
 
-      const error = yield* parseError(`${"<a>".repeat(257)}${"</a>".repeat(257)}`);
+      const error = yield* parseError(
+        `${"<a>".repeat(257)}${"</a>".repeat(257)}`
+      );
 
       expect(accepted).toBe(true);
       expect(error.position.offset).toBe(768);
-    }),
+    })
   );
 });
 
 describe("tokenize names and the end of the document", () => {
-  it.effect("reads names with ASCII name characters, non-ASCII letters and astral characters", () =>
-    Effect.gen(function* names() {
-      const events = yield* record(`<_a-b.c:9é😀 x-y.z_0:1\u0080="v"/>`);
+  it.effect(
+    "reads names with ASCII name characters, non-ASCII letters and astral characters",
+    () =>
+      Effect.gen(function* names() {
+        const events = yield* record(`<_a-b.c:9é😀 x-y.z_0:1\u0080="v"/>`);
 
-      expect(events).toStrictEqual([
-        ["openStart", "_a-b.c:9é😀", 0],
-        ["attribute", "x-y.z_0:1\u0080", "v", 13],
-        ["openEnd"],
-        ["close"],
-      ]);
-    }),
+        expect(events).toStrictEqual([
+          ["openStart", "_a-b.c:9é😀", 0],
+          ["attribute", "x-y.z_0:1\u0080", "v", 13],
+          ["openEnd"],
+          ["close"],
+        ]);
+      })
   );
 
   it.effect("accepts a name that starts with a surrogate pair", () =>
@@ -772,12 +879,16 @@ describe("tokenize names and the end of the document", () => {
         ["openEnd"],
         ["close"],
       ]);
-    }),
+    })
   );
 
   it.effect.each([
     ["a lone high surrogate in an element name", "<ab\uD800/>", 3],
-    ["a high surrogate before a non-surrogate in an element name", "<a\uD83Dx/>", 2],
+    [
+      "a high surrogate before a non-surrogate in an element name",
+      "<a\uD83Dx/>",
+      2,
+    ],
     ["a lone low surrogate at the start of an element name", "<\uDC00/>", 1],
     ["U+FFFE in an element name", "<a\uFFFE/>", 2],
     ["U+FFFF at the start of an attribute name", '<a \uFFFF="1"/>', 3],
@@ -792,7 +903,7 @@ describe("tokenize names and the end of the document", () => {
         message: startsWith("Character not allowed in XML 1.0"),
         position: { offset },
       });
-    }),
+    })
   );
 
   it.effect.each(["@", "[", "`", "{", "\u007F", ",", ";"])(
@@ -805,17 +916,32 @@ describe("tokenize names and the end of the document", () => {
           message: startsWith("Unexpected character in start tag <ab>"),
           position: { offset: 3 },
         });
-      }),
+      })
   );
 
   it.effect.each([
     ["after '<'", "<", "Invalid element name", 1],
     ["inside a start tag name", "<ab", "Unterminated start tag <ab>", 0],
-    ["after whitespace in a start tag", "<a \t\r\n", "Unterminated start tag <a>", 0],
+    [
+      "after whitespace in a start tag",
+      "<a \t\r\n",
+      "Unterminated start tag <a>",
+      0,
+    ],
     ["inside an attribute name", "<a b", "Expected '=' after attribute b", 4],
-    ["after '=' and whitespace", "<a b= ", "Expected a quoted value for attribute b", 6],
+    [
+      "after '=' and whitespace",
+      "<a b= ",
+      "Expected a quoted value for attribute b",
+      6,
+    ],
     ["inside a closing tag", "<a></a", "Malformed closing tag </a>", 3],
-    ["after whitespace in a closing tag", "<a></a \n", "Malformed closing tag </a>", 3],
+    [
+      "after whitespace in a closing tag",
+      "<a></a \n",
+      "Malformed closing tag </a>",
+      3,
+    ],
     [
       "after '/' in an empty-element tag",
       "<a/",
@@ -826,8 +952,11 @@ describe("tokenize names and the end of the document", () => {
     Effect.gen(function* documentEnd() {
       const error = yield* parseError(xml);
 
-      expect(error).toMatchObject({ message: startsWith(message), position: { offset } });
-    }),
+      expect(error).toMatchObject({
+        message: startsWith(message),
+        position: { offset },
+      });
+    })
   );
 });
 
@@ -836,7 +965,8 @@ type Token =
   | readonly ["open", string, readonly string[]]
   | readonly ["text", string];
 
-const qualified = (prefix: string, name: string) => (prefix === "" ? name : `${prefix}:${name}`);
+const qualified = (prefix: string, name: string) =>
+  prefix === "" ? name : `${prefix}:${name}`;
 
 const libxml2Tokens = (node: XmlTreeNode | null): Token[] => {
   if (node === null) {
@@ -848,19 +978,29 @@ const libxml2Tokens = (node: XmlTreeNode | null): Token[] => {
   if (node instanceof XmlElement) {
     const declared = [
       ...Object.entries(node.nsDeclarations).map(
-        ([prefix, uri]) => `${prefix === "" ? "xmlns" : `xmlns:${prefix}`}=${uri}`,
+        ([prefix, uri]) =>
+          `${prefix === "" ? "xmlns" : `xmlns:${prefix}`}=${uri}`
       ),
       ...node.attrs.map(
-        (attribute) => `${qualified(attribute.prefix, attribute.name)}=${attribute.content}`,
+        (attribute) =>
+          `${qualified(attribute.prefix, attribute.name)}=${attribute.content}`
       ),
     ].toSorted();
 
     const name = qualified(node.prefix, node.name);
 
-    return [["open", name, declared], ...libxml2Tokens(node.firstChild), ["close", name], ...rest];
+    return [
+      ["open", name, declared],
+      ...libxml2Tokens(node.firstChild),
+      ["close", name],
+      ...rest,
+    ];
   }
 
-  if ((node instanceof XmlText || node instanceof XmlCData) && node.content.trim() !== "") {
+  if (
+    (node instanceof XmlText || node instanceof XmlCData) &&
+    node.content.trim() !== ""
+  ) {
     return [["text", node.content], ...rest];
   }
 
@@ -869,39 +1009,51 @@ const libxml2Tokens = (node: XmlTreeNode | null): Token[] => {
 
 describe("tokenize on FatturaPA fixtures", () => {
   for (const slug of ["1-linea", "20-linee"]) {
-    it.effect(`matches the libxml2 element, attribute and text sequence for ${slug}`, () =>
-      Effect.gen(function* matchesLibxml2() {
-        const xml = readFileSync(new URL(`fixtures/fattura-${slug}.xml`, import.meta.url), "utf-8");
-        const document = XmlDocument.fromString(xml);
-        const expected = libxml2Tokens(document.root);
-        document.dispose();
+    it.effect(
+      `matches the libxml2 element, attribute and text sequence for ${slug}`,
+      () =>
+        Effect.gen(function* matchesLibxml2() {
+          const xml = readFileSync(
+            new URL(`fixtures/fattura-${slug}.xml`, import.meta.url),
+            "utf-8"
+          );
 
-        const actual: Token[] = [];
-        const open: string[] = [];
-        const pending: string[] = [];
+          const document = XmlDocument.fromString(xml);
+          const expected = libxml2Tokens(document.root);
+          document.dispose();
 
-        yield* Effect.fromResult(
-          tokenize(xml, {
-            attribute: (qname, value) => pending.push(`${qname}=${value}`) > 0,
-            close: () => actual.push(["close", open.pop() ?? ""]) > 0,
-            openEnd: () => {
-              const last = actual.at(-1);
+          const actual: Token[] = [];
+          const open: string[] = [];
+          const pending: string[] = [];
 
-              if (last?.[0] === "open") {
-                actual[actual.length - 1] = ["open", last[1], pending.toSorted()];
-              }
+          yield* Effect.fromResult(
+            tokenize(xml, {
+              attribute: (qname, value) =>
+                pending.push(`${qname}=${value}`) > 0,
+              close: () => actual.push(["close", open.pop() ?? ""]) > 0,
+              openEnd: () => {
+                const last = actual.at(-1);
 
-              pending.length = 0;
+                if (last?.[0] === "open") {
+                  actual[actual.length - 1] = [
+                    "open",
+                    last[1],
+                    pending.toSorted(),
+                  ];
+                }
 
-              return true;
-            },
-            openStart: (qname) => open.push(qname) > 0 && actual.push(["open", qname, []]) > 0,
-            text: (value) => actual.push(["text", value]) > 0,
-          }),
-        );
+                pending.length = 0;
 
-        expect(actual).toStrictEqual(expected);
-      }),
+                return true;
+              },
+              openStart: (qname) =>
+                open.push(qname) > 0 && actual.push(["open", qname, []]) > 0,
+              text: (value) => actual.push(["text", value]) > 0,
+            })
+          );
+
+          expect(actual).toStrictEqual(expected);
+        })
     );
   }
 });

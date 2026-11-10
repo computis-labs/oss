@@ -1,5 +1,6 @@
 import { Effect, Result } from "effect";
 import { ParseOption, XmlDocument, XmlElement, XmlError } from "libxml2-wasm";
+
 import { XsdCodegenError } from "../errors/xsd-codegen-error.ts";
 
 export const XSD_NAMESPACE = "http://www.w3.org/2001/XMLSchema";
@@ -14,10 +15,16 @@ export interface XsdNode {
 }
 
 export const fail = (node: XsdNode, message: string) =>
-  Result.fail(new XsdCodegenError({ message, path: `${node.path} (line ${String(node.line)})` }));
+  Result.fail(
+    new XsdCodegenError({
+      message,
+      path: `${node.path} (line ${String(node.line)})`,
+    })
+  );
 
-// oxlint-disable-next-line no-bitwise -- libxml2 parse options are bit flags
-const PARSE_OPTION: ParseOption = ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
+const PARSE_OPTION: ParseOption =
+  // oxlint-disable-next-line no-bitwise -- libxml2 parse options are bit flags
+  ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
 
 const toNode = (element: XmlElement, parentPath: string): XsdNode => {
   const name = element.attr("name")?.value;
@@ -40,7 +47,7 @@ const toNode = (element: XmlElement, parentPath: string): XsdNode => {
     attributes: new Map(
       element.attrs
         .filter((attribute) => attribute.namespaceUri === "")
-        .map((attribute) => [attribute.name, attribute.value]),
+        .map((attribute) => [attribute.name, attribute.value])
     ),
     children,
     line: element.line,
@@ -51,33 +58,42 @@ const toNode = (element: XmlElement, parentPath: string): XsdNode => {
 };
 
 export const readSchemaDocument = Effect.fn("XsdCodegen.readSchemaDocument")(
-  function* readSchema(source: { readonly contents: Uint8Array; readonly url: string }) {
+  function* readSchema(source: {
+    readonly contents: Uint8Array;
+    readonly url: string;
+  }) {
     return yield* Effect.acquireUseRelease(
       Effect.try({
         catch: (cause) =>
           new XsdCodegenError({
             cause,
             message: `The XSD could not be parsed: ${
-              cause instanceof XmlError ? cause.message.trimEnd() : "libxml2 gave no diagnostic"
+              cause instanceof XmlError
+                ? cause.message.trimEnd()
+                : "libxml2 gave no diagnostic"
             }`,
             path: source.url,
           }),
         try: () =>
-          XmlDocument.fromBuffer(source.contents, { option: PARSE_OPTION, url: source.url }),
+          XmlDocument.fromBuffer(source.contents, {
+            option: PARSE_OPTION,
+            url: source.url,
+          }),
       }),
       (document) =>
-        document.root.namespaceUri === XSD_NAMESPACE && document.root.name === "schema"
+        document.root.namespaceUri === XSD_NAMESPACE &&
+        document.root.name === "schema"
           ? Effect.sync(() => toNode(document.root, ""))
           : Effect.fail(
               new XsdCodegenError({
                 message: "The document root is not an xs:schema element.",
                 path: source.url,
-              }),
+              })
             ),
       (document) =>
         Effect.sync(() => {
           document.dispose();
-        }),
+        })
     );
-  },
+  }
 );

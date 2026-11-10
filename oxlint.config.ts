@@ -1,6 +1,6 @@
 import { defineConfig } from "oxlint";
-import core from "ultracite/oxlint/core";
 import antiSlop from "ultracite/oxlint/anti-slop";
+import core from "ultracite/oxlint/core";
 
 export default defineConfig({
   extends: [core],
@@ -120,12 +120,21 @@ export default defineConfig({
       files: ["packages/**/*.{ts,tsx}"],
       rules: { "narrowing-policy/no-unknown-narrowing": "error" },
     },
-    { files: ["packages/**/*.{ts,tsx}"], rules: { "test-boundary/no-test-imports": "error" } },
-    { files: ["packages/effect-eval/src/index.ts"], rules: { "oxc/no-barrel-file": "off" } },
+    {
+      files: ["packages/**/*.{ts,tsx}"],
+      rules: { "test-boundary/no-test-imports": "error" },
+    },
+    {
+      files: ["packages/effect-eval/src/index.ts"],
+      rules: { "oxc/no-barrel-file": "off" },
+    },
     {
       files: ["**/*.{test,spec,fixtures}.{ts,tsx}"],
       rules: {
-        "generator-policy/require-named-generator": ["error", { allowUnnamedGenerators: true }],
+        "generator-policy/require-named-generator": [
+          "error",
+          { allowUnnamedGenerators: true },
+        ],
       },
     },
     {
@@ -138,7 +147,12 @@ export default defineConfig({
     },
     {
       files: ["packages/**/*.test.{ts,tsx}", "packages/**/tests/**/*.{ts,tsx}"],
-      rules: { "helper-policy/no-single-use-helpers": ["error", { checkConstants: false }] },
+      rules: {
+        "helper-policy/no-single-use-helpers": [
+          "error",
+          { checkConstants: false },
+        ],
+      },
     },
   ],
   plugins: ["typescript"],
@@ -168,7 +182,10 @@ export default defineConfig({
     "func-names": "off",
     "function-policy/no-discarded-iife": "error",
     "generator-policy/require-named-generator": "error",
-    "jsdoc/check-tag-names": ["error", { definedTags: ["effect-leakable-service"] }],
+    "jsdoc/check-tag-names": [
+      "error",
+      { definedTags: ["effect-leakable-service"] },
+    ],
     "no-shadow": ["error", { allow: ["it"] }],
     "object-policy/prefer-when-defined": "error",
     "return-type-policy/by-branch": "error",
@@ -177,7 +194,15 @@ export default defineConfig({
     "typescript/no-unsafe-assignment": "error",
     "typescript/only-throw-error": [
       "error",
-      { allow: [{ from: "package", name: "Redirect", package: "@tanstack/router-core" }] },
+      {
+        allow: [
+          {
+            from: "package",
+            name: "Redirect",
+            package: "@tanstack/router-core",
+          },
+        ],
+      },
     ],
     "unicorn/consistent-function-scoping": "off",
     "unicorn/no-immediate-mutation": "off",

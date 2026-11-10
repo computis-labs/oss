@@ -1,9 +1,16 @@
 import { Effect, FileSystem, Predicate } from "effect";
 import type { Path, Scope } from "effect";
-import { ParseOption, XmlDocument, XmlError, XmlLibError, XsdValidator } from "libxml2-wasm";
+import {
+  ParseOption,
+  XmlDocument,
+  XmlError,
+  XmlLibError,
+  XsdValidator,
+} from "libxml2-wasm";
+
+import { XsdSchemaError } from "./errors/xsd-schema-error.ts";
 import type { XsdIssue } from "./errors/xsd-validation-error.ts";
 import { XsdValidationError } from "./errors/xsd-validation-error.ts";
-import { XsdSchemaError } from "./errors/xsd-schema-error.ts";
 import { provideImportedSchemas } from "./xsd-imports.ts";
 
 export type XsdSchemaSource =
@@ -15,13 +22,16 @@ export interface XsdValidatorOptions {
 }
 
 export interface XsdValidatorApi {
-  readonly validate: (xml: string | Uint8Array) => Effect.Effect<void, XsdValidationError>;
+  readonly validate: (
+    xml: string | Uint8Array
+  ) => Effect.Effect<void, XsdValidationError>;
 }
 
 const utf8 = new TextEncoder();
 
-// oxlint-disable-next-line no-bitwise -- libxml2 parse options are bit flags
-const PARSE_OPTION: ParseOption = ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
+const PARSE_OPTION: ParseOption =
+  // oxlint-disable-next-line no-bitwise -- libxml2 parse options are bit flags
+  ParseOption.XML_PARSE_NO_XXE | ParseOption.XML_PARSE_NONET;
 
 const libxml2Issues = (cause: unknown) =>
   cause instanceof XmlLibError
@@ -33,7 +43,9 @@ const libxml2Issues = (cause: unknown) =>
     : [];
 
 const libxml2Message = (cause: unknown) =>
-  cause instanceof XmlError ? cause.message.trimEnd() : "libxml2 failed without a diagnostic";
+  cause instanceof XmlError
+    ? cause.message.trimEnd()
+    : "libxml2 failed without a diagnostic";
 
 const validationError = (summary: string, cause: unknown, note = "") => {
   const issues = libxml2Issues(cause);
@@ -41,7 +53,10 @@ const validationError = (summary: string, cause: unknown, note = "") => {
   return XsdValidationError.fromReason({
     cause,
     issues,
-    reason: issues.length === 0 ? `${summary}: ${libxml2Message(cause)}${note}` : summary,
+    reason:
+      issues.length === 0
+        ? `${summary}: ${libxml2Message(cause)}${note}`
+        : summary,
   });
 };
 
@@ -54,7 +69,10 @@ const toSchemaError = (cause: unknown) => {
       issues.length === 0
         ? libxml2Message(cause)
         : issues
-            .map((issue) => `${String(issue.line)}:${String(issue.column)} ${issue.message}`)
+            .map(
+              (issue) =>
+                `${String(issue.line)}:${String(issue.column)} ${issue.message}`
+            )
             .join("; ")
     }`,
   });
@@ -66,7 +84,7 @@ const disposeDocument = (document: XmlDocument) =>
   });
 
 export const make: (
-  options: XsdValidatorOptions,
+  options: XsdValidatorOptions
 ) => Effect.Effect<
   XsdValidatorApi,
   XsdSchemaError,
@@ -83,8 +101,8 @@ export const make: (
                 new XsdSchemaError({
                   cause,
                   message: `XSD schema file could not be read: ${schema.path}`,
-                }),
-            ),
+                })
+            )
           ),
           url: schema.path,
         }
@@ -93,19 +111,26 @@ export const make: (
   const schemaDocument = yield* Effect.acquireRelease(
     Effect.try({
       catch: toSchemaError,
-      try: () => XmlDocument.fromBuffer(source.contents, { option: PARSE_OPTION, url: source.url }),
+      try: () =>
+        XmlDocument.fromBuffer(source.contents, {
+          option: PARSE_OPTION,
+          url: source.url,
+        }),
     }),
-    disposeDocument,
+    disposeDocument
   );
 
   yield* provideImportedSchemas(schemaDocument, source.url, PARSE_OPTION);
 
   const validator = yield* Effect.acquireRelease(
-    Effect.try({ catch: toSchemaError, try: () => XsdValidator.fromDoc(schemaDocument) }),
+    Effect.try({
+      catch: toSchemaError,
+      try: () => XsdValidator.fromDoc(schemaDocument),
+    }),
     (compiled) =>
       Effect.sync(() => {
         compiled.dispose();
-      }),
+      })
   );
 
   const scope = yield* Effect.scope;
@@ -114,14 +139,22 @@ export const make: (
     validate: (xml) =>
       Effect.suspend(() =>
         Predicate.isTagged(scope.state, "Closed")
-          ? Effect.die(new Error("Xsd validator used after the scope that built it was closed"))
+          ? Effect.die(
+              new Error(
+                "Xsd validator used after the scope that built it was closed"
+              )
+            )
           : Effect.acquireUseRelease(
               Effect.try({
-                catch: (cause) => validationError("XML document could not be parsed", cause),
+                catch: (cause) =>
+                  validationError("XML document could not be parsed", cause),
                 try: () =>
-                  XmlDocument.fromBuffer(xml instanceof Uint8Array ? xml : utf8.encode(xml), {
-                    option: PARSE_OPTION,
-                  }),
+                  XmlDocument.fromBuffer(
+                    xml instanceof Uint8Array ? xml : utf8.encode(xml),
+                    {
+                      option: PARSE_OPTION,
+                    }
+                  ),
               }),
               (document) =>
                 Effect.try({
@@ -134,15 +167,15 @@ export const make: (
                       cause,
                       dtd === null
                         ? ""
-                        : " (entity references declared in the DOCTYPE are not expanded)",
+                        : " (entity references declared in the DOCTYPE are not expanded)"
                     );
                   },
                   try: () => {
                     validator.validate(document);
                   },
                 }),
-              disposeDocument,
-            ),
+              disposeDocument
+            )
       ),
   };
 });

@@ -1,18 +1,28 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
+
 import { PromptSyntaxErrorReason } from "../src/errors.ts";
 import { parse } from "../src/parser.ts";
 
-const failure = (source: string) => Effect.flip(parse(source, { path: "x.prompt.md" }));
+const failure = (source: string) =>
+  Effect.flip(parse(source, { path: "x.prompt.md" }));
 
 describe("frontmatter", () => {
-  it.effect("reads the description and starts the body after the closing line", () =>
-    Effect.gen(function* () {
-      const document = yield* parse("---\ndescription: Extract an invoice\n---\nBody\n");
+  it.effect(
+    "reads the description and starts the body after the closing line",
+    () =>
+      Effect.gen(function* () {
+        const document = yield* parse(
+          "---\ndescription: Extract an invoice\n---\nBody\n"
+        );
 
-      expect(document.frontmatter).toMatchObject({ description: "Extract an invoice" });
-      expect(document.body).toMatchObject({ nodes: [{ _tag: "Text", value: "Body\n" }] });
-    }),
+        expect(document.frontmatter).toMatchObject({
+          description: "Extract an invoice",
+        });
+        expect(document.body).toMatchObject({
+          nodes: [{ _tag: "Text", value: "Body\n" }],
+        });
+      })
   );
 
   it.effect("maps the mini type syntax to type nodes", () =>
@@ -34,7 +44,7 @@ describe("frontmatter", () => {
           "  lines: [{ description: String, amount: Number }]",
           "---",
           "",
-        ].join("\n"),
+        ].join("\n")
       );
 
       expect(document.frontmatter?.input).toMatchObject({
@@ -42,13 +52,26 @@ describe("frontmatter", () => {
         type: {
           _tag: "Struct",
           fields: [
-            { name: "text", optional: true, type: { _tag: "Primitive", name: "String" } },
+            {
+              name: "text",
+              optional: true,
+              type: { _tag: "Primitive", name: "String" },
+            },
             { name: "total", optional: false, type: { name: "Number" } },
             { name: "paid", type: { name: "Boolean" } },
             { name: "pdf", type: { name: "File" } },
-            { name: "source", type: { _tag: "Literal", values: ["file", "text"] } },
-            { name: "tags", type: { _tag: "Array", element: { name: "String" } } },
-            { name: "note", type: { _tag: "NullOr", type: { name: "String" } } },
+            {
+              name: "source",
+              type: { _tag: "Literal", values: ["file", "text"] },
+            },
+            {
+              name: "tags",
+              type: { _tag: "Array", element: { name: "String" } },
+            },
+            {
+              name: "note",
+              type: { _tag: "NullOr", type: { name: "String" } },
+            },
             {
               name: "customer",
               type: {
@@ -75,13 +98,13 @@ describe("frontmatter", () => {
           ],
         },
       });
-    }),
+    })
   );
 
   it.effect("reads a schema reference", () =>
     Effect.gen(function* () {
       const document = yield* parse(
-        "---\nschema: '#/modules/invoice/prompt-input#InvoiceInput'\n---\n",
+        "---\nschema: '#/modules/invoice/prompt-input#InvoiceInput'\n---\n"
       );
 
       expect(document.frontmatter?.input).toEqual(
@@ -89,21 +112,23 @@ describe("frontmatter", () => {
           _tag: "Reference",
           exportName: "InvoiceInput",
           module: "#/modules/invoice/prompt-input",
-        }),
+        })
       );
-    }),
+    })
   );
 
   it.effect("points type errors at the type inside the YAML value", () =>
     Effect.gen(function* () {
-      const error = yield* failure('---\ninput:\n  source: Literal("a", Strin)\n---\n');
+      const error = yield* failure(
+        '---\ninput:\n  source: Literal("a", Strin)\n---\n'
+      );
 
       expect(error).toMatchObject({
         column: 24,
         line: 3,
         reason: PromptSyntaxErrorReason.InvalidType,
       });
-    }),
+    })
   );
 
   it.effect("suggests the right type name", () =>
@@ -116,15 +141,17 @@ describe("frontmatter", () => {
         reason: PromptSyntaxErrorReason.InvalidType,
       });
       expect(error.detail).toContain("Did you mean 'String'?");
-    }),
+    })
   );
 
   it.effect("explains how to mark a field optional", () =>
     Effect.gen(function* () {
-      const error = yield* failure("---\ninput:\n  text: optional(String)\n---\n");
+      const error = yield* failure(
+        "---\ninput:\n  text: optional(String)\n---\n"
+      );
 
       expect(error.detail).toContain("'text?: String'");
-    }),
+    })
   );
 
   it.effect("suggests the closest frontmatter key", () =>
@@ -136,23 +163,33 @@ describe("frontmatter", () => {
         reason: PromptSyntaxErrorReason.UnknownFrontmatterKey,
       });
       expect(error.detail).toContain("Did you mean 'input'?");
-    }),
+    })
   );
 
   it.effect("rejects input together with schema", () =>
     Effect.gen(function* () {
-      const error = yield* failure("---\ninput:\n  text: String\nschema: ./input.ts#Input\n---\n");
+      const error = yield* failure(
+        "---\ninput:\n  text: String\nschema: ./input.ts#Input\n---\n"
+      );
 
-      expect(error).toMatchObject({ line: 4, reason: PromptSyntaxErrorReason.ConflictingInput });
-    }),
+      expect(error).toMatchObject({
+        line: 4,
+        reason: PromptSyntaxErrorReason.ConflictingInput,
+      });
+    })
   );
 
   it.effect("rejects a field that is declared twice", () =>
     Effect.gen(function* () {
-      const error = yield* failure("---\ninput:\n  text: String\n  text?: String\n---\n");
+      const error = yield* failure(
+        "---\ninput:\n  text: String\n  text?: String\n---\n"
+      );
 
-      expect(error).toMatchObject({ line: 4, reason: PromptSyntaxErrorReason.DuplicateField });
-    }),
+      expect(error).toMatchObject({
+        line: 4,
+        reason: PromptSyntaxErrorReason.DuplicateField,
+      });
+    })
   );
 
   it.effect("rejects a reserved field name", () =>
@@ -160,15 +197,17 @@ describe("frontmatter", () => {
       const error = yield* failure("---\ninput:\n  else: String\n---\n");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.InvalidIdentifier);
-    }),
+    })
   );
 
   it.effect("rejects an array type with two element types", () =>
     Effect.gen(function* () {
-      const error = yield* failure("---\ninput:\n  xs: [String, Number]\n---\n");
+      const error = yield* failure(
+        "---\ninput:\n  xs: [String, Number]\n---\n"
+      );
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.InvalidType);
-    }),
+    })
   );
 
   it.effect("rejects a schema reference without an export name", () =>
@@ -176,22 +215,29 @@ describe("frontmatter", () => {
       const error = yield* failure("---\nschema: ./input.ts\n---\n");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.InvalidSchemaReference);
-    }),
+    })
   );
 
   it.effect("reports invalid YAML at its position", () =>
     Effect.gen(function* () {
-      const error = yield* failure("---\ndescription: a\ndescription: b\n---\n");
+      const error = yield* failure(
+        "---\ndescription: a\ndescription: b\n---\n"
+      );
 
-      expect(error).toMatchObject({ line: 3, reason: PromptSyntaxErrorReason.InvalidYaml });
-    }),
+      expect(error).toMatchObject({
+        line: 3,
+        reason: PromptSyntaxErrorReason.InvalidYaml,
+      });
+    })
   );
 
   it.effect("rejects a frontmatter with no closing line", () =>
     Effect.gen(function* () {
       const error = yield* failure("---\ndescription: a\nBody\n");
 
-      expect(error.reason).toBe(PromptSyntaxErrorReason.UnterminatedFrontmatter);
-    }),
+      expect(error.reason).toBe(
+        PromptSyntaxErrorReason.UnterminatedFrontmatter
+      );
+    })
   );
 });

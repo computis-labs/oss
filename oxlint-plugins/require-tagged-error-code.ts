@@ -1,6 +1,6 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
+
 import { isString } from "./predicates.ts";
 
 const isTaggedErrorMember = (node: ESTree.Expression, namespace: string) =>
@@ -30,7 +30,8 @@ const taggedErrorTag = (superClass: ESTree.Expression | null) => {
   const { callee } = superClass;
   const isDataFactory = isTaggedErrorMember(callee, "Data");
   const isSchemaFactory =
-    callee.type === "CallExpression" && isTaggedErrorMember(callee.callee, "Schema");
+    callee.type === "CallExpression" &&
+    isTaggedErrorMember(callee.callee, "Schema");
 
   if (!isDataFactory && !isSchemaFactory) {
     return null;
@@ -54,7 +55,9 @@ const taggedErrorTag = (superClass: ESTree.Expression | null) => {
 
 const expectedCode = (tag: string) => {
   const withoutSuffix =
-    tag.length > "Error".length && tag.endsWith("Error") ? tag.slice(0, -"Error".length) : tag;
+    tag.length > "Error".length && tag.endsWith("Error")
+      ? tag.slice(0, -"Error".length)
+      : tag;
 
   return withoutSuffix
     .replaceAll(/(?<tail>[a-z0-9])(?<head>[A-Z])/gu, "$<tail>_$<head>")
@@ -66,9 +69,10 @@ const expectedCode = (tag: string) => {
 const codeMember = (body: ESTree.ClassBody) =>
   body.body.find(
     (member) =>
-      (member.type === "PropertyDefinition" || member.type === "AccessorProperty") &&
+      (member.type === "PropertyDefinition" ||
+        member.type === "AccessorProperty") &&
       !member.computed &&
-      isCodeKey(member.key),
+      isCodeKey(member.key)
   );
 
 const requireTaggedErrorCode = defineRule({
@@ -88,7 +92,7 @@ const requireTaggedErrorCode = defineRule({
           fix: (fixer) =>
             fixer.insertTextAfterRange(
               [node.body.start, node.body.start + 1],
-              `\n  readonly code = ${JSON.stringify(code)};\n`,
+              `\n  readonly code = ${JSON.stringify(code)};\n`
             ),
           messageId: "missingCode",
           node: node.id ?? node,
@@ -97,13 +101,25 @@ const requireTaggedErrorCode = defineRule({
       }
 
       if (member.type !== "PropertyDefinition" || member.static) {
-        context.report({ data: { code }, messageId: "instanceFieldRequired", node: member });
+        context.report({
+          data: { code },
+          messageId: "instanceFieldRequired",
+          node: member,
+        });
         return;
       }
 
       const { value } = member;
-      if (value === null || value.type !== "Literal" || !isString(value.value)) {
-        context.report({ data: { code }, messageId: "literalCodeRequired", node: member });
+      if (
+        value === null ||
+        value.type !== "Literal" ||
+        !isString(value.value)
+      ) {
+        context.report({
+          data: { code },
+          messageId: "literalCodeRequired",
+          node: member,
+        });
         return;
       }
 

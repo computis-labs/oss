@@ -1,6 +1,7 @@
-import * as Schema from "effect/Schema";
 import type * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as Transferable from "effect/workers/Transferable";
+
 import type { PdfEngineError } from "./errors/pdf-engine-error.ts";
 import type { PdfFormError } from "./errors/pdf-form-error.ts";
 import type { PdfPageError } from "./errors/pdf-page-error.ts";
@@ -15,9 +16,15 @@ export const pdfPageKinds = {
 
 export type PdfPageKind = (typeof pdfPageKinds)[keyof typeof pdfPageKinds];
 
-export const pdfImageOrigins = { embedded: "embedded", rendered: "rendered" } as const;
+export const pdfImageOrigins = {
+  embedded: "embedded",
+  rendered: "rendered",
+} as const;
 
-export const pdfImageMediaTypes = { jpeg: "image/jpeg", png: "image/png" } as const;
+export const pdfImageMediaTypes = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+} as const;
 
 export const pdfFieldTypes = {
   button: "button",
@@ -74,7 +81,10 @@ export const PdfPageTextSchema = Schema.Struct({
 
 export type PdfPageText = typeof PdfPageTextSchema.Type;
 
-export const PdfPointSchema = Schema.Struct({ x: Schema.Finite, y: Schema.Finite });
+export const PdfPointSchema = Schema.Struct({
+  x: Schema.Finite,
+  y: Schema.Finite,
+});
 
 export const PdfTextMatchSchema = Schema.Struct({
   box: PdfRectSchema,
@@ -96,17 +106,25 @@ export const PdfImageSchema = Schema.Struct({
 
 export type PdfImage = typeof PdfImageSchema.Type;
 
-export const PdfFieldValueSchema = Schema.Union([Schema.String, Schema.Boolean]);
+export const PdfFieldValueSchema = Schema.Union([
+  Schema.String,
+  Schema.Boolean,
+]);
 
 export type PdfFieldValue = typeof PdfFieldValueSchema.Type;
 
-export const PdfFieldValuesSchema = Schema.Record(Schema.String, PdfFieldValueSchema);
+export const PdfFieldValuesSchema = Schema.Record(
+  Schema.String,
+  PdfFieldValueSchema
+);
 
 export const PdfFieldSchema = Schema.Struct({
   name: Schema.String,
   type: Schema.Literals(Object.values(pdfFieldTypes)),
   value: Schema.UndefinedOr(PdfFieldValueSchema),
-  widgets: Schema.Array(Schema.Struct({ page: Schema.Int, rect: PdfRectSchema })),
+  widgets: Schema.Array(
+    Schema.Struct({ page: Schema.Int, rect: PdfRectSchema })
+  ),
 });
 
 export type PdfField = typeof PdfFieldSchema.Type;
@@ -136,30 +154,36 @@ export type PdfRenderSize = typeof PdfRenderSizeSchema.Type;
 
 export interface PdfDocument {
   readonly addSignatureField: (
-    field: PdfSignatureField,
+    field: PdfSignatureField
   ) => Effect.Effect<void, PdfEngineError | PdfFormError | PdfPageError>;
-  readonly classify: Effect.Effect<PdfClassification, PdfEngineError | PdfPageError>;
-  readonly fields: Effect.Effect<readonly PdfField[], PdfEngineError | PdfFormError | PdfPageError>;
+  readonly classify: Effect.Effect<
+    PdfClassification,
+    PdfEngineError | PdfPageError
+  >;
+  readonly fields: Effect.Effect<
+    readonly PdfField[],
+    PdfEngineError | PdfFormError | PdfPageError
+  >;
   readonly find: (
     pattern: RegExp,
-    selection?: PageSelection,
+    selection?: PageSelection
   ) => Effect.Effect<readonly PdfTextMatch[], PdfEngineError | PdfPageError>;
   readonly pageCount: number;
   readonly pageImages: (
-    options?: PageSelection & Pick<PdfRenderSize, "dpi">,
+    options?: PageSelection & Pick<PdfRenderSize, "dpi">
   ) => Effect.Effect<readonly PdfImage[], PdfEngineError | PdfPageError>;
   readonly pages: readonly PdfPage[];
   readonly render: (
     page: number,
-    size?: PdfRenderSize,
+    size?: PdfRenderSize
   ) => Effect.Effect<PdfImage, PdfEngineError | PdfPageError>;
   readonly save: (options?: {
     readonly incremental?: boolean;
   }) => Effect.Effect<Uint8Array, PdfEngineError | PdfSaveError>;
   readonly setFields: (
-    values: Readonly<Record<string, PdfFieldValue>>,
+    values: Readonly<Record<string, PdfFieldValue>>
   ) => Effect.Effect<void, PdfEngineError | PdfFormError | PdfPageError>;
   readonly text: (
-    options?: TextOptions,
+    options?: TextOptions
   ) => Effect.Effect<readonly PdfPageText[], PdfEngineError | PdfPageError>;
 }

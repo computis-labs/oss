@@ -26,10 +26,11 @@ export const partial = (score: number): Agreement => {
   return { _tag: "Partial", score };
 };
 
-export const credit: (agreement: Agreement) => number = Match.type<Agreement>().pipe(
-  Match.tagsExhaustive({
-    Different: () => 0,
-    Exact: () => 1,
-    Partial: ({ score }) => score,
-  }),
-);
+export const credit: (agreement: Agreement) => number =
+  Match.type<Agreement>().pipe(
+    Match.tagsExhaustive({
+      Different: () => 0,
+      Exact: () => 1,
+      Partial: ({ score }) => score,
+    })
+  );

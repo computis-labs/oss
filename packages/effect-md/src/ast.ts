@@ -29,9 +29,16 @@ export type Expression =
       readonly span: Span;
     }
   | { readonly _tag: "Data"; readonly name: DataVariable; readonly span: Span }
-  | { readonly _tag: "Literal"; readonly value: LiteralValue; readonly span: Span };
+  | {
+      readonly _tag: "Literal";
+      readonly value: LiteralValue;
+      readonly span: Span;
+    };
 
-export type LiteralExpression = Extract<Expression, { readonly _tag: "Literal" }>;
+export type LiteralExpression = Extract<
+  Expression,
+  { readonly _tag: "Literal" }
+>;
 
 export type ValueExpression = Exclude<Expression, { readonly _tag: "Literal" }>;
 
@@ -46,10 +53,15 @@ export const ComparisonOperators = {
   notEquals: "!=",
 } as const;
 
-export type ComparisonOperator = (typeof ComparisonOperators)[keyof typeof ComparisonOperators];
+export type ComparisonOperator =
+  (typeof ComparisonOperators)[keyof typeof ComparisonOperators];
 
 export type Condition =
-  | { readonly _tag: "Truthy"; readonly value: ValueExpression; readonly span: Span }
+  | {
+      readonly _tag: "Truthy";
+      readonly value: ValueExpression;
+      readonly span: Span;
+    }
   | {
       readonly _tag: "Compare";
       readonly operator: ComparisonOperator;
@@ -57,7 +69,11 @@ export type Condition =
       readonly right: LiteralExpression;
       readonly span: Span;
     }
-  | { readonly _tag: "Not"; readonly condition: Condition; readonly span: Span };
+  | {
+      readonly _tag: "Not";
+      readonly condition: Condition;
+      readonly span: Span;
+    };
 
 export interface IfBranch {
   readonly condition: Condition;
@@ -67,7 +83,11 @@ export interface IfBranch {
 
 export type Node =
   | { readonly _tag: "Text"; readonly value: string; readonly span: Span }
-  | { readonly _tag: "Output"; readonly value: ValueExpression; readonly span: Span }
+  | {
+      readonly _tag: "Output";
+      readonly value: ValueExpression;
+      readonly span: Span;
+    }
   | {
       readonly _tag: "Helper";
       readonly name: string;
@@ -116,7 +136,8 @@ export const PrimitiveTypes = {
   String: "String",
 } as const;
 
-export type PrimitiveType = (typeof PrimitiveTypes)[keyof typeof PrimitiveTypes];
+export type PrimitiveType =
+  (typeof PrimitiveTypes)[keyof typeof PrimitiveTypes];
 
 export type LiteralType = string | number | boolean;
 
@@ -128,7 +149,11 @@ export interface Field {
 }
 
 export type TypeNode =
-  | { readonly _tag: "Primitive"; readonly name: PrimitiveType; readonly span: Span }
+  | {
+      readonly _tag: "Primitive";
+      readonly name: PrimitiveType;
+      readonly span: Span;
+    }
   | {
       readonly _tag: "Literal";
       readonly values: readonly [LiteralType, ...LiteralType[]];
@@ -136,7 +161,11 @@ export type TypeNode =
     }
   | { readonly _tag: "Array"; readonly element: TypeNode; readonly span: Span }
   | { readonly _tag: "NullOr"; readonly type: TypeNode; readonly span: Span }
-  | { readonly _tag: "Struct"; readonly fields: readonly Field[]; readonly span: Span };
+  | {
+      readonly _tag: "Struct";
+      readonly fields: readonly Field[];
+      readonly span: Span;
+    };
 
 export type StructType = Extract<TypeNode, { readonly _tag: "Struct" }>;
 

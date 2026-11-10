@@ -1,6 +1,6 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
+
 import { isNumber, isObject, isString } from "./predicates.ts";
 
 type FunctionNode = ESTree.ArrowFunctionExpression | ESTree.Function;
@@ -67,7 +67,9 @@ const addAll = (target: Set<string>, source: ReadonlySet<string>) => {
 };
 
 const identifierName = (value: unknown) =>
-  isNode(value) && value.type === "Identifier" && isString(value.name) ? value.name : undefined;
+  isNode(value) && value.type === "Identifier" && isString(value.name)
+    ? value.name
+    : undefined;
 
 const SIMPLE_INSTANCE_TYPES = new Set([
   "Date",
@@ -93,7 +95,11 @@ const SIMPLE_TYPE_REFERENCES = new Set([
   "WeakSet",
 ]);
 
-const SIMPLE_TYPE_NODE_TYPES = new Set(["TSConstructorType", "TSFunctionType", "TSTypeLiteral"]);
+const SIMPLE_TYPE_NODE_TYPES = new Set([
+  "TSConstructorType",
+  "TSFunctionType",
+  "TSTypeLiteral",
+]);
 
 const literalCategories = (value: unknown) => {
   const categories = new Set<string>();
@@ -125,13 +131,15 @@ const orderedStrings = (values: readonly string[]) => {
 
 const typeReferenceCategories = (
   value: NodeLike,
-  resolve: (value: unknown) => ReadonlySet<string>,
+  resolve: (value: unknown) => ReadonlySet<string>
 ) => {
   const categories = new Set<string>();
   const name = identifierName(value.typeName);
   const { typeArguments } = value;
   const parameters: readonly unknown[] =
-    isNode(typeArguments) && Array.isArray(typeArguments.params) ? typeArguments.params : [];
+    isNode(typeArguments) && Array.isArray(typeArguments.params)
+      ? typeArguments.params
+      : [];
   const [parameter] = parameters;
 
   if (name === "Array" || name === "ReadonlyArray") {
@@ -157,7 +165,9 @@ const typeLiteralCategories = (value: NodeLike) => {
     if (isString(key.name)) {
       return [key.name];
     }
-    return isString(key.value) || isNumber(key.value) ? [String(key.value)] : [];
+    return isString(key.value) || isNumber(key.value)
+      ? [String(key.value)]
+      : [];
   });
   return new Set([`object:{${orderedStrings(keys).join(",")}}`]);
 };
@@ -175,7 +185,10 @@ const typeCategory = (value: unknown) => {
     categories.add("array");
   } else if (value.type === "TSTypeReference") {
     addAll(categories, typeReferenceCategories(value, typeCategory));
-  } else if (value.type === "TSFunctionType" || value.type === "TSConstructorType") {
+  } else if (
+    value.type === "TSFunctionType" ||
+    value.type === "TSConstructorType"
+  ) {
     categories.add("function");
   } else if (value.type === "TSTypeLiteral") {
     addAll(categories, typeLiteralCategories(value));
@@ -197,14 +210,20 @@ const isFullySimpleType = (value: unknown): boolean => {
   if (value.type === "TSTypeAnnotation") {
     return isFullySimpleType(value.typeAnnotation);
   }
-  if (KEYWORD_CATEGORIES.has(value.type) || SIMPLE_TYPE_NODE_TYPES.has(value.type)) {
+  if (
+    KEYWORD_CATEGORIES.has(value.type) ||
+    SIMPLE_TYPE_NODE_TYPES.has(value.type)
+  ) {
     return true;
   }
   if (value.type === "TSArrayType") {
     return isFullySimpleType(value.elementType);
   }
   if (value.type === "TSTupleType") {
-    return Array.isArray(value.elementTypes) && value.elementTypes.every(isFullySimpleType);
+    return (
+      Array.isArray(value.elementTypes) &&
+      value.elementTypes.every(isFullySimpleType)
+    );
   }
   if (value.type === "TSUnionType") {
     return Array.isArray(value.types) && value.types.every(isFullySimpleType);
@@ -222,7 +241,9 @@ const isFullySimpleType = (value: unknown): boolean => {
   }
   const { typeArguments } = value;
   const parameters: readonly unknown[] =
-    isNode(typeArguments) && Array.isArray(typeArguments.params) ? typeArguments.params : [];
+    isNode(typeArguments) && Array.isArray(typeArguments.params)
+      ? typeArguments.params
+      : [];
   return parameters.every(isFullySimpleType);
 };
 
@@ -231,7 +252,11 @@ const objectCategory = (value: NodeLike) => {
   const keys: string[] = [];
 
   for (const property of properties) {
-    if (!isNode(property) || property.type !== "Property" || property.computed === true) {
+    if (
+      !isNode(property) ||
+      property.type !== "Property" ||
+      property.computed === true
+    ) {
       return new Set(["object"]);
     }
     const { key } = property;
@@ -252,7 +277,10 @@ const objectCategory = (value: NodeLike) => {
   return new Set([`object:{${orderedStrings(keys).join(",")}}`]);
 };
 
-type ExpressionResolver = (value: unknown, environment?: TypeEnvironment) => Set<string>;
+type ExpressionResolver = (
+  value: unknown,
+  environment?: TypeEnvironment
+) => Set<string>;
 
 const STATIC_EXPRESSION_CATEGORIES = new Map([
   ["ArrayExpression", "array"],
@@ -312,16 +340,21 @@ const staticExpressionCategories = (value: NodeLike): Set<string> | null => {
 const branchExpressionCategories = (
   value: NodeLike,
   environment: TypeEnvironment,
-  resolve: ExpressionResolver,
+  resolve: ExpressionResolver
 ): Set<string> | null => {
   const categories = new Set<string>();
   if (value.type === "ConditionalExpression") {
     const test = isNode(value.test) ? value.test : null;
-    const predicateName = test?.type === "CallExpression" ? identifierName(test.callee) : undefined;
+    const predicateName =
+      test?.type === "CallExpression" ? identifierName(test.callee) : undefined;
     const predicateCategory =
-      predicateName === undefined ? undefined : PREDICATE_CATEGORIES.get(predicateName);
+      predicateName === undefined
+        ? undefined
+        : PREDICATE_CATEGORIES.get(predicateName);
     const arguments_: readonly unknown[] =
-      test?.type === "CallExpression" && Array.isArray(test.arguments) ? test.arguments : [];
+      test?.type === "CallExpression" && Array.isArray(test.arguments)
+        ? test.arguments
+        : [];
     const [argument] = arguments_;
     const argumentName = identifierName(argument);
     const consequentEnvironment =
@@ -355,7 +388,7 @@ const branchExpressionCategories = (
 const wrappedExpressionCategories = (
   value: NodeLike,
   environment: TypeEnvironment,
-  resolve: ExpressionResolver,
+  resolve: ExpressionResolver
 ): Set<string> | null => {
   const categories = new Set<string>();
   if (TRANSPARENT_EXPRESSION_TYPES.has(value.type)) {
@@ -382,7 +415,7 @@ const wrappedExpressionCategories = (
 const binaryExpressionCategories = (
   value: NodeLike,
   environment: TypeEnvironment,
-  resolve: ExpressionResolver,
+  resolve: ExpressionResolver
 ) => {
   const categories = new Set<string>();
   if (!isString(value.operator)) {
@@ -407,7 +440,7 @@ const binaryExpressionCategories = (
 const operatorExpressionCategories = (
   value: NodeLike,
   environment: TypeEnvironment,
-  resolve: ExpressionResolver,
+  resolve: ExpressionResolver
 ): Set<string> | null => {
   if (value.type === "UnaryExpression" && isString(value.operator)) {
     const category = UNARY_CATEGORIES.get(value.operator);
@@ -423,7 +456,7 @@ const operatorExpressionCategories = (
 
 const referenceExpressionCategories = (
   value: NodeLike,
-  environment: TypeEnvironment,
+  environment: TypeEnvironment
 ): Set<string> | null => {
   const categories = new Set<string>();
   if (value.type === "Identifier") {
@@ -455,7 +488,7 @@ const referenceExpressionCategories = (
 
 const expressionCategories = (
   value: unknown,
-  environment: TypeEnvironment = EMPTY_TYPE_ENVIRONMENT,
+  environment: TypeEnvironment = EMPTY_TYPE_ENVIRONMENT
 ) => {
   if (!isNode(value)) {
     return new Set<string>();
@@ -500,7 +533,11 @@ const functionEnvironment = (node: FunctionNode) => {
       return;
     }
     if (pattern.type === "Identifier" && isString(pattern.name)) {
-      bindings.push({ annotation: pattern.typeAnnotation, name: pattern.name, value });
+      bindings.push({
+        annotation: pattern.typeAnnotation,
+        name: pattern.name,
+        value,
+      });
     }
   };
 
@@ -514,14 +551,15 @@ const functionEnvironment = (node: FunctionNode) => {
     }
     if (NESTED_SCOPE_TYPES.has(value.type)) {
       if (
-        (value.type === "FunctionDeclaration" || value.type === "ClassDeclaration") &&
+        (value.type === "FunctionDeclaration" ||
+          value.type === "ClassDeclaration") &&
         isNode(value.id) &&
         value.id.type === "Identifier" &&
         isString(value.id.name)
       ) {
         environment.set(
           value.id.name,
-          new Set([value.type === "ClassDeclaration" ? "class" : "function"]),
+          new Set([value.type === "ClassDeclaration" ? "class" : "function"])
         );
       }
       return;
@@ -555,7 +593,9 @@ const functionEnvironment = (node: FunctionNode) => {
     for (const binding of bindings) {
       const annotated = annotationCategories(binding.annotation);
       const inferred =
-        annotated.size > 0 ? annotated : expressionCategories(binding.value, environment);
+        annotated.size > 0
+          ? annotated
+          : expressionCategories(binding.value, environment);
       const current = environment.get(binding.name) ?? new Set<string>();
       const previousSize = current.size;
       addAll(current, inferred);
@@ -679,7 +719,9 @@ const isRecursive = (node: FunctionNode) => {
       value.type === "CallExpression" &&
       (identifierName(value.callee) === name ||
         (Array.isArray(value.arguments) &&
-          value.arguments.some((argument) => identifierName(argument) === name)))
+          value.arguments.some(
+            (argument) => identifierName(argument) === name
+          )))
     ) {
       recursive = true;
       return;
@@ -725,7 +767,12 @@ const returnTypesByBranch = defineRule({
         returnType !== null &&
         isFullySimpleType(returnType) &&
         categoryCount(annotationCategories(returnType)) === 1;
-      if (!needsContract && hasSimpleReturnType && returnType && !isRecursive(node)) {
+      if (
+        !needsContract &&
+        hasSimpleReturnType &&
+        returnType &&
+        !isRecursive(node)
+      ) {
         context.report({
           fix: (fixer) => fixer.remove(returnType),
           messageId: "unnecessary",

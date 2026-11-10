@@ -1,4 +1,5 @@
 import { Result } from "effect";
+
 import { PromptSyntaxErrorReason as Reason, syntaxError } from "./errors.ts";
 import type { PromptSyntaxError, SourceFile } from "./errors.ts";
 
@@ -40,7 +41,7 @@ export const lex = (
   source: string,
   start: number,
   end: number,
-  base: number,
+  base: number
 ): Result.Result<readonly Lexeme[], PromptSyntaxError> => {
   const lexemes: Lexeme[] = [];
 
@@ -51,7 +52,10 @@ export const lex = (
   ) {
     lexemePattern.lastIndex = cursor;
     const groups = lexemePattern.exec(source)?.groups;
-    const kind = lexemeKinds.find((candidate) => groups?.[candidate] !== undefined);
+
+    const kind = lexemeKinds.find(
+      (candidate) => groups?.[candidate] !== undefined
+    );
 
     if (kind === undefined || lexemePattern.lastIndex > end) {
       const char = source[cursor] ?? "";
@@ -62,8 +66,10 @@ export const lex = (
           file,
           base + cursor,
           unterminated ? Reason.UnterminatedString : Reason.UnexpectedToken,
-          unterminated ? "This string has no closing quote." : `Unexpected character '${char}'.`,
-        ),
+          unterminated
+            ? "This string has no closing quote."
+            : `Unexpected character '${char}'.`
+        )
       );
     }
 

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+
 import { SummarySchema } from "./metric.ts";
 import { ObservationSchema } from "./observation.ts";
 import { UsageSchema } from "./usage.ts";
@@ -49,7 +50,7 @@ export const TrialStatsSchema = Schema.Struct({
       case: Schema.String,
       key: Schema.String,
       verdicts: Schema.Array(Schema.String),
-    }),
+    })
   ),
   k: Schema.Finite,
   metrics: Schema.Record(
@@ -57,7 +58,7 @@ export const TrialStatsSchema = Schema.Struct({
     Schema.Struct({
       mean: Schema.OptionFromNullOr(Schema.Finite),
       standardDeviation: Schema.OptionFromNullOr(Schema.Finite),
-    }),
+    })
   ),
   passAtK: Schema.OptionFromNullOr(Schema.Finite),
   passHatK: Schema.OptionFromNullOr(Schema.Finite),
@@ -153,7 +154,7 @@ export const RunFinished = Schema.TaggedStruct("RunFinished", {
   interrupted: Schema.Boolean,
   passed: Schema.Boolean,
   unreportedUsage: Schema.optionalKey(
-    Schema.Array(Schema.Struct({ usage: UsageSchema, variant: Schema.String })),
+    Schema.Array(Schema.Struct({ usage: UsageSchema, variant: Schema.String }))
   ),
 });
 

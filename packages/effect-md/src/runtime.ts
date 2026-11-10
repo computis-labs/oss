@@ -1,6 +1,7 @@
-import { whenDefined } from "./object.ts";
 import { Array, Effect, Predicate, Schema } from "effect";
 import { Prompt } from "effect/ai";
+
+import { whenDefined } from "./object.ts";
 
 export const File = Schema.Struct({
   data: Schema.Union([Schema.String, Schema.Uint8Array, Schema.URL]),
@@ -19,10 +20,13 @@ export type Value =
   | readonly Value[]
   | { readonly [key: string]: Value };
 
-export class PromptInputError extends Schema.TaggedError<PromptInputError>()("PromptInputError", {
-  detail: Schema.String,
-  prompt: Schema.String,
-}) {
+export class PromptInputError extends Schema.TaggedError<PromptInputError>()(
+  "PromptInputError",
+  {
+    detail: Schema.String,
+    prompt: Schema.String,
+  }
+) {
   readonly code = "PROMPT_INPUT";
 
   override get message() {
@@ -57,8 +61,10 @@ export const isFilled = (value: Value) => {
 };
 
 export const untrusted = (text: string, lang = "") => {
-  const longest = Array.reduce(text.matchAll(backtickRunPattern), 0, (max, match) =>
-    Math.max(max, match[0].length),
+  const longest = Array.reduce(
+    text.matchAll(backtickRunPattern),
+    0,
+    (max, match) => Math.max(max, match[0].length)
   );
 
   const fence = "`".repeat(Math.max(3, longest + 1));
@@ -66,9 +72,11 @@ export const untrusted = (text: string, lang = "") => {
   return `${fence}${lang}\n${text}\n${fence}`;
 };
 
-export const json = (value: Value, indent = 2) => JSON.stringify(value, null, indent) ?? "null";
+export const json = (value: Value, indent = 2) =>
+  JSON.stringify(value, null, indent) ?? "null";
 
-export const indent = (text: string, prefix: string) => text.replaceAll(lineStartPattern, prefix);
+export const indent = (text: string, prefix: string) =>
+  text.replaceAll(lineStartPattern, prefix);
 
 export const file = (value: typeof File.Type) =>
   Prompt.filePart({
@@ -95,9 +103,11 @@ const toContent = (parts: readonly Part[]) => {
   return content;
 };
 
-export const system = (text: string) => Prompt.systemMessage({ content: text.trim() });
+export const system = (text: string) =>
+  Prompt.systemMessage({ content: text.trim() });
 
-export const user = (parts: readonly Part[]) => Prompt.userMessage({ content: toContent(parts) });
+export const user = (parts: readonly Part[]) =>
+  Prompt.userMessage({ content: toContent(parts) });
 
 export const assistant = (parts: readonly Part[]) =>
   Prompt.assistantMessage({ content: toContent(parts) });
@@ -115,9 +125,12 @@ export const definePrompt = <S extends Schema.Top>(definition: {
     decode: (input: S["Encoded"]) =>
       decodeInput(input).pipe(
         Effect.mapError((schemaError) =>
-          PromptInputError.make({ detail: schemaError.message, prompt: definition.name }),
+          PromptInputError.make({
+            detail: schemaError.message,
+            prompt: definition.name,
+          })
         ),
-        Effect.map(definition.render),
+        Effect.map(definition.render)
       ),
     ...whenDefined(definition.description, (description) => ({ description })),
     make: definition.render,

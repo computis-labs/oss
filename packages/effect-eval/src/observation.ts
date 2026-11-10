@@ -1,4 +1,5 @@
 import { Option, Schema } from "effect";
+
 import { AgreementSchema } from "./agreement.ts";
 import type { Agreement } from "./agreement.ts";
 
@@ -8,7 +9,8 @@ export const expectedStates = {
   unknown: "unknown",
 } as const;
 
-export type ExpectedState = (typeof expectedStates)[keyof typeof expectedStates];
+export type ExpectedState =
+  (typeof expectedStates)[keyof typeof expectedStates];
 
 export const actualStates = {
   absent: "absent",
@@ -33,7 +35,8 @@ export const keyOf = (segment: string) =>
 export const within = (parent: string, key: string) =>
   key === rootKey ? keyOf(parent) : `${keyOf(parent)}${PATH_SEPARATOR}${key}`;
 
-export const pathKey = (path: string) => path.split(PATH_SEPARATOR).map(keyOf).join(PATH_SEPARATOR);
+export const pathKey = (path: string) =>
+  path.split(PATH_SEPARATOR).map(keyOf).join(PATH_SEPARATOR);
 
 export const DetailSchema = Schema.Struct({
   actual: Schema.String,
@@ -61,7 +64,8 @@ export const ObservationSchema = Schema.Struct({
   Schema.makeFilter(
     (observation): true | string => {
       if (Option.isSome(observation.failure)) {
-        return observation.actual === actualStates.absent && Option.isNone(observation.agreement)
+        return observation.actual === actualStates.absent &&
+          Option.isNone(observation.agreement)
           ? true
           : "a failed observation has no actual value and no agreement";
       }
@@ -79,8 +83,8 @@ export const ObservationSchema = Schema.Struct({
         ? true
         : "an agreement needs an expected and an actual value";
     },
-    { expected: "a coherent observation" },
-  ),
+    { expected: "a coherent observation" }
+  )
 );
 
 export type Observation = typeof ObservationSchema.Type;
@@ -115,14 +119,16 @@ export const make = (
     readonly detail: Detail;
   } & (
     | {
-        readonly expected: typeof expectedStates.absent | typeof expectedStates.unknown;
+        readonly expected:
+          | typeof expectedStates.absent
+          | typeof expectedStates.unknown;
         readonly actual: ActualState;
       }
     | {
         readonly expected: typeof expectedStates.present;
         readonly actual: typeof actualStates.absent;
       }
-  ),
+  )
 ): Observation =>
   ObservationSchema.make({
     ...blank,
@@ -140,7 +146,7 @@ export const errored = (
     readonly expected: ExpectedState;
     readonly tags?: readonly string[];
     readonly detail?: Detail;
-  },
+  }
 ): Observation => ({
   ...blank,
   actual: actualStates.absent,
@@ -157,8 +163,14 @@ export const knownGap =
 
 export const exclude =
   (reason: string) =>
-  (self: Observation): Observation => ({ ...self, excluded: Option.some(reason) });
+  (self: Observation): Observation => ({
+    ...self,
+    excluded: Option.some(reason),
+  });
 
 export const tagged =
   (...tags: readonly string[]) =>
-  (self: Observation): Observation => ({ ...self, tags: [...self.tags, ...tags] });
+  (self: Observation): Observation => ({
+    ...self,
+    tags: [...self.tags, ...tags],
+  });

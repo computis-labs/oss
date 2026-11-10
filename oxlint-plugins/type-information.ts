@@ -1,13 +1,18 @@
-import { API, SignatureKind, TypeFlags } from "typescript/unstable/sync";
-import type { Checker, Project, Snapshot, Type } from "typescript/unstable/sync";
+import type { ESTree } from "@oxlint/plugins";
+import type { Node } from "typescript/unstable/ast";
 import {
   isFunctionDeclaration,
   isInterfaceDeclaration,
   isMethodSignatureDeclaration,
   isVariableDeclaration,
 } from "typescript/unstable/ast/is";
-import type { ESTree } from "@oxlint/plugins";
-import type { Node } from "typescript/unstable/ast";
+import { API, SignatureKind, TypeFlags } from "typescript/unstable/sync";
+import type {
+  Checker,
+  Project,
+  Snapshot,
+  Type,
+} from "typescript/unstable/sync";
 
 let api: API | undefined;
 let snapshot: Snapshot | undefined;
@@ -16,7 +21,9 @@ export const projectFor = (filename: string) => {
   api ??= new API();
   const existing = snapshot
     ?.getProjects()
-    .find((project) => project.program.getSourceFileMetadata(filename) !== undefined);
+    .find(
+      (project) => project.program.getSourceFileMetadata(filename) !== undefined
+    );
   if (existing !== undefined) {
     return existing;
   }
@@ -32,7 +39,11 @@ export const projectFor = (filename: string) => {
 
 const syntaxNodes = new WeakMap<Project, Map<string, Map<string, Node>>>();
 
-export const syntaxAt = (project: Project, filename: string, node: ESTree.Node) => {
+export const syntaxAt = (
+  project: Project,
+  filename: string,
+  node: ESTree.Node
+) => {
   let files = syntaxNodes.get(project);
   if (files === undefined) {
     files = new Map();
@@ -55,27 +66,42 @@ export const syntaxAt = (project: Project, filename: string, node: ESTree.Node) 
   return nodes.get(`${node.start}:${node.end}`);
 };
 
-export const typeAt = (project: Project, filename: string, node: ESTree.Node) => {
+export const typeAt = (
+  project: Project,
+  filename: string,
+  node: ESTree.Node
+) => {
   const syntax = syntaxAt(project, filename, node);
   return syntax === undefined
     ? project.checker.getTypeAtPosition(filename, node.end - 1)
     : project.checker.getTypeAtLocation(syntax);
 };
 
-export const typeOfTypeNode = (project: Project, filename: string, node: ESTree.Node) => {
+export const typeOfTypeNode = (
+  project: Project,
+  filename: string,
+  node: ESTree.Node
+) => {
   let syntax: Node | undefined = project.program.getSourceFile(filename);
-  while (syntax !== undefined && (syntax.getStart() !== node.start || syntax.end !== node.end)) {
+  while (
+    syntax !== undefined &&
+    (syntax.getStart() !== node.start || syntax.end !== node.end)
+  ) {
     syntax = syntax.forEachChild((child) =>
-      child.getStart() <= node.start && node.end <= child.end ? child : undefined,
+      child.getStart() <= node.start && node.end <= child.end
+        ? child
+        : undefined
     );
   }
-  return syntax === undefined ? undefined : project.checker.getTypeFromTypeNode(syntax);
+  return syntax === undefined
+    ? undefined
+    : project.checker.getTypeFromTypeNode(syntax);
 };
 
 export const isUnresolved = (
   checker: Checker,
   type: Type | undefined,
-  visited = new Set<number>(),
+  visited = new Set<number>()
 ): boolean => {
   if (type === undefined) {
     return true;
@@ -89,10 +115,14 @@ export const isUnresolved = (
   }
   if (type.isTypeParameter()) {
     const constraint = checker.getBaseConstraintOfType(type);
-    return constraint !== undefined && isUnresolved(checker, constraint, visited);
+    return (
+      constraint !== undefined && isUnresolved(checker, constraint, visited)
+    );
   }
   if (type.isUnionType() || type.isIntersectionType()) {
-    return type.getTypes().some((member) => isUnresolved(checker, member, visited));
+    return type
+      .getTypes()
+      .some((member) => isUnresolved(checker, member, visited));
   }
   return checker
     .getIndexInfosOfType(type)
@@ -106,19 +136,26 @@ export const isStandardLibrary = (filename: string) =>
 export const libraryCheck = (
   project: Project,
   filename: string,
-  callee: ESTree.Expression,
+  callee: ESTree.Expression
 ): string | null => {
   const type = typeAt(project, filename, callee);
   if (type === undefined) {
     return null;
   }
-  for (const signature of project.checker.getSignaturesOfType(type, SignatureKind.Call)) {
+  for (const signature of project.checker.getSignaturesOfType(
+    type,
+    SignatureKind.Call
+  )) {
     const { declaration } = signature;
     const node = declaration?.resolve();
     if (declaration === undefined || node === undefined) {
       continue;
     }
-    if (/\/effect\/dist\/(?:dts\/)?predicate\.d\.ts$/u.test(declaration.path.toLowerCase())) {
+    if (
+      /\/effect\/dist\/(?:dts\/)?predicate\.d\.ts$/u.test(
+        declaration.path.toLowerCase()
+      )
+    ) {
       // v3 exported the predicates as `const`; v4 declares them as functions.
       if (isVariableDeclaration(node.parent)) {
         return `Predicate.${node.parent.name.getText()}`;
@@ -130,7 +167,10 @@ export const libraryCheck = (
     if (!isStandardLibrary(declaration.path)) {
       continue;
     }
-    if (isMethodSignatureDeclaration(node) && isInterfaceDeclaration(node.parent)) {
+    if (
+      isMethodSignatureDeclaration(node) &&
+      isInterfaceDeclaration(node.parent)
+    ) {
       const owner = node.parent.name.getText();
       const method = node.name.getText();
       if (owner === "JSON" && method === "parse") {
@@ -140,7 +180,10 @@ export const libraryCheck = (
         return "Array.isArray";
       }
     }
-    if (isInterfaceDeclaration(node.parent) && node.parent.name.getText() === "StringConstructor") {
+    if (
+      isInterfaceDeclaration(node.parent) &&
+      node.parent.name.getText() === "StringConstructor"
+    ) {
       return "String";
     }
   }

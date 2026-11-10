@@ -12,6 +12,7 @@ import {
   pipe,
 } from "effect";
 import type { PlatformError } from "effect";
+
 import type { EvalHistoryError } from "./errors/eval-history-error.ts";
 import * as Events from "./events.ts";
 import * as History from "./history.ts";
@@ -19,11 +20,11 @@ import { whenDefined } from "./object.ts";
 import * as Reporter from "./reporter.ts";
 import type { Run } from "./run.ts";
 import type { Theme } from "./theme.ts";
-import * as View from "./view.ts";
-import type { ChartRenderer, HistorySnapshot } from "./view.ts";
 import * as ViewHtml from "./view-html.ts";
 import * as ViewMarkdown from "./view-markdown.ts";
 import * as ViewText from "./view-text.ts";
+import * as View from "./view.ts";
+import type { ChartRenderer, HistorySnapshot } from "./view.ts";
 
 const DEFAULT_WIDTH = 100;
 const LINE_BREAK = "\n";
@@ -36,7 +37,7 @@ export const TerminalBuffer = Context.Reference<Option.Option<Write>>(
   "effect-eval/TerminalBuffer",
   {
     defaultValue: () => Option.none(),
-  },
+  }
 );
 
 const destinationOf = (options: {
@@ -47,7 +48,9 @@ const destinationOf = (options: {
     return { destination: Reporter.destinations.file };
   }
 
-  return options.write === undefined ? { destination: Reporter.destinations.stdout } : {};
+  return options.write === undefined
+    ? { destination: Reporter.destinations.stdout }
+    : {};
 };
 
 export const stdout: Write = (text) =>
@@ -64,13 +67,15 @@ export const terminalWidth = Effect.serviceOption(Terminal.Terminal).pipe(
     Option.match({
       onNone: () => Effect.succeed(DEFAULT_WIDTH),
       onSome: (terminal) => terminal.columns,
-    }),
+    })
   ),
-  Effect.map((columns) => (columns > 0 ? columns : DEFAULT_WIDTH)),
+  Effect.map((columns) => (columns > 0 ? columns : DEFAULT_WIDTH))
 );
 
 export const colorSupported = Effect.gen(function* detectColor() {
-  const noColor = yield* Effect.orElseSucceed(NO_COLOR, () => Option.none<string>());
+  const noColor = yield* Effect.orElseSucceed(NO_COLOR, () =>
+    Option.none<string>()
+  );
 
   if (Option.isSome(noColor)) {
     return false;
@@ -82,7 +87,7 @@ export const colorSupported = Effect.gen(function* detectColor() {
 });
 
 export const isCi = Effect.orElseSucceed(CI, () => Option.none<string>()).pipe(
-  Effect.map(Option.isSome),
+  Effect.map(Option.isSome)
 );
 
 const snapshotOf = (run: Run) =>
@@ -94,18 +99,22 @@ export const terminal = <E = never, R = never>(
     readonly color?: boolean;
     readonly width?: number;
     readonly progress?: boolean;
-  } = {},
+  } = {}
 ): Reporter.Reporter<E, R> => {
   const write = (text: string) =>
     TerminalBuffer.pipe(
-      Effect.flatMap((buffer) => Option.getOrElse(buffer, () => options.write ?? stdout)(text)),
+      Effect.flatMap((buffer) =>
+        Option.getOrElse(buffer, () => options.write ?? stdout)(text)
+      )
     );
 
   const progress = (line: () => string) =>
     TerminalBuffer.pipe(
       Effect.flatMap((buffer) =>
-        options.progress === false || Option.isSome(buffer) ? Effect.void : write(line()),
-      ),
+        options.progress === false || Option.isSome(buffer)
+          ? Effect.void
+          : write(line())
+      )
     );
 
   return Reporter.make<E, R>({
@@ -133,12 +142,15 @@ export const terminal = <E = never, R = never>(
         const width = options.width ?? (yield* terminalWidth);
         const color = options.color ?? (yield* colorSupported);
 
-        const text = yield* ViewText.render((options.view ?? View.summary)(run, history), {
-          color,
-          width,
-          ...whenDefined(options.renderer, (renderer) => ({ renderer })),
-          ...whenDefined(options.theme, (theme) => ({ theme })),
-        });
+        const text = yield* ViewText.render(
+          (options.view ?? View.summary)(run, history),
+          {
+            color,
+            width,
+            ...whenDefined(options.renderer, (renderer) => ({ renderer })),
+            ...whenDefined(options.theme, (theme) => ({ theme })),
+          }
+        );
 
         yield* write(text);
       }),
@@ -146,11 +158,14 @@ export const terminal = <E = never, R = never>(
       progress(
         () =>
           `${started.eval}: ${String(started.plan.cases)} cases, ${String(
-            started.plan.skipped,
-          )} skipped, ${String(started.plan.invocations)} task calls`,
+            started.plan.skipped
+          )} skipped, ${String(started.plan.invocations)} task calls`
       ),
     onVariantFinished: (finished) =>
-      progress(() => `${finished.variant}: done in ${(finished.durationMs / 1000).toFixed(1)} s`),
+      progress(
+        () =>
+          `${finished.variant}: done in ${(finished.durationMs / 1000).toFixed(1)} s`
+      ),
   });
 };
 
@@ -169,12 +184,16 @@ export const compareFileOf = (file: string) =>
     Effect.map((paths) => {
       const parsed = paths.parse(file);
 
-      return paths.join(parsed.dir, `${parsed.name}${COMPARE_SUFFIX}${parsed.ext}`);
-    }),
+      return paths.join(
+        parsed.dir,
+        `${parsed.name}${COMPARE_SUFFIX}${parsed.ext}`
+      );
+    })
   );
 
 const writeComparison =
-  (options: { readonly file: string; readonly compareFile?: string }) => (text: string) =>
+  (options: { readonly file: string; readonly compareFile?: string }) =>
+  (text: string) =>
     (options.compareFile === undefined
       ? compareFileOf(options.file)
       : Effect.succeed(options.compareFile)
@@ -185,8 +204,11 @@ export const html = <E = never, R = never>(
     readonly file: string;
     readonly compareFile?: string;
     readonly title?: string;
-  },
-): Reporter.Reporter<E | PlatformError.PlatformError, R | FileSystem.FileSystem | Path.Path> => {
+  }
+): Reporter.Reporter<
+  E | PlatformError.PlatformError,
+  R | FileSystem.FileSystem | Path.Path
+> => {
   const drawing = {
     ...whenDefined(options.renderer, (renderer) => ({ renderer })),
     ...whenDefined(options.theme, (theme) => ({ theme })),
@@ -207,9 +229,9 @@ export const html = <E = never, R = never>(
           ViewHtml.render((options.view ?? View.dashboard)(run, history), {
             title: options.title ?? `${run.eval} · ${run.id}`,
             ...drawing,
-          }),
+          })
         ),
-        Effect.flatMap((text) => writeFile(options.file, text)),
+        Effect.flatMap((text) => writeFile(options.file, text))
       ),
   });
 };
@@ -219,19 +241,26 @@ export const markdown = <E = never, R = never>(
     readonly file?: string;
     readonly compareFile?: string;
     readonly write?: Write;
-  } = {},
-): Reporter.Reporter<E | PlatformError.PlatformError, R | FileSystem.FileSystem | Path.Path> => {
+  } = {}
+): Reporter.Reporter<
+  E | PlatformError.PlatformError,
+  R | FileSystem.FileSystem | Path.Path
+> => {
   const { file } = options;
 
   const output = (text: string) =>
-    file === undefined ? (options.write ?? stdout)(text) : writeFile(file, text);
+    file === undefined
+      ? (options.write ?? stdout)(text)
+      : writeFile(file, text);
 
   const comparisonOutput = (text: string) =>
     file === undefined
       ? (options.write ?? stdout)(text)
       : writeComparison({
           file,
-          ...whenDefined(options.compareFile, (compareFile) => ({ compareFile })),
+          ...whenDefined(options.compareFile, (compareFile) => ({
+            compareFile,
+          })),
         })(text);
 
   const drawing = {
@@ -243,25 +272,33 @@ export const markdown = <E = never, R = never>(
     ...destinationOf(options),
     name: "markdown",
     onComparison: (base, head) =>
-      ViewMarkdown.render(View.compare(base, head), drawing).pipe(Effect.flatMap(comparisonOutput)),
+      ViewMarkdown.render(View.compare(base, head), drawing).pipe(
+        Effect.flatMap(comparisonOutput)
+      ),
     onRunFinished: (run) =>
       snapshotOf(run).pipe(
         Effect.flatMap((history) =>
-          ViewMarkdown.render((options.view ?? View.summary)(run, history), drawing),
+          ViewMarkdown.render(
+            (options.view ?? View.summary)(run, history),
+            drawing
+          )
         ),
-        Effect.flatMap(output),
+        Effect.flatMap(output)
       ),
   });
 };
 
 export const json = (
-  options: { readonly file?: string; readonly write?: Write } = {},
-): Reporter.Reporter<PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> =>
+  options: { readonly file?: string; readonly write?: Write } = {}
+): Reporter.Reporter<
+  PlatformError.PlatformError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Reporter.fromStream(
     "json",
     (events) => {
       const lines = events.pipe(
-        Stream.mapEffect((event) => Effect.orDie(Events.encodeLine(event))),
+        Stream.mapEffect((event) => Effect.orDie(Events.encodeLine(event)))
       );
 
       const { file } = options;
@@ -274,12 +311,15 @@ export const json = (
 
       return pipe(
         Stream.runCollect(lines),
-        Effect.flatMap((all) => writeFile(file, `${all.join(LINE_BREAK)}${LINE_BREAK}`)),
+        Effect.flatMap((all) =>
+          writeFile(file, `${all.join(LINE_BREAK)}${LINE_BREAK}`)
+        )
       );
     },
-    destinationOf(options),
+    destinationOf(options)
   );
 
-export const history: Reporter.Reporter<EvalHistoryError, History.History> = History.reporter;
+export const history: Reporter.Reporter<EvalHistoryError, History.History> =
+  History.reporter;
 
 export { silent } from "./reporter.ts";

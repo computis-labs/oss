@@ -1,13 +1,24 @@
-import { lookup, whenDefined } from "./object.ts";
 import { Predicate, Result, Schema } from "effect";
 import { isAlias, isMap, isScalar, isSeq, parseDocument, Scalar } from "yaml";
 import type { Pair, ParsedNode } from "yaml";
+
 import { identifierPattern, PrimitiveTypes, reservedWords } from "./ast.ts";
-import type { Field, Frontmatter, InputSpec, LiteralType, TypeNode } from "./ast.ts";
-import { didYouMean, PromptSyntaxErrorReason as Reason, syntaxError } from "./errors.ts";
+import type {
+  Field,
+  Frontmatter,
+  InputSpec,
+  LiteralType,
+  TypeNode,
+} from "./ast.ts";
+import {
+  didYouMean,
+  PromptSyntaxErrorReason as Reason,
+  syntaxError,
+} from "./errors.ts";
 import type { PromptSyntaxError, SourceFile } from "./errors.ts";
 import { describeLexeme, lex, LexemeKinds, unescapeString } from "./lexer.ts";
 import type { Lexeme } from "./lexer.ts";
+import { lookup, whenDefined } from "./object.ts";
 
 type Parsed<A> = Result.Result<A, PromptSyntaxError>;
 
@@ -23,7 +34,10 @@ const TypeConstructors = {
   NullOr: "NullOr",
 } as const;
 
-const typeNames = [...Object.values(PrimitiveTypes), ...Object.values(TypeConstructors)];
+const typeNames = [
+  ...Object.values(PrimitiveTypes),
+  ...Object.values(TypeConstructors),
+];
 
 const booleanWords: ReadonlyMap<string, boolean> = new Map([
   ["false", false],
@@ -38,19 +52,29 @@ const quotedScalarTypes: ReadonlySet<string | undefined> = new Set([
 const isString = Schema.is(Schema.String);
 
 const scalarText = (node: ParsedNode | null) =>
-  node !== null && isScalar(node) && isString(node.value) ? node.value : undefined;
+  node !== null && isScalar(node) && isString(node.value)
+    ? node.value
+    : undefined;
 
 const contentOffset = (node: ParsedNode, base: number) =>
-  base + node.range[0] + (isScalar(node) && quotedScalarTypes.has(node.type) ? 1 : 0);
+  base +
+  node.range[0] +
+  (isScalar(node) && quotedScalarTypes.has(node.type) ? 1 : 0);
 
-const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<TypeNode> =>
+const typeFromNode = (
+  file: SourceFile,
+  node: ParsedNode,
+  base: number
+): Parsed<TypeNode> =>
   Result.gen(function* typeFromNodeProgram() {
     const span = { end: base + node.range[1], start: base + node.range[0] };
 
     if (isMap(node)) {
       const seen = new Set<string>();
 
-      const readField = (pair: Pair<ParsedNode, ParsedNode | null>): Parsed<Field> =>
+      const readField = (
+        pair: Pair<ParsedNode, ParsedNode | null>
+      ): Parsed<Field> =>
         Result.gen(function* fieldProgram() {
           const keyOffset = base + pair.key.range[0];
           const key = scalarText(pair.key) ?? "";
@@ -63,8 +87,8 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
                 file,
                 keyOffset,
                 Reason.InvalidIdentifier,
-                `'${name}' is a reserved word and cannot be a field name.`,
-              ),
+                `'${name}' is a reserved word and cannot be a field name.`
+              )
             );
           }
 
@@ -74,8 +98,8 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
                 file,
                 keyOffset,
                 Reason.InvalidIdentifier,
-                `'${name}' is not a valid field name. Use letters, digits and '_', and do not start with a digit.`,
-              ),
+                `'${name}' is not a valid field name. Use letters, digits and '_', and do not start with a digit.`
+              )
             );
           }
 
@@ -85,8 +109,8 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
                 file,
                 keyOffset,
                 Reason.DuplicateField,
-                `The field '${name}' is declared twice.`,
-              ),
+                `The field '${name}' is declared twice.`
+              )
             );
           }
 
@@ -94,7 +118,12 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
 
           if (pair.value === null) {
             return yield* Result.fail(
-              syntaxError(file, keyOffset, Reason.InvalidType, `The field '${name}' has no type.`),
+              syntaxError(
+                file,
+                keyOffset,
+                Reason.InvalidType,
+                `The field '${name}' has no type.`
+              )
             );
           }
 
@@ -126,12 +155,16 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
             file,
             span.start,
             Reason.InvalidType,
-            "Write an array type with exactly one element type, for example '[String]' or 'Array(String)'.",
-          ),
+            "Write an array type with exactly one element type, for example '[String]' or 'Array(String)'."
+          )
         );
       }
 
-      return { _tag: "Array" as const, element: yield* typeFromNode(file, element, base), span };
+      return {
+        _tag: "Array" as const,
+        element: yield* typeFromNode(file, element, base),
+        span,
+      };
     }
 
     const source = scalarText(node);
@@ -144,8 +177,8 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           Reason.InvalidType,
           isAlias(node)
             ? "YAML aliases are not supported in input types."
-            : "Expected a type such as 'String', 'Number' or 'Literal(\"a\", \"b\")'.",
-        ),
+            : "Expected a type such as 'String', 'Number' or 'Literal(\"a\", \"b\")'."
+        )
       );
     }
 
@@ -158,8 +191,8 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
           file,
           token?.start ?? typeStart + source.trimEnd().length,
           Reason.InvalidType,
-          detail,
-        ),
+          detail
+        )
       );
 
     const expect = (punctuation: string, at: number): Parsed<Lexeme> => {
@@ -167,7 +200,10 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
 
       return token?.text === punctuation
         ? Result.succeed(token)
-        : fail(token, `Expected '${punctuation}' but found ${describeLexeme(token)}.`);
+        : fail(
+            token,
+            `Expected '${punctuation}' but found ${describeLexeme(token)}.`
+          );
     };
 
     const literal = (at: number): Parsed<LiteralType> => {
@@ -181,22 +217,28 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
         return Result.succeed(Number(token.text));
       }
 
-      const bool = token === undefined ? undefined : booleanWords.get(token.text);
+      const bool =
+        token === undefined ? undefined : booleanWords.get(token.text);
 
       return bool === undefined
         ? fail(
             token,
-            `Literal accepts strings, numbers and booleans, but found ${describeLexeme(token)}.`,
+            `Literal accepts strings, numbers and booleans, but found ${describeLexeme(token)}.`
           )
         : Result.succeed(bool);
     };
 
-    const parseType = (at: number): Parsed<{ readonly type: TypeNode; readonly next: number }> =>
+    const parseType = (
+      at: number
+    ): Parsed<{ readonly type: TypeNode; readonly next: number }> =>
       Result.gen(function* typeProgram() {
         const token = tokens[at];
 
         if (token?.kind !== LexemeKinds.word) {
-          return yield* fail(token, `Expected a type but found ${describeLexeme(token)}.`);
+          return yield* fail(
+            token,
+            `Expected a type but found ${describeLexeme(token)}.`
+          );
         }
 
         const primitive = lookup(PrimitiveTypes, token.text);
@@ -215,7 +257,10 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
         switch (token.text) {
           case TypeConstructors.Literal: {
             yield* expect("(", at + 1);
-            const values: [LiteralType, ...LiteralType[]] = [yield* literal(at + 2)];
+
+            const values: [LiteralType, ...LiteralType[]] = [
+              yield* literal(at + 2),
+            ];
 
             for (let comma = at + 3; tokens[comma]?.text === ","; comma += 2) {
               values.push(yield* literal(comma + 1));
@@ -274,8 +319,9 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
                   optional:
                     "'optional' is not a type. Put '?' after the field name instead, for example 'text?: String'.",
                 },
-                token.text,
-              ) ?? `Unknown type '${token.text}'.${didYouMean(token.text, typeNames)}`,
+                token.text
+              ) ??
+                `Unknown type '${token.text}'.${didYouMean(token.text, typeNames)}`
             );
           }
         }
@@ -285,13 +331,20 @@ const typeFromNode = (file: SourceFile, node: ParsedNode, base: number): Parsed<
     const rest = tokens[next];
 
     if (rest !== undefined) {
-      return yield* fail(rest, `Unexpected ${describeLexeme(rest)} after the type.`);
+      return yield* fail(
+        rest,
+        `Unexpected ${describeLexeme(rest)} after the type.`
+      );
     }
 
     return type;
   });
 
-export const parseFrontmatter = (file: SourceFile, start: number, end: number) =>
+export const parseFrontmatter = (
+  file: SourceFile,
+  start: number,
+  end: number
+) =>
   Result.gen(function* frontmatterProgram() {
     const document = parseDocument(file.text.slice(start, end), {
       prettyErrors: false,
@@ -306,8 +359,8 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
           file,
           start + yamlError.pos[0],
           Reason.InvalidYaml,
-          `The frontmatter is not valid YAML: ${yamlError.message}.`,
-        ),
+          `The frontmatter is not valid YAML: ${yamlError.message}.`
+        )
       );
     }
 
@@ -326,12 +379,15 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
           file,
           start + contents.range[0],
           Reason.InvalidFrontmatter,
-          "The frontmatter must be a YAML map with 'description', 'input' or 'schema'.",
-        ),
+          "The frontmatter must be a YAML map with 'description', 'input' or 'schema'."
+        )
       );
     }
 
-    const readDescription = (value: ParsedNode | null, keyOffset: number): Parsed<string> => {
+    const readDescription = (
+      value: ParsedNode | null,
+      keyOffset: number
+    ): Parsed<string> => {
       const description = scalarText(value);
 
       return description === undefined
@@ -340,13 +396,16 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
               file,
               keyOffset,
               Reason.InvalidFrontmatter,
-              "'description' must be a string.",
-            ),
+              "'description' must be a string."
+            )
           )
         : Result.succeed(description);
     };
 
-    const readInput = (value: ParsedNode | null, keyOffset: number): Parsed<InputSpec> =>
+    const readInput = (
+      value: ParsedNode | null,
+      keyOffset: number
+    ): Parsed<InputSpec> =>
       Result.gen(function* inputProgram() {
         if (value === null || !isMap(value)) {
           return yield* Result.fail(
@@ -354,8 +413,8 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
               file,
               value === null ? keyOffset : start + value.range[0],
               Reason.InvalidFrontmatter,
-              "'input' must be a map of field names to types. Write 'input: {}' for a prompt with no input.",
-            ),
+              "'input' must be a map of field names to types. Write 'input: {}' for a prompt with no input."
+            )
           );
         }
 
@@ -366,29 +425,42 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
         }
 
         return yield* Result.fail(
-          syntaxError(file, keyOffset, Reason.InvalidFrontmatter, "'input' must be a map."),
+          syntaxError(
+            file,
+            keyOffset,
+            Reason.InvalidFrontmatter,
+            "'input' must be a map."
+          )
         );
       });
 
-    const readSchema = (value: ParsedNode | null, keyOffset: number): Parsed<InputSpec> => {
+    const readSchema = (
+      value: ParsedNode | null,
+      keyOffset: number
+    ): Parsed<InputSpec> => {
       const reference = scalarText(value)?.trim() ?? "";
       const separator = reference.lastIndexOf("#");
       const exportName = reference.slice(separator + 1);
 
-      return value === null || separator <= 0 || !identifierPattern.test(exportName)
+      return value === null ||
+        separator <= 0 ||
+        !identifierPattern.test(exportName)
         ? Result.fail(
             syntaxError(
               file,
               value === null ? keyOffset : contentOffset(value, start),
               Reason.InvalidSchemaReference,
-              "Write the schema reference as '<module>#<ExportName>', for example './invoice.schema.ts#InvoiceInput'.",
-            ),
+              "Write the schema reference as '<module>#<ExportName>', for example './invoice.schema.ts#InvoiceInput'."
+            )
           )
         : Result.succeed({
             _tag: "Reference",
             exportName,
             module: reference.slice(0, separator),
-            span: { end: start + value.range[1], start: start + value.range[0] },
+            span: {
+              end: start + value.range[1],
+              start: start + value.range[0],
+            },
           });
     };
 
@@ -403,30 +475,40 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
         const keyOffset = start + pair.key.range[0];
         const key = scalarText(pair.key) ?? "";
 
-        if (isInputKey(pair) && contents.items.slice(0, index).some(isInputKey)) {
+        if (
+          isInputKey(pair) &&
+          contents.items.slice(0, index).some(isInputKey)
+        ) {
           return Result.fail(
             syntaxError(
               file,
               keyOffset,
               Reason.ConflictingInput,
-              "Use either 'input' or 'schema', not both.",
-            ),
+              "Use either 'input' or 'schema', not both."
+            )
           );
         }
 
         switch (key) {
           case FrontmatterKeys.description: {
-            return Result.map(readDescription(pair.value, keyOffset), (description) => ({
-              description,
-            }));
+            return Result.map(
+              readDescription(pair.value, keyOffset),
+              (description) => ({
+                description,
+              })
+            );
           }
 
           case FrontmatterKeys.input: {
-            return Result.map(readInput(pair.value, keyOffset), (input) => ({ input }));
+            return Result.map(readInput(pair.value, keyOffset), (input) => ({
+              input,
+            }));
           }
 
           case FrontmatterKeys.schema: {
-            return Result.map(readSchema(pair.value, keyOffset), (input) => ({ input }));
+            return Result.map(readSchema(pair.value, keyOffset), (input) => ({
+              input,
+            }));
           }
 
           default: {
@@ -435,15 +517,18 @@ export const parseFrontmatter = (file: SourceFile, start: number, end: number) =
                 file,
                 keyOffset,
                 Reason.UnknownFrontmatterKey,
-                `Unknown frontmatter key '${key}'.${didYouMean(key, Object.values(FrontmatterKeys))}`,
-              ),
+                `Unknown frontmatter key '${key}'.${didYouMean(key, Object.values(FrontmatterKeys))}`
+              )
             );
           }
         }
-      }),
+      })
     );
 
-    const description = entries.find((entry) => entry.description !== undefined)?.description;
+    const description = entries.find(
+      (entry) => entry.description !== undefined
+    )?.description;
+
     const input = entries.find((entry) => entry.input !== undefined)?.input;
 
     const frontmatter: Frontmatter = {

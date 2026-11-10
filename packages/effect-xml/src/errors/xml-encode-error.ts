@@ -18,6 +18,9 @@ export class XmlEncodeError extends Schema.TaggedError<
     readonly path: string;
     readonly reason: string;
   }) {
-    return new XmlEncodeError({ ...fields, message: `${reason} at ${fields.path}` });
+    return new XmlEncodeError({
+      ...fields,
+      message: `${reason} at ${fields.path}`,
+    });
   }
 }

@@ -13,6 +13,7 @@ import {
 } from "effect";
 import type { FileSystem, Path } from "effect";
 import type { ChildProcessSpawner } from "effect/process";
+
 import * as EvalConfig from "./config.ts";
 import type { ConfiguredReporter } from "./config.ts";
 import type { Dataset } from "./dataset.ts";
@@ -34,7 +35,11 @@ const GATES = "gates";
 
 const sameScope = Option.makeEquivalence(Equivalence.String);
 
-export const checkCase = (gates: readonly Gate.Gate[], run: Run, id: string) => {
+export const checkCase = (
+  gates: readonly Gate.Gate[],
+  run: Run,
+  id: string
+) => {
   const own = Gate.evaluate(
     gates,
     run.variants.map((entry) => ({
@@ -42,7 +47,7 @@ export const checkCase = (gates: readonly Gate.Gate[], run: Run, id: string) => 
       variant: entry.variant,
     })),
     Gate.noBaselines,
-    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY
   );
 
   return Gate.check(
@@ -53,7 +58,7 @@ export const checkCase = (gates: readonly Gate.Gate[], run: Run, id: string) => 
           (result) =>
             result.variant === gate.variant &&
             result.gate === gate.gate &&
-            sameScope(result.scope, gate.scope),
+            sameScope(result.scope, gate.scope)
         );
 
         const mine =
@@ -71,7 +76,7 @@ export const checkCase = (gates: readonly Gate.Gate[], run: Run, id: string) => 
               },
             ];
       }),
-    { sensitive: run.sensitive },
+    { sensitive: run.sensitive }
   );
 };
 
@@ -83,7 +88,9 @@ export const splits = {
 export type Split = (typeof splits)[keyof typeof splits];
 
 type Resolved<Required> = {
-  readonly [K in keyof Required]: Required[K] extends Config.Config<infer T> ? T : never;
+  readonly [K in keyof Required]: Required[K] extends Config.Config<infer T>
+    ? T
+    : never;
 };
 
 export interface DescribeOptions<Required, R, ROut, VE, RIn, DR = never> {
@@ -97,7 +104,9 @@ export interface DescribeOptions<Required, R, ROut, VE, RIn, DR = never> {
     unknown
   >;
   readonly skipUnless?: Required;
-  readonly variants?: (config: Resolved<Required>) => readonly Variant<ROut, VE, RIn>[];
+  readonly variants?: (
+    config: Resolved<Required>
+  ) => readonly Variant<ROut, VE, RIn>[];
   readonly timeout?: Duration.Input;
   readonly split?: Split;
   readonly reporters?: readonly EvalConfig.ReporterEntry[];
@@ -105,7 +114,9 @@ export interface DescribeOptions<Required, R, ROut, VE, RIn, DR = never> {
 }
 
 const asTestFailure = <A, E, R>(self: Effect.Effect<A, E, R>) =>
-  self.pipe(Effect.catchCause((cause) => Effect.fail(new Error(Cause.pretty(cause)))));
+  self.pipe(
+    Effect.catchCause((cause) => Effect.fail(new Error(Cause.pretty(cause))))
+  );
 
 export const reportersOf = (
   config: EvalConfig.EvalConfig,
@@ -113,14 +124,16 @@ export const reportersOf = (
     readonly reporters?: readonly EvalConfig.ReporterEntry[];
     readonly history?: boolean;
   },
-  write: Reporters.Write,
+  write: Reporters.Write
 ) => {
   const history = options.history ?? EvalConfig.historyEnabled(config);
 
   return pipe(
-    (options.reporters ?? config.reporters ?? EvalConfig.defaultReporters).filter(
-      (entry) => history || entry !== EvalConfig.builtinNames.history,
-    ),
+    (
+      options.reporters ??
+      config.reporters ??
+      EvalConfig.defaultReporters
+    ).filter((entry) => history || entry !== EvalConfig.builtinNames.history),
     Effect.forEach((entry) =>
       EvalConfig.resolveReporter(entry, { config, cwd: CWD }).pipe(
         Effect.map((reporter): ConfiguredReporter => {
@@ -135,13 +148,18 @@ export const reportersOf = (
                 consume: (events) =>
                   reporter
                     .consume(events)
-                    .pipe(Effect.provideService(Reporters.TerminalBuffer, Option.some(write))),
+                    .pipe(
+                      Effect.provideService(
+                        Reporters.TerminalBuffer,
+                        Option.some(write)
+                      )
+                    ),
               }
             : reporter;
-        }),
-      ),
+        })
+      )
     ),
-    Effect.map((reporters) => EvalConfig.withoutHistory(reporters, history)),
+    Effect.map((reporters) => EvalConfig.withoutHistory(reporters, history))
   );
 };
 
@@ -159,7 +177,7 @@ export const describe = <
   RIn = never,
 >(
   self: Eval<A, O, E, DE, R, DR, SR>,
-  options: DescribeOptions<Required, R | SR, ROut, VE, RIn, DR>,
+  options: DescribeOptions<Required, R | SR, ROut, VE, RIn, DR>
 ) => {
   const required = Effect.runSyncExit(Config.all(options.skipUnless ?? {}));
   const missing = Exit.isFailure(required);
@@ -170,10 +188,17 @@ export const describe = <
       buffer.push(text);
     });
 
-  const services = Layer.merge(Git.layerProcess.pipe(Layer.provide(options.layer)), options.layer);
+  const services = Layer.merge(
+    Git.layerProcess.pipe(Layer.provide(options.layer)),
+    options.layer
+  );
 
   const reportersFor = Effect.gen(function* resolveReporters() {
-    const config = Option.getOrElse(yield* EvalConfig.load(CWD), (): EvalConfig.EvalConfig => ({}));
+    const config = Option.getOrElse(
+      yield* EvalConfig.load(CWD),
+      (): EvalConfig.EvalConfig => ({})
+    );
+
     const reporters = yield* reportersOf(config, options, write);
 
     return { config, reporters };
@@ -185,7 +210,7 @@ export const describe = <
 
       return yield* Runner.run(self, { variants: [variant] }).pipe(
         Effect.provide(Reporter.layer(reporters)),
-        Effect.provide(EvalConfig.historyLayer(config)),
+        Effect.provide(EvalConfig.historyLayer(config))
       );
     }).pipe(Effect.provide(services));
 
@@ -195,18 +220,17 @@ export const describe = <
 
   const timeout = Duration.toMillis(options.timeout ?? DEFAULT_TIMEOUT);
 
-  const variants: readonly Variant<ROut, VE, RIn>[] | readonly Variant<never>[] = Exit.match(
-    required,
-    {
-      onFailure: () => [Variants.none],
-      onSuccess: (config) =>
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: Config.all resolved every config of skipUnless, so each key holds the value of its config.
-        options.variants?.(config as Resolved<Required>) ?? [Variants.none],
-    },
-  );
+  const variants:
+    | readonly Variant<ROut, VE, RIn>[]
+    | readonly Variant<never>[] = Exit.match(required, {
+    onFailure: () => [Variants.none],
+    onSuccess: (config) =>
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: Config.all resolved every config of skipUnless, so each key holds the value of its config.
+      options.variants?.(config as Resolved<Required>) ?? [Variants.none],
+  });
 
   const selection = Effect.runSyncExit(
-    Runner.validVariants(variants.map((variant) => variant.name)),
+    Runner.validVariants(variants.map((variant) => variant.name))
   );
 
   if (Exit.isFailure(selection)) {
@@ -224,8 +248,11 @@ export const describe = <
       for (const variant of variants) {
         it.live(
           variant.name,
-          () => asTestFailure(runVariant(variant).pipe(Effect.flatMap(Runner.check))),
-          timeout,
+          () =>
+            asTestFailure(
+              runVariant(variant).pipe(Effect.flatMap(Runner.check))
+            ),
+          timeout
         );
       }
 
@@ -233,7 +260,10 @@ export const describe = <
     }
 
     const loaded = await Effect.runPromise(
-      Datasets.load(self.dataset).pipe(Effect.provide(options.layer), Effect.orDie),
+      Datasets.load(self.dataset).pipe(
+        Effect.provide(options.layer),
+        Effect.orDie
+      )
     );
 
     for (const variant of variants) {
@@ -244,13 +274,19 @@ export const describe = <
             input.id,
             () =>
               asTestFailure(
-                once.pipe(Effect.flatMap((run) => checkCase(self.gates, run, input.id))),
+                once.pipe(
+                  Effect.flatMap((run) => checkCase(self.gates, run, input.id))
+                )
               ),
-            timeout,
+            timeout
           );
         }
 
-        it.live(GATES, () => asTestFailure(once.pipe(Effect.flatMap(Runner.check))), timeout);
+        it.live(
+          GATES,
+          () => asTestFailure(once.pipe(Effect.flatMap(Runner.check))),
+          timeout
+        );
       });
     }
   });
@@ -259,9 +295,9 @@ export const describe = <
 export const guard = <A, E, R>(
   name: string,
   dataset: Dataset<A, E, R>,
-  layer: Layer.Layer<R, unknown>,
+  layer: Layer.Layer<R, unknown>
 ) => {
   it.live(`${name}: the dataset passes the privacy guard`, () =>
-    asTestFailure(Datasets.load(dataset).pipe(Effect.provide(layer))),
+    asTestFailure(Datasets.load(dataset).pipe(Effect.provide(layer)))
   );
 };

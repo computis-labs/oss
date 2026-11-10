@@ -1,4 +1,5 @@
 import { Context, Effect, Match, MutableRef, Option } from "effect";
+
 import type { EvalEvent, Scored } from "./events.ts";
 import type { Observation } from "./observation.ts";
 import type { Run } from "./run.ts";
@@ -7,22 +8,24 @@ const REDACTED = "[redacted]";
 
 export const UNLOGGED = "The run is sensitive, so its error is not logged.";
 
-export const SensitiveExposure = Context.Reference<Option.Option<MutableRef.MutableRef<boolean>>>(
-  "effect-eval/SensitiveExposure",
-  { defaultValue: () => Option.none() },
-);
+export const SensitiveExposure = Context.Reference<
+  Option.Option<MutableRef.MutableRef<boolean>>
+>("effect-eval/SensitiveExposure", { defaultValue: () => Option.none() });
 
 export const exposing = (run: Run) =>
   run.sensitive
     ? SensitiveExposure.pipe(
         Effect.map(Option.map((exposed) => MutableRef.set(exposed, true))),
-        Effect.asVoid,
+        Effect.asVoid
       )
     : Effect.void;
 
-export const RedactsSensitive = Context.Reference<boolean>("effect-eval/RedactsSensitive", {
-  defaultValue: () => false,
-});
+export const RedactsSensitive = Context.Reference<boolean>(
+  "effect-eval/RedactsSensitive",
+  {
+    defaultValue: () => false,
+  }
+);
 
 const redactObservation = (observation: Observation): Observation => ({
   ...observation,
@@ -63,7 +66,10 @@ export const redactEvent = (event: EvalEvent): EvalEvent =>
 
 export const redactRun = (run: Run): Run => ({
   ...run,
-  gates: run.gates.map((gate) => ({ ...gate, violations: gate.violations.map(redactScored) })),
+  gates: run.gates.map((gate) => ({
+    ...gate,
+    violations: gate.violations.map(redactScored),
+  })),
   outputs: run.outputs.map((output) => ({
     ...output,
     failure: output.failure.pipe(Option.map(() => REDACTED)),

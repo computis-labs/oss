@@ -1,8 +1,18 @@
 import { NodeServices } from "@effect/platform-node";
 import { afterAll, beforeEach, describe, expect, it } from "@effect/vitest";
-import { Config, Context, Effect, Equivalence, Layer, Option, PlatformError, Stream } from "effect";
+import {
+  Config,
+  Context,
+  Effect,
+  Equivalence,
+  Layer,
+  Option,
+  PlatformError,
+  Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner, CommandLine } from "effect/process";
 import { TestConsole } from "effect/testing";
+
 import * as Compare from "../src/compare.ts";
 import type * as EvalConfig from "../src/config.ts";
 import * as Dataset from "../src/dataset.ts";
@@ -20,14 +30,24 @@ import * as Scorer from "../src/scorer.ts";
 import * as Variant from "../src/variant.ts";
 import * as VitestEval from "../src/vitest.ts";
 
-const Prefix = Context.Reference<string>("tests/Prefix", { defaultValue: () => "" });
+const Prefix = Context.Reference<string>("tests/Prefix", {
+  defaultValue: () => "",
+});
 
 const categorizer = Eval.make({
-  dataset: Dataset.fromIterable(["rent", "fuel"], { id: (label: string) => label }),
+  dataset: Dataset.fromIterable(["rent", "fuel"], {
+    id: (label: string) => label,
+  }),
   gates: [Gate.min(Metric.accuracy, 1)],
   name: "categorizer in vitest",
-  score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
-  task: (input) => Effect.service(Prefix).pipe(Effect.map((prefix) => `${prefix}${input.input}`)),
+  score: Scorer.label<string, string>({
+    actual: Option.some,
+    expected: Scorer.present,
+  }),
+  task: (input) =>
+    Effect.service(Prefix).pipe(
+      Effect.map((prefix) => `${prefix}${input.input}`)
+    ),
 });
 
 VitestEval.describe(categorizer, {
@@ -42,26 +62,31 @@ VitestEval.describe(categorizer, {
 VitestEval.describe(categorizer, {
   history: false,
   layer: NodeServices.layer,
-  skipUnless: { apiKey: Config.String("EFFECT_EVAL_TEST_KEY_THAT_IS_NEVER_SET") },
+  skipUnless: {
+    apiKey: Config.String("EFFECT_EVAL_TEST_KEY_THAT_IS_NEVER_SET"),
+  },
   variants: () => [Variant.make("would fail", Layer.succeed(Prefix, "x-"))],
 });
 
 VitestEval.guard(
   "movements",
   Dataset.guard({ rules: [{ name: "iban", pattern: /IT\d{2}[A-Z]\d{10}/u }] })(
-    Dataset.fromIterable([{ id: "m1", text: "AFFITTO" }], { id: (movement) => movement.id }),
+    Dataset.fromIterable([{ id: "m1", text: "AFFITTO" }], {
+      id: (movement) => movement.id,
+    })
   ),
-  Layer.empty,
+  Layer.empty
 );
 
-const names = (reporters: readonly { readonly name: string; readonly required: boolean }[]) =>
-  reporters.map((reporter) => [reporter.name, reporter.required]);
+const names = (
+  reporters: readonly { readonly name: string; readonly required: boolean }[]
+) => reporters.map((reporter) => [reporter.name, reporter.required]);
 
 const write = () => Effect.void;
 
 const recordingInto = (events: EvalEvent[]) =>
   Reporter.fromStream("recording", (stream) =>
-    Stream.runForEach(stream, (event) => Effect.sync(() => events.push(event))),
+    Stream.runForEach(stream, (event) => Effect.sync(() => events.push(event)))
   );
 
 const sorted = (values: readonly string[]) => values.toSorted();
@@ -78,8 +103,8 @@ describe("EvalTest.describe with split case", () => {
         spawned.push(
           ChildProcess.isStandardCommand(command)
             ? CommandLine.display([command.command, ...command.args])
-            : "",
-        ),
+            : ""
+        )
       ).pipe(
         Effect.andThen(
           Effect.fail(
@@ -88,11 +113,11 @@ describe("EvalTest.describe with split case", () => {
               description: "no git in this test",
               method: "spawn",
               module: "ChildProcess",
-            }),
-          ),
-        ),
-      ),
-    ),
+            })
+          )
+        )
+      )
+    )
   );
 
   beforeEach((context) => {
@@ -117,9 +142,12 @@ describe("EvalTest.describe with split case", () => {
 describe("EvalTest.describe with split case and a partial the gates accept", () => {
   VitestEval.describe(
     Eval.make({
-      dataset: Dataset.fromIterable([{ id: "movement", invoices: ["invoice1", "invoice2"] }], {
-        id: (movement) => movement.id,
-      }),
+      dataset: Dataset.fromIterable(
+        [{ id: "movement", invoices: ["invoice1", "invoice2"] }],
+        {
+          id: (movement) => movement.id,
+        }
+      ),
       gates: [Gate.max(Metric.wrong, 0), Gate.missedOnlyOnGaps],
       name: "reconciliation in vitest",
       score: Scorer.set<
@@ -134,7 +162,7 @@ describe("EvalTest.describe with split case and a partial the gates accept", () 
       }),
       task: () => Effect.succeed(["invoice1"]),
     }),
-    { history: false, layer: NodeServices.layer, split: "case" },
+    { history: false, layer: NodeServices.layer, split: "case" }
   );
 });
 
@@ -142,8 +170,14 @@ describe("EvalTest.describe with an explicit Git layer", () => {
   const events: EvalEvent[] = [];
 
   afterAll(() => {
-    expect(events.flatMap((event) => (Events.isRunStarted(event) ? [event.git] : []))).toEqual([
-      { branch: Option.some("main"), dirty: false, sha: Option.some("abc1234") },
+    expect(
+      events.flatMap((event) => (Events.isRunStarted(event) ? [event.git] : []))
+    ).toEqual([
+      {
+        branch: Option.some("main"),
+        dirty: false,
+        sha: Option.some("abc1234"),
+      },
     ]);
   });
 
@@ -151,17 +185,24 @@ describe("EvalTest.describe with an explicit Git layer", () => {
     Eval.make({
       dataset: Dataset.fromIterable(["rent"], { id: (label: string) => label }),
       name: "categorizer with git",
-      score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
+      score: Scorer.label<string, string>({
+        actual: Option.some,
+        expected: Scorer.present,
+      }),
       task: (input) => Effect.succeed(input.input),
     }),
     {
       history: false,
       layer: Layer.mergeAll(
         NodeServices.layer,
-        Git.layerStatic({ branch: Option.some("main"), dirty: false, sha: Option.some("abc1234") }),
+        Git.layerStatic({
+          branch: Option.some("main"),
+          dirty: false,
+          sha: Option.some("abc1234"),
+        })
       ),
       reporters: [recordingInto(events)],
-    },
+    }
   );
 });
 
@@ -203,128 +244,161 @@ describe("EvalTest.reportersOf", () => {
             ["process", { args: ["sink.py"], command: "python" }],
           ],
         },
-        write,
+        write
       );
 
       expect(names(reporters)).toEqual([
         ["sink", false],
         ["process", false],
       ]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NodeServices.layer))
   );
-  it.effect("takes the reporters and the history setting from eval.config.ts unless given", () =>
-    Effect.gen(function* () {
-      const fromConfig = yield* VitestEval.reportersOf(
-        { history: { enabled: false }, reporters: ["json", "history"] },
-        {},
-        write,
-      );
+  it.effect(
+    "takes the reporters and the history setting from eval.config.ts unless given",
+    () =>
+      Effect.gen(function* () {
+        const fromConfig = yield* VitestEval.reportersOf(
+          { history: { enabled: false }, reporters: ["json", "history"] },
+          {},
+          write
+        );
 
-      const defaults = yield* VitestEval.reportersOf({}, {}, write);
+        const defaults = yield* VitestEval.reportersOf({}, {}, write);
 
-      const given = yield* VitestEval.reportersOf(
-        { reporters: ["json"] },
-        { reporters: ["markdown"] },
-        write,
-      );
+        const given = yield* VitestEval.reportersOf(
+          { reporters: ["json"] },
+          { reporters: ["markdown"] },
+          write
+        );
 
-      expect([names(fromConfig), names(defaults), names(given)]).toEqual([
-        [["json", false]],
-        [
-          ["terminal", false],
-          ["history", true],
-        ],
-        [["markdown", false]],
-      ]);
-    }).pipe(Effect.provide(NodeServices.layer)),
-  );
-
-  it.effect("leaves out a history reporter given as a value when history is off", () =>
-    Effect.gen(function* () {
-      const values = [History.reporter, Reporter.required(History.reporter)];
-
-      const fromConfig = yield* VitestEval.reportersOf(
-        { history: { enabled: false }, reporters: values },
-        {},
-        write,
-      );
-
-      const given = yield* VitestEval.reportersOf({}, { history: false, reporters: values }, write);
-
-      expect([names(fromConfig), names(given)]).toEqual([[], []]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+        expect([names(fromConfig), names(defaults), names(given)]).toEqual([
+          [["json", false]],
+          [
+            ["terminal", false],
+            ["history", true],
+          ],
+          [["markdown", false]],
+        ]);
+      }).pipe(Effect.provide(NodeServices.layer))
   );
 
-  it.effect("buffers a terminal reporter given as a value like the one given by name", () =>
-    Effect.gen(function* () {
-      const failing = Eval.make({
-        dataset: Dataset.fromIterable(["rent"], { id: (label: string) => label }),
-        gates: [Gate.min(Metric.accuracy, 1)],
-        name: "buffered",
-        score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
-        task: () => Effect.succeed("fuel"),
-      });
+  it.effect(
+    "leaves out a history reporter given as a value when history is off",
+    () =>
+      Effect.gen(function* () {
+        const values = [History.reporter, Reporter.required(History.reporter)];
 
-      const outputOf = (entry: EvalConfig.ReporterEntry) =>
-        Effect.gen(function* () {
-          const buffered: string[] = [];
+        const fromConfig = yield* VitestEval.reportersOf(
+          { history: { enabled: false }, reporters: values },
+          {},
+          write
+        );
 
-          const reporters = yield* VitestEval.reportersOf(
-            {},
-            { history: false, reporters: [entry] },
-            (text) =>
-              Effect.sync(() => {
-                buffered.push(text);
-              }),
-          );
+        const given = yield* VitestEval.reportersOf(
+          {},
+          { history: false, reporters: values },
+          write
+        );
 
-          const run = yield* Runner.run(failing).pipe(
-            Effect.provide(Reporter.layer(reporters)),
-            Effect.provide(History.layerMemory),
-          );
+        expect([names(fromConfig), names(given)]).toEqual([[], []]);
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
 
-          const live = yield* TestConsole.logLines;
+  it.effect(
+    "buffers a terminal reporter given as a value like the one given by name",
+    () =>
+      Effect.gen(function* () {
+        const failing = Eval.make({
+          dataset: Dataset.fromIterable(["rent"], {
+            id: (label: string) => label,
+          }),
+          gates: [Gate.min(Metric.accuracy, 1)],
+          name: "buffered",
+          score: Scorer.label<string, string>({
+            actual: Option.some,
+            expected: Scorer.present,
+          }),
+          task: () => Effect.succeed("fuel"),
+        });
 
-          return { buffered, live: live.length, passed: run.passed };
-        }).pipe(Effect.provide(TestConsole.layer));
+        const outputOf = (entry: EvalConfig.ReporterEntry) =>
+          Effect.gen(function* () {
+            const buffered: string[] = [];
 
-      const outputs = yield* Effect.forEach(
-        ["terminal", Reporters.terminal({ color: false })],
-        outputOf,
-      );
+            const reporters = yield* VitestEval.reportersOf(
+              {},
+              { history: false, reporters: [entry] },
+              (text) =>
+                Effect.sync(() => {
+                  buffered.push(text);
+                })
+            );
 
-      expect(outputs.map(({ buffered, live, passed }) => [buffered.length, live, passed])).toEqual([
-        [1, 0, false],
-        [1, 0, false],
-      ]);
-      expect(outputs[1]?.buffered[0]).toContain("accuracy");
-    }).pipe(Effect.provide(NodeServices.layer)),
+            const run = yield* Runner.run(failing).pipe(
+              Effect.provide(Reporter.layer(reporters)),
+              Effect.provide(History.layerMemory)
+            );
+
+            const live = yield* TestConsole.logLines;
+
+            return { buffered, live: live.length, passed: run.passed };
+          }).pipe(Effect.provide(TestConsole.layer));
+
+        const outputs = yield* Effect.forEach(
+          ["terminal", Reporters.terminal({ color: false })],
+          outputOf
+        );
+
+        expect(
+          outputs.map(({ buffered, live, passed }) => [
+            buffered.length,
+            live,
+            passed,
+          ])
+        ).toEqual([
+          [1, 0, false],
+          [1, 0, false],
+        ]);
+        expect(outputs[1]?.buffered[0]).toContain("accuracy");
+      }).pipe(Effect.provide(NodeServices.layer))
   );
 });
 
 describe("EvalTest.checkCase", () => {
-  it.effect("fails every case that breaks a gate, also past the violations a run lists", () =>
-    Effect.gen(function* () {
-      const labels = Array.from({ length: 30 }, (_, index) => `label-${String(index)}`);
+  it.effect(
+    "fails every case that breaks a gate, also past the violations a run lists",
+    () =>
+      Effect.gen(function* () {
+        const labels = Array.from(
+          { length: 30 },
+          (_, index) => `label-${String(index)}`
+        );
 
-      const allWrong = Eval.make({
-        dataset: Dataset.fromIterable(labels, { id: (label: string) => label }),
-        gates: [Gate.max(Metric.wrong, 0), Gate.min(Metric.accuracy, 1)],
-        name: "all wrong",
-        score: Scorer.label<string, string>({ actual: Option.some, expected: Scorer.present }),
-        task: () => Effect.succeed("other"),
-      });
+        const allWrong = Eval.make({
+          dataset: Dataset.fromIterable(labels, {
+            id: (label: string) => label,
+          }),
+          gates: [Gate.max(Metric.wrong, 0), Gate.min(Metric.accuracy, 1)],
+          name: "all wrong",
+          score: Scorer.label<string, string>({
+            actual: Option.some,
+            expected: Scorer.present,
+          }),
+          task: () => Effect.succeed("other"),
+        });
 
-      const run = yield* Runner.run(allWrong).pipe(
-        Effect.provide(Reporter.layer([])),
-        Effect.provide(History.layerMemory),
-      );
+        const run = yield* Runner.run(allWrong).pipe(
+          Effect.provide(Reporter.layer([])),
+          Effect.provide(History.layerMemory)
+        );
 
-      const failedCases = yield* Effect.all(
-        labels.map((label) => Effect.isFailure(VitestEval.checkCase(allWrong.gates, run, label))),
-      );
+        const failedCases = yield* Effect.all(
+          labels.map((label) =>
+            Effect.isFailure(VitestEval.checkCase(allWrong.gates, run, label))
+          )
+        );
 
-      expect(failedCases).toEqual(labels.map(() => true));
-    }).pipe(Effect.provide(NodeServices.layer)),
+        expect(failedCases).toEqual(labels.map(() => true));
+      }).pipe(Effect.provide(NodeServices.layer))
   );
 });

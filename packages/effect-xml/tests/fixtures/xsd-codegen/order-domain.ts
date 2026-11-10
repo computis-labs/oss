@@ -1,4 +1,5 @@
 import { Schema, SchemaTransformation } from "effect";
+
 import type { XsdDomain } from "../../../src/xsd-codegen/runtime.ts";
 
 const Upper = (self: Schema.String) =>
@@ -7,7 +8,9 @@ const Upper = (self: Schema.String) =>
 export const domain = {
   "OrderType.Country": Upper,
   QuantityType: (self: Schema.String) =>
-    self.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString)),
+    self.pipe(
+      Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString)
+    ),
   "xs:token": Upper,
 } satisfies XsdDomain;
 

@@ -21,15 +21,16 @@ The PDFium worker needs one platform package next to it: `@effect/platform-node`
 On Node:
 
 ```ts
-import { NodeServices, NodeWorker } from "@effect/platform-node";
-import { Effect, Layer } from "effect";
 import { Worker } from "node:worker_threads";
+
 import { open } from "@computis/effect-pdf";
 import { PdfEngine, pdfWorkerEntry } from "@computis/effect-pdf/engine";
+import { NodeServices, NodeWorker } from "@effect/platform-node";
+import { Effect, Layer } from "effect";
 
 const PdfLive = PdfEngine.layer().pipe(
   Layer.provide(NodeWorker.layer(() => new Worker(pdfWorkerEntry))),
-  Layer.provide(NodeServices.layer),
+  Layer.provide(NodeServices.layer)
 );
 
 const program = Effect.gen(function* () {
@@ -48,42 +49,42 @@ import { BunServices, BunWorker } from "@effect/platform-bun";
 
 const PdfLive = PdfEngine.layer().pipe(
   Layer.provide(BunWorker.layer(() => new Worker(pdfWorkerEntry))),
-  Layer.provide(BunServices.layer),
+  Layer.provide(BunServices.layer)
 );
 ```
 
-| Layer                        | Needs                                                           | Use                                                                                                                                                                     |
-| ---------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layer | Needs | Use |
+| --- | --- | --- |
 | `PdfEngine.layer({ size? })` | `Worker.WorkerPlatform`, `Worker.Spawner`, `FileSystem`, `Path` | A pool of `size` workers. The default is one less than the CPUs, between 1 and 4, or 1 when the platform does not report them. The spawner must start `pdfWorkerEntry`. |
-| `PdfEngine.layerInProcess`   | `FileSystem`, `Path`                                            | PDFium on the calling thread, with no worker. For tests and scripts.                                                                                                    |
+| `PdfEngine.layerInProcess` | `FileSystem`, `Path` | PDFium on the calling thread, with no worker. For tests and scripts. |
 
 Both read the PDFium binary from `@embedpdf/pdfium` through `FileSystem` and compile it once.
 
 ## The document
 
-| Member                           | Returns                                                                                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pageCount`, `pages`             | The number of pages, and the size and rotation of each.                                                                                                               |
-| `text({ pages?, layout? })`      | The text of each page, with the number of characters whose Unicode mapping is missing. `layout: true` puts the cells of a table row on one line, spaced by their gap. |
-| `find(regexp, { pages? })`       | Each match with its page, its box in PDF points, the baseline origin of its first glyph and its named groups.                                                         |
-| `classify`                       | Whether each page, and the document, is text, image, mixed or empty.                                                                                                  |
-| `pageImages({ pages?, dpi? })`   | One image per page for a vision model: the scan itself when the page is a scan (a JPEG passes through untouched), otherwise a PNG render.                             |
-| `render(page, { dpi?, width? })` | The page as a PNG.                                                                                                                                                    |
-| `fields`                         | The form fields with their type, value and widgets.                                                                                                                   |
-| `setFields(values)`              | Fills the fields by name.                                                                                                                                             |
-| `addSignatureField(field)`       | Adds an empty signature field on a page.                                                                                                                              |
-| `save({ incremental? })`         | The bytes of the document. Incremental by default, so the original bytes stay untouched.                                                                              |
+| Member | Returns |
+| --- | --- |
+| `pageCount`, `pages` | The number of pages, and the size and rotation of each. |
+| `text({ pages?, layout? })` | The text of each page, with the number of characters whose Unicode mapping is missing. `layout: true` puts the cells of a table row on one line, spaced by their gap. |
+| `find(regexp, { pages? })` | Each match with its page, its box in PDF points, the baseline origin of its first glyph and its named groups. |
+| `classify` | Whether each page, and the document, is text, image, mixed or empty. |
+| `pageImages({ pages?, dpi? })` | One image per page for a vision model: the scan itself when the page is a scan (a JPEG passes through untouched), otherwise a PNG render. |
+| `render(page, { dpi?, width? })` | The page as a PNG. |
+| `fields` | The form fields with their type, value and widgets. |
+| `setFields(values)` | Fills the fields by name. |
+| `addSignatureField(field)` | Adds an empty signature field on a page. |
+| `save({ incremental? })` | The bytes of the document. Incremental by default, so the original bytes stay untouched. |
 
 Every failure is a tagged error: `PdfOpenError` (with a `reason`: `file`, `format`, `password`, `security` or `unknown`), `PdfPageError`, `PdfFormError`, `PdfSaveError` and `PdfEngineError`.
 
 ## Forms with a Schema
 
 ```ts
-import { Schema } from "effect";
 import { form } from "@computis/effect-pdf";
+import { Schema } from "effect";
 
 const Registration = form(
-  Schema.Struct({ ragioneSociale: Schema.String, privacy: Schema.Boolean }),
+  Schema.Struct({ ragioneSociale: Schema.String, privacy: Schema.Boolean })
 );
 
 const filled = Effect.gen(function* () {
@@ -99,10 +100,12 @@ const filled = Effect.gen(function* () {
 `@computis/effect-pdf/server` exports `PdfWorkerServer`, the layer the worker runs. It needs only a `WorkerRunnerPlatform`. To run the workers on another platform, write a worker entry that launches it with that platform's runner, and start that file from the `Spawner` you give `PdfEngine.layer`:
 
 ```ts
-import { Layer } from "effect";
 import { PdfWorkerServer } from "@computis/effect-pdf/server";
+import { Layer } from "effect";
 
-runMain(Layer.launch(PdfWorkerServer.pipe(Layer.provide(MyWorkerRunner.layer))));
+runMain(
+  Layer.launch(PdfWorkerServer.pipe(Layer.provide(MyWorkerRunner.layer)))
+);
 ```
 
 ## License

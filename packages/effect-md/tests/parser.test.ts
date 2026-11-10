@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
+
 import { PromptSyntaxErrorReason } from "../src/errors.ts";
 import { parse } from "../src/parser.ts";
 
@@ -10,19 +11,27 @@ const failure = (source: string) => Effect.flip(parse(source, { path }));
 describe("template body", () => {
   it.effect("reads text and variables as one fragment", () =>
     Effect.gen(function* () {
-      const document = yield* parse("Hello {{customer.name}}, you owe {{total}}.");
+      const document = yield* parse(
+        "Hello {{customer.name}}, you owe {{total}}."
+      );
 
       expect(document.body).toMatchObject({
         _tag: "Fragment",
         nodes: [
           { _tag: "Text", value: "Hello " },
-          { _tag: "Output", value: { _tag: "Path", root: "customer", segments: ["name"] } },
+          {
+            _tag: "Output",
+            value: { _tag: "Path", root: "customer", segments: ["name"] },
+          },
           { _tag: "Text", value: ", you owe " },
-          { _tag: "Output", value: { _tag: "Path", root: "total", segments: [] } },
+          {
+            _tag: "Output",
+            value: { _tag: "Path", root: "total", segments: [] },
+          },
           { _tag: "Text", value: "." },
         ],
       });
-    }),
+    })
   );
 
   it.effect("records the source span of each node", () =>
@@ -32,11 +41,14 @@ describe("template body", () => {
       expect(document.body).toMatchObject({
         nodes: [
           { span: { end: 3, start: 0 } },
-          { span: { end: 11, start: 3 }, value: { span: { end: 9, start: 5 } } },
+          {
+            span: { end: 11, start: 3 },
+            value: { span: { end: 9, start: 5 } },
+          },
           { span: { end: 12, start: 11 } },
         ],
       });
-    }),
+    })
   );
 
   it.effect("reads helper calls with positional and named arguments", () =>
@@ -56,13 +68,13 @@ describe("template body", () => {
           },
         ],
       });
-    }),
+    })
   );
 
   it.effect("reads if, else if and else branches with comparisons", () =>
     Effect.gen(function* () {
       const document = yield* parse(
-        `{{#if source == "text"}}A{{else if source != null}}B{{else}}C{{/if}}`,
+        `{{#if source == "text"}}A{{else if source != null}}B{{else}}C{{/if}}`
       );
 
       expect(document.body).toMatchObject({
@@ -82,13 +94,17 @@ describe("template body", () => {
               },
               {
                 body: [{ _tag: "Text", value: "B" }],
-                condition: { _tag: "Compare", operator: "!=", right: { value: null } },
+                condition: {
+                  _tag: "Compare",
+                  operator: "!=",
+                  right: { value: null },
+                },
               },
             ],
           },
         ],
       });
-    }),
+    })
   );
 
   it.effect("reads unless as a negated condition", () =>
@@ -101,52 +117,62 @@ describe("template body", () => {
             _tag: "If",
             branches: [
               {
-                condition: { _tag: "Not", condition: { _tag: "Truthy", value: { root: "paid" } } },
+                condition: {
+                  _tag: "Not",
+                  condition: { _tag: "Truthy", value: { root: "paid" } },
+                },
               },
             ],
           },
         ],
       });
-    }),
+    })
   );
 
-  it.effect("reads each with block params, data variables and an empty case", () =>
-    Effect.gen(function* () {
-      const document = yield* parse(
-        "{{#each lines as |line i|}}{{@index}}:{{line.text}}{{else}}none{{/each}}",
-      );
+  it.effect(
+    "reads each with block params, data variables and an empty case",
+    () =>
+      Effect.gen(function* () {
+        const document = yield* parse(
+          "{{#each lines as |line i|}}{{@index}}:{{line.text}}{{else}}none{{/each}}"
+        );
 
-      expect(document.body).toMatchObject({
-        nodes: [
-          {
-            _tag: "Each",
-            alternate: [{ _tag: "Text", value: "none" }],
-            body: [
-              { _tag: "Output", value: { _tag: "Data", name: "index" } },
-              { _tag: "Text", value: ":" },
-              { _tag: "Output", value: { root: "line", segments: ["text"] } },
-            ],
-            index: "i",
-            item: "line",
-            iterable: { root: "lines" },
-          },
-        ],
-      });
-    }),
+        expect(document.body).toMatchObject({
+          nodes: [
+            {
+              _tag: "Each",
+              alternate: [{ _tag: "Text", value: "none" }],
+              body: [
+                { _tag: "Output", value: { _tag: "Data", name: "index" } },
+                { _tag: "Text", value: ":" },
+                { _tag: "Output", value: { root: "line", segments: ["text"] } },
+              ],
+              index: "i",
+              item: "line",
+              iterable: { root: "lines" },
+            },
+          ],
+        });
+      })
   );
 
   it.effect("removes block tags that stand alone on their line", () =>
     Effect.gen(function* () {
-      const document = yield* parse("Start\n  {{#if a}}\nInside\n  {{/if}}\nEnd\n");
+      const document = yield* parse(
+        "Start\n  {{#if a}}\nInside\n  {{/if}}\nEnd\n"
+      );
 
       expect(document.body).toMatchObject({
         nodes: [
           { _tag: "Text", value: "Start\n" },
-          { _tag: "If", branches: [{ body: [{ _tag: "Text", value: "Inside\n" }] }] },
+          {
+            _tag: "If",
+            branches: [{ body: [{ _tag: "Text", value: "Inside\n" }] }],
+          },
           { _tag: "Text", value: "End\n" },
         ],
       });
-    }),
+    })
   );
 
   it.effect("keeps the line when a block tag shares it with text", () =>
@@ -154,9 +180,13 @@ describe("template body", () => {
       const document = yield* parse("Total {{#if a}}yes{{/if}}\n");
 
       expect(document.body).toMatchObject({
-        nodes: [{ _tag: "Text", value: "Total " }, { _tag: "If" }, { _tag: "Text", value: "\n" }],
+        nodes: [
+          { _tag: "Text", value: "Total " },
+          { _tag: "If" },
+          { _tag: "Text", value: "\n" },
+        ],
       });
-    }),
+    })
   );
 
   it.effect("strips whitespace next to a tag with a tilde", () =>
@@ -164,14 +194,20 @@ describe("template body", () => {
       const document = yield* parse("A  \n  {{~name~}}  \n  B");
 
       expect(document.body).toMatchObject({
-        nodes: [{ _tag: "Text", value: "A" }, { _tag: "Output" }, { _tag: "Text", value: "B" }],
+        nodes: [
+          { _tag: "Text", value: "A" },
+          { _tag: "Output" },
+          { _tag: "Text", value: "B" },
+        ],
       });
-    }),
+    })
   );
 
   it.effect("drops comments and their standalone lines", () =>
     Effect.gen(function* () {
-      const document = yield* parse("A\n{{! short note }}\nB {{!-- a }} long {{note}} --}}C\n");
+      const document = yield* parse(
+        "A\n{{! short note }}\nB {{!-- a }} long {{note}} --}}C\n"
+      );
 
       expect(document.body).toMatchObject({
         nodes: [
@@ -180,12 +216,14 @@ describe("template body", () => {
           { _tag: "Text", value: "C\n" },
         ],
       });
-    }),
+    })
   );
 
   it.effect("keeps an escaped tag as text", () =>
     Effect.gen(function* () {
-      const document = yield* parse(String.raw`Write \{{name}} to get {{name}}.`);
+      const document = yield* parse(
+        String.raw`Write \{{name}} to get {{name}}.`
+      );
 
       expect(document.body).toMatchObject({
         nodes: [
@@ -194,12 +232,14 @@ describe("template body", () => {
           { _tag: "Text", value: "." },
         ],
       });
-    }),
+    })
   );
 
   it.effect("reads partials with their indent and named arguments", () =>
     Effect.gen(function* () {
-      const document = yield* parse(`  {{> ./contract.md}}\n{{> "./line item.md" item=line}}`);
+      const document = yield* parse(
+        `  {{> ./contract.md}}\n{{> "./line item.md" item=line}}`
+      );
 
       expect(document.body).toMatchObject({
         nodes: [
@@ -212,7 +252,7 @@ describe("template body", () => {
           },
         ],
       });
-    }),
+    })
   );
 });
 
@@ -220,13 +260,16 @@ describe("role blocks", () => {
   it.effect("splits the body into messages", () =>
     Effect.gen(function* () {
       const document = yield* parse(
-        "<system>\nYou are an accountant.\n</system>\n\n<user>\nRead {{text}}\n</user>\n",
+        "<system>\nYou are an accountant.\n</system>\n\n<user>\nRead {{text}}\n</user>\n"
       );
 
       expect(document.body).toMatchObject({
         _tag: "Messages",
         messages: [
-          { body: [{ _tag: "Text", value: "You are an accountant.\n" }], role: "system" },
+          {
+            body: [{ _tag: "Text", value: "You are an accountant.\n" }],
+            role: "system",
+          },
           {
             body: [
               { _tag: "Text", value: "Read " },
@@ -237,7 +280,7 @@ describe("role blocks", () => {
           },
         ],
       });
-    }),
+    })
   );
 
   it.effect("keeps role tags that are not at the start of a line as text", () =>
@@ -248,43 +291,54 @@ describe("role blocks", () => {
         _tag: "Fragment",
         nodes: [{ _tag: "Text", value: "Wrap it in <user> tags.\n<user>\n" }],
       });
-    }),
+    })
   );
 
   it.effect("rejects a role tag with text on the same line", () =>
     Effect.gen(function* () {
-      const error = yield* failure("<system>You are an accountant.\n</system>\n");
+      const error = yield* failure(
+        "<system>You are an accountant.\n</system>\n"
+      );
 
       expect(error).toMatchObject({
         column: 1,
         line: 1,
         reason: PromptSyntaxErrorReason.InvalidRoleTag,
       });
-    }),
+    })
   );
 
   it.effect("rejects text outside the role blocks", () =>
     Effect.gen(function* () {
       const error = yield* failure("Intro\n<user>\nHi\n</user>\n");
 
-      expect(error).toMatchObject({ line: 1, reason: PromptSyntaxErrorReason.TextOutsideRole });
-    }),
+      expect(error).toMatchObject({
+        line: 1,
+        reason: PromptSyntaxErrorReason.TextOutsideRole,
+      });
+    })
   );
 
   it.effect("rejects a role tag inside a block", () =>
     Effect.gen(function* () {
       const error = yield* failure("{{#if a}}\n<user>\nHi\n</user>\n{{/if}}\n");
 
-      expect(error).toMatchObject({ line: 2, reason: PromptSyntaxErrorReason.RoleInsideBlock });
-    }),
+      expect(error).toMatchObject({
+        line: 2,
+        reason: PromptSyntaxErrorReason.RoleInsideBlock,
+      });
+    })
   );
 
   it.effect("rejects a role that is not closed", () =>
     Effect.gen(function* () {
       const error = yield* failure("<system>\nA\n<user>\nB\n</user>\n");
 
-      expect(error).toMatchObject({ line: 3, reason: PromptSyntaxErrorReason.UnclosedRole });
-    }),
+      expect(error).toMatchObject({
+        line: 3,
+        reason: PromptSyntaxErrorReason.UnclosedRole,
+      });
+    })
   );
 });
 
@@ -299,17 +353,22 @@ describe("syntax errors", () => {
         path,
         reason: PromptSyntaxErrorReason.UnclosedBlock,
       });
-      expect(error.message).toBe("invoice.prompt.md:2:3 {{#if}} has no closing '{{/if}}'.");
-    }),
+      expect(error.message).toBe(
+        "invoice.prompt.md:2:3 {{#if}} has no closing '{{/if}}'."
+      );
+    })
   );
 
   it.effect("names the open block when a closing tag does not match", () =>
     Effect.gen(function* () {
       const error = yield* failure("{{#each items as |item|}}\n{{/if}}\n");
 
-      expect(error).toMatchObject({ line: 2, reason: PromptSyntaxErrorReason.MismatchedClose });
+      expect(error).toMatchObject({
+        line: 2,
+        reason: PromptSyntaxErrorReason.MismatchedClose,
+      });
       expect(error.detail).toContain("from line 1");
-    }),
+    })
   );
 
   it.effect("suggests the closest block name", () =>
@@ -318,7 +377,7 @@ describe("syntax errors", () => {
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.UnknownBlock);
       expect(error.detail).toContain("Did you mean 'if'?");
-    }),
+    })
   );
 
   it.effect("rejects else outside a block", () =>
@@ -326,7 +385,7 @@ describe("syntax errors", () => {
       const error = yield* failure("A{{else}}B");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.UnexpectedElse);
-    }),
+    })
   );
 
   it.effect("rejects a second else", () =>
@@ -334,15 +393,17 @@ describe("syntax errors", () => {
       const error = yield* failure("{{#if a}}A{{else}}B{{else}}C{{/if}}");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.DuplicateElse);
-    }),
+    })
   );
 
   it.effect("rejects else if inside each", () =>
     Effect.gen(function* () {
-      const error = yield* failure("{{#each xs as |x|}}A{{else if b}}B{{/each}}");
+      const error = yield* failure(
+        "{{#each xs as |x|}}A{{else if b}}B{{/each}}"
+      );
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.UnexpectedElse);
-    }),
+    })
   );
 
   it.effect("requires block params on each", () =>
@@ -350,7 +411,7 @@ describe("syntax errors", () => {
       const error = yield* failure("{{#each items}}{{this}}{{/each}}");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.InvalidBlockParams);
-    }),
+    })
   );
 
   it.effect("rejects this", () =>
@@ -358,7 +419,7 @@ describe("syntax errors", () => {
       const error = yield* failure("{{this}}");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.InvalidExpression);
-    }),
+    })
   );
 
   it.effect("rejects an unknown data variable", () =>
@@ -369,7 +430,7 @@ describe("syntax errors", () => {
         column: 22,
         reason: PromptSyntaxErrorReason.UnknownDataVariable,
       });
-    }),
+    })
   );
 
   it.effect("rejects triple braces", () =>
@@ -377,7 +438,7 @@ describe("syntax errors", () => {
       const error = yield* failure("{{{name}}}");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.UnexpectedToken);
-    }),
+    })
   );
 
   it.effect("rejects a tag with no closing braces", () =>
@@ -389,7 +450,7 @@ describe("syntax errors", () => {
         line: 1,
         reason: PromptSyntaxErrorReason.UnterminatedTag,
       });
-    }),
+    })
   );
 
   it.effect("rejects a comment with no end", () =>
@@ -397,7 +458,7 @@ describe("syntax errors", () => {
       const error = yield* failure("{{!-- open }}");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.UnterminatedComment);
-    }),
+    })
   );
 
   it.effect("rejects a condition that is not a comparison", () =>
@@ -405,6 +466,6 @@ describe("syntax errors", () => {
       const error = yield* failure("{{#if a b}}x{{/if}}");
 
       expect(error.reason).toBe(PromptSyntaxErrorReason.InvalidCondition);
-    }),
+    })
   );
 });

@@ -1,4 +1,5 @@
 import { Context, DateTime, Effect, Layer, Option } from "effect";
+
 import * as Agreement from "../src/agreement.ts";
 import * as Charts from "../src/chart.ts";
 import type { Chart } from "../src/chart.ts";
@@ -29,16 +30,25 @@ const movements: readonly Movement[] = [
   { category: "fuel", id: "m4", text: "Q8 <EASY>" },
 ];
 
-const Answers = Context.Reference<Readonly<Record<string, string>>>("tests/Answers", {
-  defaultValue: () => ({}),
-});
+const Answers = Context.Reference<Readonly<Record<string, string>>>(
+  "tests/Answers",
+  {
+    defaultValue: () => ({}),
+  }
+);
 
 const categorizer = Eval.make({
-  dataset: Dataset.fromIterable([...movements, Dataset.skip("m5", "no ground truth")], {
-    id: (movement: Movement) => movement.id,
-    tags: (movement: Movement) => [`group:${movement.category}`],
-  }),
-  gates: [Gate.min(Metric.accuracy, 0.7), Gate.by("group:fuel", Gate.max(Metric.wrong, 0))],
+  dataset: Dataset.fromIterable(
+    [...movements, Dataset.skip("m5", "no ground truth")],
+    {
+      id: (movement: Movement) => movement.id,
+      tags: (movement: Movement) => [`group:${movement.category}`],
+    }
+  ),
+  gates: [
+    Gate.min(Metric.accuracy, 0.7),
+    Gate.by("group:fuel", Gate.max(Metric.wrong, 0)),
+  ],
   name: "categorizer",
   score: Scorer.label<Movement, string>({
     actual: Option.some,
@@ -46,8 +56,10 @@ const categorizer = Eval.make({
   }),
   task: (input) =>
     Effect.service(Answers).pipe(
-      Effect.tap(() => Usage.record({ costUsd: 0.002, inputTokens: 120, outputTokens: 8 })),
-      Effect.map((answers) => answers[input.id] ?? input.input.category),
+      Effect.tap(() =>
+        Usage.record({ costUsd: 0.002, inputTokens: 120, outputTokens: 8 })
+      ),
+      Effect.map((answers) => answers[input.id] ?? input.input.category)
     ),
   trials: 2,
 });
@@ -65,15 +77,18 @@ const gitAt = (sha: string) =>
   });
 
 export const sampleRuns = Effect.gen(function* runSamples() {
-  const base = yield* Runner.run(categorizer, { variants: variantsWith({ m3: "rent" }) }).pipe(
-    Effect.provide(gitAt("fedcba9876543210")),
-  );
+  const base = yield* Runner.run(categorizer, {
+    variants: variantsWith({ m3: "rent" }),
+  }).pipe(Effect.provide(gitAt("fedcba9876543210")));
 
   const head = yield* Runner.run(categorizer, {
     variants: variantsWith({ m1: "fuel", m2: "fuel" }),
   }).pipe(Effect.provide(gitAt("0123456789abcdef")));
 
-  const history: HistorySnapshot = { baseline: Option.some(base), recent: [base] };
+  const history: HistorySnapshot = {
+    baseline: Option.some(base),
+    recent: [base],
+  };
 
   return { base, head, history };
 });
@@ -90,7 +105,7 @@ export const everyChart = sampleRuns.pipe(
       ...Charts.caseMap([base, head]).slice(0, 1),
       Charts.costVsAccuracy(head),
     ];
-  }),
+  })
 );
 
 export const scoredAs = (options: {
@@ -110,7 +125,11 @@ export const scoredAs = (options: {
   variant: options.variant ?? "default",
 });
 
-export const runOf = (id: string, observations: readonly Scored[], trials = 1): Run.Run => ({
+export const runOf = (
+  id: string,
+  observations: readonly Scored[],
+  trials = 1
+): Run.Run => ({
   datasetHash: "",
   durationMs: 0,
   eval: "categorizer",
@@ -127,13 +146,14 @@ export const runOf = (id: string, observations: readonly Scored[], trials = 1): 
   skipped: [],
   startedAt: DateTime.makeUnsafe(0),
   trials,
-  variants: [...new Set(observations.map((scored) => scored.variant))].map((variant) =>
-    Run.variantRun(
-      variant,
-      observations.filter((scored) => scored.variant === variant),
-      trials,
-      Usage.empty,
-      0,
-    ),
+  variants: [...new Set(observations.map((scored) => scored.variant))].map(
+    (variant) =>
+      Run.variantRun(
+        variant,
+        observations.filter((scored) => scored.variant === variant),
+        trials,
+        Usage.empty,
+        0
+      )
   ),
 });

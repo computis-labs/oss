@@ -13,7 +13,11 @@ const OPTIONAL_PEERS = [
   "vitest",
 ];
 
-const PEER_ENTRYPOINTS = new Set(["./chart-unicode", "./chart-vega", "./vitest"]);
+const PEER_ENTRYPOINTS = new Set([
+  "./chart-unicode",
+  "./chart-vega",
+  "./vitest",
+]);
 
 const IMPORT_SPECIFIER = /(?:from|import)\s*\(?\s*"(?<specifier>[^"]+)"/gu;
 
@@ -42,7 +46,9 @@ const sourcesOf = (folder: string) =>
     const paths = yield* Path.Path;
     const names = yield* fs.readDirectory(folder, { recursive: true });
 
-    return names.filter((name) => name.endsWith(".ts")).map((name) => paths.join(folder, name));
+    return names
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => paths.join(folder, name));
   });
 
 const importsWithPeersDenied = (files: readonly string[]) =>
@@ -57,16 +63,18 @@ const importsWithPeersDenied = (files: readonly string[]) =>
 
     const urls = yield* pipe(
       files,
-      Effect.forEach((file) => paths.toFileUrl(file).pipe(Effect.map((url) => url.href))),
+      Effect.forEach((file) =>
+        paths.toFileUrl(file).pipe(Effect.map((url) => url.href))
+      )
     );
 
-    const hookSpecifier = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
-      hookUrl.href,
-    );
+    const hookSpecifier = yield* Schema.encodeEffect(
+      Schema.fromJsonString(Schema.String)
+    )(hookUrl.href);
 
-    const urlList = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))(
-      urls,
-    );
+    const urlList = yield* Schema.encodeEffect(
+      Schema.fromJsonString(Schema.Array(Schema.String))
+    )(urls);
 
     const script = `import { register } from "node:module";
 register(${hookSpecifier});
@@ -78,13 +86,19 @@ process.stdout.write(JSON.stringify(refused));
 `;
 
     const output = yield* spawner.string(
-      ChildProcess.make("node", ["--no-warnings", "--input-type=module", "-e", script], {
-        extendEnv: true,
-      }),
+      ChildProcess.make(
+        "node",
+        ["--no-warnings", "--input-type=module", "-e", script],
+        {
+          extendEnv: true,
+        }
+      )
     );
 
     return yield* Schema.decodeUnknownEffect(
-      Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String, Schema.String]))),
+      Schema.fromJsonString(
+        Schema.Array(Schema.Tuple([Schema.String, Schema.String]))
+      )
     )(output);
   }).pipe(Effect.scoped);
 
@@ -97,12 +111,15 @@ describe("the published package", () => {
         const fs = yield* FileSystem.FileSystem;
         const paths = yield* Path.Path;
 
-        const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestSchema))(
-          yield* fs.readFileString(paths.join(folder, "package.json")),
-        );
+        const manifest = yield* Schema.decodeUnknownEffect(
+          Schema.fromJsonString(ManifestSchema)
+        )(yield* fs.readFileString(paths.join(folder, "package.json")));
 
         const core = Object.entries(manifest.exports)
-          .filter(([entry, file]) => !PEER_ENTRYPOINTS.has(entry) && file.endsWith(".ts"))
+          .filter(
+            ([entry, file]) =>
+              !PEER_ENTRYPOINTS.has(entry) && file.endsWith(".ts")
+          )
           .filter(([, file]) => !file.includes("*"))
           .map(([, file]) => paths.join(folder, file));
 
@@ -110,7 +127,7 @@ describe("the published package", () => {
 
         expect(yield* importsWithPeersDenied([...core, ...errors])).toEqual([]);
       }).pipe(Effect.provide(NodeServices.layer)),
-    60_000,
+    60_000
   );
 
   it.effect(
@@ -120,13 +137,15 @@ describe("the published package", () => {
         const folder = yield* packageFolder;
         const paths = yield* Path.Path;
 
-        const refused = yield* importsWithPeersDenied([paths.join(folder, "src/chart-unicode.ts")]);
+        const refused = yield* importsWithPeersDenied([
+          paths.join(folder, "src/chart-unicode.ts"),
+        ]);
 
         expect(refused.map(([, message]) => message)).toEqual([
           "optional peer: simple-ascii-chart",
         ]);
       }).pipe(Effect.provide(NodeServices.layer)),
-    60_000,
+    60_000
   );
 
   it.effect("imports nothing from node: or @computis/ in its sources", () =>
@@ -144,17 +163,18 @@ describe("the published package", () => {
               [...text.matchAll(IMPORT_SPECIFIER)].flatMap((match) => {
                 const specifier = match.groups?.["specifier"] ?? "";
 
-                return specifier.startsWith("node:") || specifier.startsWith("@computis/")
+                return specifier.startsWith("node:") ||
+                  specifier.startsWith("@computis/")
                   ? [`${paths.relative(folder, file)}: ${specifier}`]
                   : [];
-              }),
-            ),
-          ),
-        ),
+              })
+            )
+          )
+        )
       );
 
       expect(files.length).toBeGreaterThan(0);
       expect(forbidden.flat()).toEqual([]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NodeServices.layer))
   );
 });

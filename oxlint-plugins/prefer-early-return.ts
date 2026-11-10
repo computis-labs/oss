@@ -1,5 +1,4 @@
 import { definePlugin, defineRule } from "@oxlint/plugins";
-
 import type { ESTree } from "@oxlint/plugins";
 
 const exits = (statement: ESTree.Statement): boolean => {
@@ -13,7 +12,9 @@ const exits = (statement: ESTree.Statement): boolean => {
 
   if (statement.type === "IfStatement") {
     return (
-      statement.alternate !== null && exits(statement.consequent) && exits(statement.alternate)
+      statement.alternate !== null &&
+      exits(statement.consequent) &&
+      exits(statement.alternate)
     );
   }
 
@@ -21,7 +22,9 @@ const exits = (statement: ESTree.Statement): boolean => {
     return (
       statement.cases.some((switchCase) => switchCase.test === null) &&
       statement.cases.every(
-        (switchCase) => switchCase.consequent.length === 0 || endsInExit(switchCase.consequent),
+        (switchCase) =>
+          switchCase.consequent.length === 0 ||
+          endsInExit(switchCase.consequent)
       )
     );
   }
@@ -36,7 +39,9 @@ const endsInExit = (statements: readonly ESTree.Statement[]): boolean => {
 };
 
 const isGuard = (statement: ESTree.Statement) =>
-  statement.type === "IfStatement" && statement.alternate === null && exits(statement.consequent);
+  statement.type === "IfStatement" &&
+  statement.alternate === null &&
+  exits(statement.consequent);
 
 const preferEarlyReturn = defineRule({
   create: (context) => ({

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { Prompt } from "effect/ai";
+
 import { definePrompt, indent, json, untrusted, user } from "../src/runtime.ts";
 
 describe("untrusted", () => {
   it("wraps text in a fence that is longer than any backtick run inside it", () => {
     expect(untrusted("see ```code``` and ````more````")).toBe(
-      "`````\nsee ```code``` and ````more````\n`````",
+      "`````\nsee ```code``` and ````more````\n`````"
     );
   });
 
@@ -30,7 +31,10 @@ describe("indent", () => {
 
 describe("user", () => {
   it("trims each text part and drops empty ones", () => {
-    const file = Prompt.filePart({ data: "AAAA", mediaType: "application/pdf" });
+    const file = Prompt.filePart({
+      data: "AAAA",
+      mediaType: "application/pdf",
+    });
 
     const message = user(["\n  Read this:\n", file, "\n"]);
 
@@ -52,16 +56,23 @@ describe("definePrompt", () => {
     Effect.gen(function* () {
       const prompt = yield* greeting.decode({ name: "Laura" });
 
-      expect(prompt.content).toMatchObject([{ content: [{ text: "Hello Laura" }], role: "user" }]);
-    }),
+      expect(prompt.content).toMatchObject([
+        { content: [{ text: "Hello Laura" }], role: "user" },
+      ]);
+    })
   );
 
   it.effect("fails with a PromptInputError that names the prompt", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(greeting.decode({ name: "" }));
 
-      expect(error).toMatchObject({ _tag: "PromptInputError", prompt: "greeting" });
-      expect(error.message).toContain("Invalid input for the prompt 'greeting'");
-    }),
+      expect(error).toMatchObject({
+        _tag: "PromptInputError",
+        prompt: "greeting",
+      });
+      expect(error.message).toContain(
+        "Invalid input for the prompt 'greeting'"
+      );
+    })
   );
 });

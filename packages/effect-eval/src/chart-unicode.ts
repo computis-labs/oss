@@ -1,13 +1,14 @@
 import { Effect, Option } from "effect";
 import { plot } from "simple-ascii-chart";
 import type { Color } from "simple-ascii-chart";
+
 import * as Charts from "./chart.ts";
 import type { Chart, Interval } from "./chart.ts";
+import { lookup, whenDefined } from "./object.ts";
+import { codePoints } from "./text.ts";
 import { verdictClasses } from "./theme.ts";
 import { verdicts } from "./verdict.ts";
 import type { Verdict } from "./verdict.ts";
-import { lookup, whenDefined } from "./object.ts";
-import { codePoints } from "./text.ts";
 import { drawing, drawingKinds } from "./view.ts";
 import type { ChartRenderer } from "./view.ts";
 
@@ -69,14 +70,21 @@ const label = (text: string) => {
 };
 
 const intervalText = (interval: Interval) =>
-  `${interval.value.toFixed(DIGITS)}${Option.match(Option.all([interval.low, interval.high]), {
-    onNone: () => "",
-    onSome: ([low, high]) => ` [${low.toFixed(DIGITS)}, ${high.toFixed(DIGITS)}]`,
-  })}`;
+  `${interval.value.toFixed(DIGITS)}${Option.match(
+    Option.all([interval.low, interval.high]),
+    {
+      onNone: () => "",
+      onSome: ([low, high]) =>
+        ` [${low.toFixed(DIGITS)}, ${high.toFixed(DIGITS)}]`,
+    }
+  )}`;
 
-const signed = (value: number) => `${value > 0 ? "+" : ""}${(value * PERCENT).toFixed(1)}`;
+const signed = (value: number) =>
+  `${value > 0 ? "+" : ""}${(value * PERCENT).toFixed(1)}`;
 
-export const renderer = (options: { readonly color?: boolean } = {}): ChartRenderer => {
+export const renderer = (
+  options: { readonly color?: boolean } = {}
+): ChartRenderer => {
   const paint = (text: string, code: string) =>
     options.color === true ? `${ESCAPE}${code}m${text}${RESET}` : text;
 
@@ -84,15 +92,26 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
     whenDefined(options.color === true ? series : undefined, (count) => ({
       color: Array.from(
         { length: count },
-        (_, index): Color => seriesColors[index % seriesColors.length] ?? "ansiWhite",
+        (_, index): Color =>
+          seriesColors[index % seriesColors.length] ?? "ansiWhite"
       ),
     }));
 
   const bar = (interval: Interval, width: number) => {
-    const at = (share: number) => Math.round(Math.min(1, Math.max(0, share)) * width);
+    const at = (share: number) =>
+      Math.round(Math.min(1, Math.max(0, share)) * width);
+
     const filled = at(interval.value);
-    const low = Option.match(interval.low, { onNone: () => filled, onSome: at });
-    const high = Option.match(interval.high, { onNone: () => filled, onSome: at });
+
+    const low = Option.match(interval.low, {
+      onNone: () => filled,
+      onSome: at,
+    });
+
+    const high = Option.match(interval.high, {
+      onNone: () => filled,
+      onSome: at,
+    });
 
     return Array.from({ length: width }, (_, index) => {
       if (index < Math.min(filled, low)) {
@@ -118,18 +137,24 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
       CaseMap: ({ cells, columns, rows, title }) => {
         const verdictAt = (row: string, column: string) =>
           Option.fromNullishOr(
-            cells.find((cell) => cell.row === row && cell.column === column)?.verdict,
+            cells.find((cell) => cell.row === row && cell.column === column)
+              ?.verdict
           );
 
-        const grid = rows.map((row) => columns.map((column) => verdictAt(row, column.id)));
-        const seen = new Set(grid.flat().flatMap((verdict) => Option.toArray(verdict)));
+        const grid = rows.map((row) =>
+          columns.map((column) => verdictAt(row, column.id))
+        );
+
+        const seen = new Set(
+          grid.flat().flatMap((verdict) => Option.toArray(verdict))
+        );
 
         const legend = [
           ...Object.entries(verdictGlyphs)
             .filter(([verdict]) => seen.has(verdict))
             .map(
               ([verdict, glyph]) =>
-                `${paint(glyph, lookup(verdictCodes, verdict) ?? "2")} ${verdict}`,
+                `${paint(glyph, lookup(verdictCodes, verdict) ?? "2")} ${verdict}`
             ),
           ...(grid.flat().some(Option.isNone) ? [`${NO_RUN} no run`] : []),
         ];
@@ -146,19 +171,23 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
                     onSome: (found) =>
                       paint(
                         lookup(verdictGlyphs, found) ?? NO_RUN,
-                        lookup(verdictCodes, found) ?? "2",
+                        lookup(verdictCodes, found) ?? "2"
                       ),
-                  }),
+                  })
                 )
-                .join("")}`,
+                .join("")}`
           ),
-          ...columns.map((column, index) => `${String(index + 1)} ${column.label}`),
+          ...columns.map(
+            (column, index) => `${String(index + 1)} ${column.label}`
+          ),
           legend.join(LEGEND_SEPARATOR),
         ].join(LINE_BREAK);
       },
       CostVsAccuracy: ({ points, title }) => {
         const priced = points.flatMap((point) =>
-          Option.toArray(point.cost.pipe(Option.map((cost) => ({ cost, point })))),
+          Option.toArray(
+            point.cost.pipe(Option.map((cost) => ({ cost, point })))
+          )
         );
 
         return priced.length === 0
@@ -168,18 +197,25 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
               {
                 ...palette(priced.length),
                 height: PLOT_HEIGHT,
-                legend: { position: "right", series: priced.map(({ point }) => point.variant) },
+                legend: {
+                  position: "right",
+                  series: priced.map(({ point }) => point.variant),
+                },
                 mode: "point",
                 title,
                 width: barWidth,
                 xLabel: "cost (USD)",
                 yLabel: "accuracy",
-              },
+              }
             );
       },
       Delta: ({ rows, title }) => {
         const half = Math.floor(barWidth / 2);
-        const largest = Math.max(1e-9, ...rows.map((row) => Math.abs(row.value)));
+
+        const largest = Math.max(
+          1e-9,
+          ...rows.map((row) => Math.abs(row.value))
+        );
 
         return [
           title,
@@ -198,7 +234,7 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
               {
                 onNone: () => "",
                 onSome: ([low, high]) => ` [${signed(low)}, ${signed(high)}]`,
-              },
+              }
             )}`;
           }),
         ].join(LINE_BREAK);
@@ -214,13 +250,14 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
               `${label(from)} ${classes
                 .map((to) => {
                   const count =
-                    cells.find((cell) => cell.from === from && cell.to === to)?.count ?? 0;
+                    cells.find((cell) => cell.from === from && cell.to === to)
+                      ?.count ?? 0;
 
                   const text = String(count).padStart(8);
 
                   return count === 0 ? paint(text, "2") : text;
                 })
-                .join("")}`,
+                .join("")}`
           ),
         ].join(LINE_BREAK);
       },
@@ -232,7 +269,9 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
         if (runs.length < 2) {
           return [
             title,
-            ...points.map((point) => `${label(point.variant)} ${intervalText(point)}`),
+            ...points.map(
+              (point) => `${label(point.variant)} ${intervalText(point)}`
+            ),
           ].join(LINE_BREAK);
         }
 
@@ -240,18 +279,20 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
           variants.map((variant) =>
             points
               .filter((point) => point.variant === variant)
-              .map((point) => [ids.indexOf(point.run), point.value] as const),
+              .map((point) => [ids.indexOf(point.run), point.value] as const)
           ),
           {
             ...palette(variants.length),
             formatter: (value, helpers) =>
-              helpers.axis === "x" ? (runs[Math.round(value)]?.label ?? "") : value.toFixed(2),
+              helpers.axis === "x"
+                ? (runs[Math.round(value)]?.label ?? "")
+                : value.toFixed(2),
             height: PLOT_HEIGHT,
             legend: { position: "right", series: variants },
             title,
             width: barWidth,
             yRange: [0, 1],
-          },
+          }
         );
       },
       Variants: ({ bars, title }) =>
@@ -259,7 +300,7 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
           title,
           ...bars.map(
             (entry, index) =>
-              `${label(entry.variant)} ${paint(bar(entry, barWidth), index === 0 ? "1" : "36")} ${intervalText(entry)}`,
+              `${label(entry.variant)} ${paint(bar(entry, barWidth), index === 0 ? "1" : "36")} ${intervalText(entry)}`
           ),
         ].join(LINE_BREAK),
     });
@@ -270,8 +311,10 @@ export const renderer = (options: { readonly color?: boolean } = {}): ChartRende
       Option.some(
         drawing(
           options.color === true ? drawingKinds.terminal : drawingKinds.text,
-          charts.map((chart) => draw(chart, render.width)).join(`${LINE_BREAK}${LINE_BREAK}`),
-        ),
-      ),
+          charts
+            .map((chart) => draw(chart, render.width))
+            .join(`${LINE_BREAK}${LINE_BREAK}`)
+        )
+      )
     );
 };

@@ -1,12 +1,20 @@
+import { monitorEventLoopDelay } from "node:perf_hooks";
+
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { monitorEventLoopDelay } from "node:perf_hooks";
 import { Console, Effect, FileSystem, ManagedRuntime, Path } from "effect";
-import { bilevelScanPdf, invoicePdf } from "./fixtures.ts";
-import { attempt, formatNumber, median, nodePdfEngine, nodePdfEngineInProcess } from "./support.ts";
+
 import type { PdfEngine } from "../src/engine.ts";
 import { open } from "../src/index.ts";
 import type { PdfDocument } from "../src/types.ts";
+import { bilevelScanPdf, invoicePdf } from "./fixtures.ts";
+import {
+  attempt,
+  formatNumber,
+  median,
+  nodePdfEngine,
+  nodePdfEngineInProcess,
+} from "./support.ts";
 
 const CONCURRENT_DOCUMENTS = 16;
 const LONG_DOCUMENT_LINES = 48 * 48;
@@ -25,7 +33,7 @@ const engines = [
 
 const onDocument = <A, E>(
   bytes: Uint8Array,
-  work: (document: PdfDocument) => Effect.Effect<A, E>,
+  work: (document: PdfDocument) => Effect.Effect<A, E>
 ) => Effect.scoped(Effect.flatMap(open(bytes), work));
 
 const program = Effect.gen(function* effectPdfPoolBenchmark() {
@@ -34,7 +42,11 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
 
   const [invoice, scan, contract] = yield* attempt(
     async () =>
-      await Promise.all([invoicePdf(20), bilevelScanPdf(1), invoicePdf(LONG_DOCUMENT_LINES)]),
+      await Promise.all([
+        invoicePdf(20),
+        bilevelScanPdf(1),
+        invoicePdf(LONG_DOCUMENT_LINES),
+      ])
   );
 
   const scenarios: readonly {
@@ -45,31 +57,39 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
       title: `${CONCURRENT_DOCUMENTS.toString()} fatture testuali di 1 pagina aperte insieme: classificazione + testo`,
       work: Effect.all(
         Array.from({ length: CONCURRENT_DOCUMENTS }, () =>
-          onDocument(invoice, (document) => Effect.andThen(document.classify, document.text())),
+          onDocument(invoice, (document) =>
+            Effect.andThen(document.classify, document.text())
+          )
         ),
-        { concurrency: "unbounded" },
+        { concurrency: "unbounded" }
       ),
     },
     {
       title: `${CONCURRENT_DOCUMENTS.toString()} scansioni 1-bit aperte insieme: classificazione + immagini per il modello`,
       work: Effect.all(
         Array.from({ length: CONCURRENT_DOCUMENTS }, () =>
-          onDocument(scan, (document) => Effect.andThen(document.classify, document.pageImages())),
+          onDocument(scan, (document) =>
+            Effect.andThen(document.classify, document.pageImages())
+          )
         ),
-        { concurrency: "unbounded" },
+        { concurrency: "unbounded" }
       ),
     },
     {
       title: "Contratto di 48 pagine: classificazione + testo",
-      work: onDocument(contract, (document) => Effect.andThen(document.classify, document.text())),
+      work: onDocument(contract, (document) =>
+        Effect.andThen(document.classify, document.text())
+      ),
     },
     {
       title: `Contratto di 48 pagine: render di tutte le pagine a ${RENDER_WIDTH.toString()} px`,
       work: onDocument(contract, (document) =>
         Effect.all(
-          document.pages.map(({ index }) => document.render(index, { width: RENDER_WIDTH })),
-          { concurrency: "unbounded" },
-        ),
+          document.pages.map(({ index }) =>
+            document.render(index, { width: RENDER_WIDTH })
+          ),
+          { concurrency: "unbounded" }
+        )
       ),
     },
   ];
@@ -86,7 +106,9 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
                   await runtime.runPromise(work);
                 });
 
-                yield* Effect.all(Array.from({ length: WARMUP_RUNS }, () => run));
+                yield* Effect.all(
+                  Array.from({ length: WARMUP_RUNS }, () => run)
+                );
                 const delay = monitorEventLoopDelay({ resolution: 1 });
 
                 const durations = yield* Effect.all(
@@ -101,8 +123,8 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
                       delay.disable();
 
                       return elapsed;
-                    }),
-                  ),
+                    })
+                  )
                 );
 
                 return {
@@ -111,21 +133,24 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
                   title,
                   typical: median(durations),
                 };
-              }),
-            ),
+              })
+            )
           ),
         (runtime) =>
           Effect.ignore(
             attempt(async () => {
               await runtime.dispose();
-            }),
-          ),
-      ),
-    ),
+            })
+          )
+      )
+    )
   );
 
   const sections = scenarios.map(({ title }) => {
-    const rows = measurements.flat().filter((measurement) => measurement.title === title);
+    const rows = measurements
+      .flat()
+      .filter((measurement) => measurement.title === title);
+
     const reference = rows[0]?.typical ?? Number.NaN;
 
     return [
@@ -135,7 +160,7 @@ const program = Effect.gen(function* effectPdfPoolBenchmark() {
       "| --- | --: | --: | --: |",
       ...rows.map(
         ({ blocked, label, typical }) =>
-          `| ${label} | ${formatNumber(typical, 1)} | ${formatNumber(reference / typical, 1)}× | ${formatNumber(blocked, 1)} |`,
+          `| ${label} | ${formatNumber(typical, 1)} | ${formatNumber(reference / typical, 1)}× | ${formatNumber(blocked, 1)} |`
       ),
       "",
     ].join("\n");

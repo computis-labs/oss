@@ -11,7 +11,7 @@ export class PromptProjectError extends Schema.TaggedError<PromptProjectError>()
     detail: Schema.String,
     output: Schema.String,
     reason: Schema.Literals(Object.values(PromptProjectErrorReason)),
-  },
+  }
 ) {
   readonly code = "PROMPT_PROJECT";
 

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+
 import { describePosition } from "./xml-position.ts";
 import type { XmlPosition } from "./xml-position.ts";
 
@@ -10,7 +11,11 @@ export class XmlDecodeError extends Schema.TaggedError<
   message: Schema.String,
   path: Schema.String,
   position: Schema.optional(
-    Schema.Struct({ column: Schema.Number, line: Schema.Number, offset: Schema.Number }),
+    Schema.Struct({
+      column: Schema.Number,
+      line: Schema.Number,
+      offset: Schema.Number,
+    })
   ),
 }) {
   readonly code = "XML_DECODE";
@@ -28,7 +33,10 @@ export class XmlDecodeError extends Schema.TaggedError<
 
     return new XmlDecodeError({
       ...fields,
-      message: fields.position === undefined ? at : `${at} ${describePosition(fields.position)}`,
+      message:
+        fields.position === undefined
+          ? at
+          : `${at} ${describePosition(fields.position)}`,
     });
   }
 }

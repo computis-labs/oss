@@ -5,6 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Transferable from "effect/workers/Transferable";
+
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
 
 export const PdfWorkerInit = Schema.Struct({
@@ -12,7 +13,10 @@ export const PdfWorkerInit = Schema.Struct({
 });
 
 const missingBinary = (cause: unknown) =>
-  new PdfEngineError({ cause, message: "The PDFium binary is missing or cannot be compiled." });
+  new PdfEngineError({
+    cause,
+    message: "The PDFium binary is missing or cannot be compiled.",
+  });
 
 export class PdfiumWasm extends Context.Service<
   PdfiumWasm,
@@ -25,10 +29,14 @@ export class PdfiumWasm extends Context.Service<
       const path = yield* Path.Path;
 
       const wasmPath = yield* path
-        .fromFileUrl(new URL(import.meta.resolve("@embedpdf/pdfium/pdfium.wasm")))
+        .fromFileUrl(
+          new URL(import.meta.resolve("@embedpdf/pdfium/pdfium.wasm"))
+        )
         .pipe(Effect.mapError(missingBinary));
 
-      const bytes = yield* fs.readFile(wasmPath).pipe(Effect.mapError(missingBinary));
+      const bytes = yield* fs
+        .readFile(wasmPath)
+        .pipe(Effect.mapError(missingBinary));
 
       const module = yield* Effect.tryPromise({
         catch: missingBinary,
@@ -36,6 +44,6 @@ export class PdfiumWasm extends Context.Service<
       });
 
       return { module };
-    }),
+    })
   );
 }

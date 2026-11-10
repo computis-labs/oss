@@ -1,5 +1,6 @@
 import type { Equivalence } from "effect";
 import { BigDecimal, Equal } from "effect";
+
 import { different, exact as same, partial } from "./agreement.ts";
 import type { Agreement } from "./agreement.ts";
 import { codePoints } from "./text.ts";
@@ -16,7 +17,9 @@ export const normalize = (text: string) =>
   text.normalize("NFKC").trim().replaceAll(WHITESPACE, " ").toUpperCase();
 
 export const exact =
-  <A>(equivalence: Equivalence.Equivalence<A> = Equal.asEquivalence<A>()): Compare<A> =>
+  <A>(
+    equivalence: Equivalence.Equivalence<A> = Equal.asEquivalence<A>()
+  ): Compare<A> =>
   (expected, actual) =>
     equivalence(expected, actual) ? same : different;
 
@@ -28,14 +31,21 @@ export const normalizedText =
 export const tolerance =
   (limit: BigDecimal.BigDecimal): Compare<BigDecimal.BigDecimal> =>
   (expected, actual) =>
-    BigDecimal.isLessThanOrEqualTo(BigDecimal.abs(BigDecimal.subtract(expected, actual)), limit)
+    BigDecimal.isLessThanOrEqualTo(
+      BigDecimal.abs(BigDecimal.subtract(expected, actual)),
+      limit
+    )
       ? same
       : different;
 
 export const numericTolerance =
-  (limit: number, options: { readonly relative?: boolean } = {}): Compare<number> =>
+  (
+    limit: number,
+    options: { readonly relative?: boolean } = {}
+  ): Compare<number> =>
   (expected, actual) =>
-    Math.abs(expected - actual) <= (options.relative === true ? limit * Math.abs(expected) : limit)
+    Math.abs(expected - actual) <=
+    (options.relative === true ? limit * Math.abs(expected) : limit)
       ? same
       : different;
 
@@ -58,7 +68,7 @@ export const levenshteinRatio = (left: string, right: string) => {
       row[column + 1] = Math.min(
         (previous[column + 1] ?? 0) + 1,
         (row[column] ?? 0) + 1,
-        (previous[column] ?? 0) + (character === other ? 0 : 1),
+        (previous[column] ?? 0) + (character === other ? 0 : 1)
       );
     }
   }
@@ -67,7 +77,9 @@ export const levenshteinRatio = (left: string, right: string) => {
 };
 
 export const similarity =
-  (options: { readonly normalize?: (text: string) => string } = {}): Compare<string> =>
+  (
+    options: { readonly normalize?: (text: string) => string } = {}
+  ): Compare<string> =>
   (expected, actual) => {
     const normalizer = options.normalize ?? normalize;
 
@@ -76,14 +88,20 @@ export const similarity =
 
 const wordsOf = (normalizer: (text: string) => string, value: string) =>
   normalizer(
-    value.normalize("NFKD").replaceAll(COMBINING_MARKS, "").replaceAll(NAME_PUNCTUATION, ""),
+    value
+      .normalize("NFKD")
+      .replaceAll(COMBINING_MARKS, "")
+      .replaceAll(NAME_PUNCTUATION, "")
   )
     .split(WORD_SEPARATORS)
     .filter((word) => word.length > 0);
 
 export const tokenSimilarity =
   (
-    options: { readonly normalize?: (text: string) => string; readonly minContained?: number } = {},
+    options: {
+      readonly normalize?: (text: string) => string;
+      readonly minContained?: number;
+    } = {}
   ): Compare<string> =>
   (expected, actual) => {
     const normalizer = options.normalize ?? normalize;
@@ -94,13 +112,17 @@ export const tokenSimilarity =
 
     const contained =
       Math.min(expectedCompact.length, actualCompact.length) >=
-        (options.minContained ?? MIN_CONTAINED) && actualCompact.includes(expectedCompact);
+        (options.minContained ?? MIN_CONTAINED) &&
+      actualCompact.includes(expectedCompact);
 
     if (expectedCompact === actualCompact || contained) {
       return same;
     }
 
-    const letters = expectedWords.reduce((total, word) => total + word.length, 0);
+    const letters = expectedWords.reduce(
+      (total, word) => total + word.length,
+      0
+    );
 
     const wordScore =
       letters === 0
@@ -109,11 +131,18 @@ export const tokenSimilarity =
             (total, word) =>
               total +
               word.length *
-                Math.max(0, ...actualWords.map((candidate) => levenshteinRatio(word, candidate))),
-            0,
+                Math.max(
+                  0,
+                  ...actualWords.map((candidate) =>
+                    levenshteinRatio(word, candidate)
+                  )
+                ),
+            0
           ) / letters;
 
-    return partial(Math.max(wordScore, levenshteinRatio(expectedCompact, actualCompact)));
+    return partial(
+      Math.max(wordScore, levenshteinRatio(expectedCompact, actualCompact))
+    );
   };
 
 export const subset =
@@ -136,10 +165,14 @@ export const subset =
       return different;
     }
 
-    return given.length === wanted.length ? same : partial(given.length / wanted.length);
+    return given.length === wanted.length
+      ? same
+      : partial(given.length / wanted.length);
   };
 
-export const custom = <A>(f: (expected: A, actual: A) => Agreement): Compare<A> => f;
+export const custom = <A>(
+  f: (expected: A, actual: A) => Agreement
+): Compare<A> => f;
 
 export const mapInput =
   <A, B>(f: (value: B) => A) =>

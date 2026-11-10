@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+
 import * as Agreement from "../src/agreement.ts";
 
 describe("Agreement.partial", () => {
