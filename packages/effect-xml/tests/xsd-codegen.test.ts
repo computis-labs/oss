@@ -173,6 +173,22 @@ const UNSUPPORTED = [
     "A appears twice in the same content",
   ],
   [
+    "an attribute default value",
+    complexType(
+      `<xs:sequence/><xs:attribute name="a" type="xs:string" default="x"/>`
+    ),
+    'xs:attribute[@name="a"]',
+    "Attributes with a default value are not supported.",
+  ],
+  [
+    "a fixed value on an attribute that is not xs:string",
+    complexType(
+      `<xs:sequence/><xs:attribute name="a" type="xs:decimal" fixed="2.0"/>`
+    ),
+    'xs:attribute[@name="a"]',
+    "A fixed value is only supported on an xs:string attribute.",
+  ],
+  [
     "an attribute reference",
     schemaDocument(`<xs:attribute name="lang" type="xs:string"/>
   <xs:element name="Order"><xs:complexType><xs:attribute ref="lang"/></xs:complexType></xs:element>`),
@@ -204,18 +220,6 @@ const UNSUPPORTED = [
     schemaDocument(`<xs:element name="Order" type="xs:string"/>`),
     'xs:element[@name="Order"]',
     "The root element must have a complex type.",
-  ],
-  [
-    "a required element of another namespace",
-    schemaDocument(
-      `<xs:import namespace="urn:example:signature" schemaLocation="signature.xsd"/>
-  <xs:element name="Order"><xs:complexType><xs:sequence>
-    <xs:element ref="sig:Signature"/>
-  </xs:sequence></xs:complexType></xs:element>`,
-      `xmlns:sig="urn:example:signature"`
-    ),
-    'xs:element[@ref="sig:Signature"]',
-    "The required element sig:Signature belongs to another namespace",
   ],
 ] as const;
 
@@ -519,6 +523,46 @@ layer(NodeServices.layer, { timeout: 60_000 })("XSD code generation", (it) => {
         expect(code).toContain(
           "// - OrderType: sig:Signature (urn:example:signature), minOccurs 0, maxOccurs 1"
         );
+      })
+  );
+
+  it.effect.each([
+    ["xs:positiveInteger", "1"],
+    ["xs:nonNegativeInteger", "0"],
+  ] as const)(
+    "generates %s as an integer with its minimum",
+    ([type, minimum]) =>
+      Effect.gen(function* test() {
+        const code = yield* generateFrom(
+          complexType(
+            `<xs:sequence><xs:element name="A" type="${type}"/></xs:sequence>`
+          )
+        );
+
+        expect(code).toContain(`xsdDecimalRange({ minimum: "${minimum}" })`);
+        expect(code).toContain('"xs:integer"');
+      })
+  );
+
+  it.effect(
+    "leaves a required element of another namespace out and notes it as required",
+    () =>
+      Effect.gen(function* test() {
+        const code = yield* generateFrom(
+          schemaDocument(
+            `<xs:import namespace="urn:example:signature" schemaLocation="signature.xsd"/>
+  <xs:element name="Order"><xs:complexType><xs:sequence>
+    <xs:element name="Number" type="xs:string"/>
+    <xs:element ref="sig:Signature"/>
+  </xs:sequence></xs:complexType></xs:element>`,
+            `xmlns:sig="urn:example:signature"`
+          )
+        );
+
+        expect(code).toContain(
+          "// - OrderType: sig:Signature (urn:example:signature), minOccurs 1, maxOccurs 1"
+        );
+        expect(code).not.toContain("Signature:");
       })
   );
 

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="Report" type="ReportType"/>
+  <xs:complexType name="ReportType">
+    <xs:sequence>
+      <xs:element name="Total" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="format" type="xs:string" use="required" fixed="R10"/>
+    <xs:attribute name="simulated" type="xs:string" fixed="true"/>
+  </xs:complexType>
+</xs:schema>

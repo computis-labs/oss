@@ -63,8 +63,20 @@ const BUILTINS = {
   token: { family: "text", lexical: undefined, whiteSpace: "collapse" },
 } satisfies Record<Builtin, BuiltinInfo>;
 
-export const isBuiltin = (name: string): name is Builtin =>
-  Object.hasOwn(BUILTINS, name);
+const INTEGER_SUBTYPES = {
+  nonNegativeInteger: "0",
+  positiveInteger: "1",
+} as const;
+
+const isIntegerSubtype = (
+  name: string
+): name is keyof typeof INTEGER_SUBTYPES =>
+  Object.hasOwn(INTEGER_SUBTYPES, name);
+
+export type BuiltinName = Builtin | keyof typeof INTEGER_SUBTYPES;
+
+export const isBuiltin = (name: string): name is BuiltinName =>
+  Object.hasOwn(BUILTINS, name) || isIntegerSubtype(name);
 
 interface PatternStep {
   readonly node: RegexNode;
@@ -84,16 +96,20 @@ export interface SimpleSpec {
 
 export const infoOf = (builtin: Builtin): BuiltinInfo => BUILTINS[builtin];
 
-export const builtinSpec = (builtin: Builtin): SimpleSpec => ({
-  builtin,
-  enumerations: [],
-  maxInclusive: undefined,
-  maxLength: undefined,
-  minInclusive: undefined,
-  minLength: undefined,
-  patterns: [],
-  whiteSpace: infoOf(builtin).whiteSpace,
-});
+export const builtinSpec = (name: BuiltinName): SimpleSpec => {
+  const builtin = isIntegerSubtype(name) ? "integer" : name;
+
+  return {
+    builtin,
+    enumerations: [],
+    maxInclusive: undefined,
+    maxLength: undefined,
+    minInclusive: isIntegerSubtype(name) ? INTEGER_SUBTYPES[name] : undefined,
+    minLength: undefined,
+    patterns: [],
+    whiteSpace: infoOf(builtin).whiteSpace,
+  };
+};
 
 type Facets = Pick<
   SimpleSpec,

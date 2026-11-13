@@ -329,7 +329,7 @@ export const compileSchema = (
           }
         }
 
-        if (node.attributes.has("fixed")) {
+        if (node.local === "element" && node.attributes.has("fixed")) {
           return yield* fail(
             node,
             "Elements with a fixed value are not supported."
@@ -403,19 +403,12 @@ export const compileSchema = (
         const reference = yield* resolveQName(node, "ref");
         const global = elements.get(reference.local);
 
-        if (reference.namespace !== targetNamespace && occurs.min === 0) {
+        if (reference.namespace !== targetNamespace) {
           notes.push(
-            `${owner}: ${reference.raw} (${reference.namespace}), minOccurs 0, maxOccurs ${occurs.max === undefined ? "unbounded" : String(occurs.max)}`
+            `${owner}: ${reference.raw} (${reference.namespace}), minOccurs ${String(occurs.min)}, maxOccurs ${occurs.max === undefined ? "unbounded" : String(occurs.max)}`
           );
 
           return null;
-        }
-
-        if (reference.namespace !== targetNamespace) {
-          return yield* fail(
-            node,
-            `The required element ${reference.raw} belongs to another namespace (${reference.namespace}), which the Schema cannot represent.`
-          );
         }
 
         if (targetNamespace !== "" && !qualified) {
@@ -613,10 +606,10 @@ export const compileSchema = (
           return yield* fail(node, `use="${use}" is not supported.`);
         }
 
-        if (node.attributes.has("default") || node.attributes.has("fixed")) {
+        if (node.attributes.has("default")) {
           return yield* fail(
             node,
-            "Attributes with a default or fixed value are not supported."
+            "Attributes with a default value are not supported."
           );
         }
 
@@ -644,11 +637,26 @@ export const compileSchema = (
           return yield* fail(node, "An attribute must have a simple type.");
         }
 
+        const fixedValue = node.attributes.get("fixed");
+        const typeName = yield* resolveQName(node, "type");
+
+        if (
+          fixedValue !== undefined &&
+          (typeName.namespace !== XSD_NAMESPACE || typeName.local !== "string")
+        ) {
+          return yield* fail(
+            node,
+            "A fixed value is only supported on an xs:string attribute."
+          );
+        }
+
+        const type =
+          fixedValue === undefined
+            ? declaration.identifier
+            : `Schema.Literal(${quote(fixedValue)})`;
+
         return {
-          code:
-            use === "required"
-              ? declaration.identifier
-              : `Schema.optionalKey(${declaration.identifier})`,
+          code: use === "required" ? type : `Schema.optionalKey(${type})`,
           name,
           optional: use !== "required",
         };
