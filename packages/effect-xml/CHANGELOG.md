@@ -1,5 +1,13 @@
 # @computis/effect-xml
 
+## 0.5.0
+
+### Minor Changes
+
+- [`1e2f609`](https://github.com/computis-labs/oss/commit/1e2f60926a490bc187c7ec4a021d3549dafbe0cc) Thanks [@zRelux](https://github.com/zRelux)! - `effect-xml generate` accepts an `xs:string` attribute with a `fixed` value and generates it as a literal of that value, so the Schema decodes the fixed value and rejects any other, as the XSD does. An attribute with a `default` value, or with a `fixed` value on any other type, still fails the generation.
+
+- [`1e2f609`](https://github.com/computis-labs/oss/commit/1e2f60926a490bc187c7ec4a021d3549dafbe0cc) Thanks [@zRelux](https://github.com/zRelux)! - `effect-xml generate` accepts `xs:positiveInteger` and `xs:nonNegativeInteger`, as integers with a minimum of 1 and 0. A required element of another namespace, such as a mandatory `ds:Signature`, is now left out of the Schema and listed in the generated file with its `minOccurs`, as an optional one already was, instead of failing the generation. Decode documents that contain it with the decoder option `unknownElements: "skip"`.
+
 ## 0.4.0
 
 ### Minor Changes
