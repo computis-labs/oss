@@ -99,12 +99,14 @@ layer(NodeServices.layer)("runMain", (it) => {
       const result = yield* collect(
         ChildProcess.make(
           "script",
-          [
-            "-qec",
-            `${process.execPath} ${fixture} pretty-failure`,
-            "/dev/null",
-          ],
-          { env: { PATH: path, TERM: "xterm" } }
+          process.platform === "darwin"
+            ? ["-q", "/dev/null", process.execPath, fixture, "pretty-failure"]
+            : [
+                "-qec",
+                `${process.execPath} ${fixture} pretty-failure`,
+                "/dev/null",
+              ],
+          { env: { PATH: path, TERM: "xterm" }, stdin: "ignore" }
         )
       );
 
