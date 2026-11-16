@@ -4,6 +4,7 @@ import {
   isFunctionDeclaration,
   isInterfaceDeclaration,
   isMethodSignatureDeclaration,
+  isTypeNode,
   isVariableDeclaration,
 } from "typescript/unstable/ast/is";
 import { API, SignatureKind, TypeFlags } from "typescript/unstable/sync";
@@ -93,7 +94,7 @@ export const typeOfTypeNode = (
         : undefined
     );
   }
-  return syntax === undefined
+  return syntax === undefined || !isTypeNode(syntax)
     ? undefined
     : project.checker.getTypeFromTypeNode(syntax);
 };
