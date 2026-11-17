@@ -24,6 +24,7 @@ import { EvalConfigError } from "./errors/eval-config-error.ts";
 import type { EvalDatasetError } from "./errors/eval-dataset-error.ts";
 import type { EvalReporterFailed } from "./errors/eval-reporter-failed.ts";
 import type { Eval } from "./eval.ts";
+import { eventBodies } from "./events.ts";
 import type { EventBody, Judgement, Scored } from "./events.ts";
 import { batchesOf, concurrencyOf } from "./execution.ts";
 import * as Gate from "./gate.ts";
@@ -381,23 +382,24 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                   const now = yield* liveMillis;
                   const failedReporters = yield* bus.failed;
                   const pending = [...(yield* Ref.get(unreported)).values()];
-                  yield* bus.emit({
-                    _tag: "RunFinished",
-                    durationMs: now - start,
-                    failedReporters,
-                    interrupted,
-                    passed,
-                    unreportedUsage: [
-                      ...new Set(pending.map((entry) => entry.variant)),
-                    ].map((variant) => ({
-                      usage: Usages.total(
-                        pending.flatMap((entry) =>
-                          entry.variant === variant ? [entry.usage] : []
-                        )
-                      ),
-                      variant,
-                    })),
-                  });
+                  yield* bus.emit(
+                    eventBodies.RunFinished({
+                      durationMs: now - start,
+                      failedReporters,
+                      interrupted,
+                      passed,
+                      unreportedUsage: [
+                        ...new Set(pending.map((entry) => entry.variant)),
+                      ].map((variant) => ({
+                        usage: Usages.total(
+                          pending.flatMap((entry) =>
+                            entry.variant === variant ? [entry.usage] : []
+                          )
+                        ),
+                        variant,
+                      })),
+                    })
+                  );
                 })
           ),
           Effect.uninterruptible
@@ -473,13 +475,14 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
           yield* Effect.forEach(
             batch,
             (input) =>
-              bus.emit({
-                _tag: "CaseStarted",
-                case: input.id,
-                tags: input.tags,
-                trial,
-                variant,
-              }),
+              bus.emit(
+                eventBodies.CaseStarted({
+                  case: input.id,
+                  tags: input.tags,
+                  trial,
+                  variant,
+                })
+              ),
             { discard: true }
           );
 
@@ -520,11 +523,12 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
 
                 const event = yield* Result.match(outcome, {
                   onFailure: (failure) =>
-                    Effect.succeed<EventBody>({
-                      ...common,
-                      _tag: "CaseErrored",
-                      failure,
-                    }),
+                    Effect.succeed<EventBody>(
+                      eventBodies.CaseErrored({
+                        ...common,
+                        failure,
+                      })
+                    ),
                   onSuccess: (output) =>
                     Option.match(self.output, {
                       onNone: () =>
@@ -559,11 +563,12 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                             ),
                         })
                       ),
-                      Effect.map((stored): EventBody => ({
-                        ...common,
-                        ...stored,
-                        _tag: "CaseFinished",
-                      }))
+                      Effect.map((stored): EventBody =>
+                        eventBodies.CaseFinished({
+                          ...common,
+                          ...stored,
+                        })
+                      )
                     ),
                 });
 
@@ -572,12 +577,14 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                     .emit(event)
                     .pipe(
                       Effect.andThen(
-                        settle([
-                          scoreUnit(variant, trial, input.id),
-                          ...(index === 0
-                            ? [taskUnit(variant, trial, input.id)]
-                            : []),
-                        ])
+                        settle(
+                          Array.flatten([
+                            [scoreUnit(variant, trial, input.id)],
+                            index === 0
+                              ? [taskUnit(variant, trial, input.id)]
+                              : [],
+                          ])
+                        )
                       )
                     )
                 );
@@ -600,11 +607,12 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
         yield* Effect.forEach(
           loaded.skipped,
           (skipped) =>
-            bus.emit({
-              _tag: "CaseSkipped",
-              id: skipped.id,
-              reason: skipped.reason,
-            }),
+            bus.emit(
+              eventBodies.CaseSkipped({
+                id: skipped.id,
+                reason: skipped.reason,
+              })
+            ),
           { discard: true }
         );
 
@@ -663,15 +671,16 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
                 (yield* liveMillis) - variantStart
               );
 
-              yield* bus.emit({
-                _tag: "VariantFinished",
-                durationMs: summarized.durationMs,
-                groups: summarized.groups,
-                summary: summarized.summary,
-                trials: summarized.trials,
-                usage,
-                variant: variant.name,
-              });
+              yield* bus.emit(
+                eventBodies.VariantFinished({
+                  durationMs: summarized.durationMs,
+                  groups: summarized.groups,
+                  summary: summarized.summary,
+                  trials: summarized.trials,
+                  usage,
+                  variant: variant.name,
+                })
+              );
 
               return summarized;
             }).pipe(
@@ -692,7 +701,7 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
 
         yield* Effect.forEach(
           results,
-          (result) => bus.emit({ ...result, _tag: "GateEvaluated" }),
+          (result) => bus.emit(eventBodies.GateEvaluated(result)),
           {
             discard: true,
           }
@@ -705,23 +714,24 @@ const execute = Effect.fn("Eval.execute")(function* executeRun<
 
       const exit = yield* Effect.uninterruptibleMask((restore) =>
         bus
-          .emit({
-            _tag: "RunStarted",
-            datasetHash,
-            eval: self.name,
-            git,
-            plan: {
-              cases: loaded.cases.length,
-              invocations: Option.isSome(settings.source.rescoreOf)
-                ? 0
-                : batches.length * settings.variants.length * settings.trials,
-              skipped: loaded.skipped.length,
-            },
-            rescoreOf: settings.source.rescoreOf,
-            sensitive: self.sensitive,
-            trials: settings.trials,
-            variants: settings.variants.map((variant) => variant.name),
-          })
+          .emit(
+            eventBodies.RunStarted({
+              datasetHash,
+              eval: self.name,
+              git,
+              plan: {
+                cases: loaded.cases.length,
+                invocations: Option.isSome(settings.source.rescoreOf)
+                  ? 0
+                  : batches.length * settings.variants.length * settings.trials,
+                skipped: loaded.skipped.length,
+              },
+              rescoreOf: settings.source.rescoreOf,
+              sensitive: self.sensitive,
+              trials: settings.trials,
+              variants: settings.variants.map((variant) => variant.name),
+            })
+          )
           .pipe(
             Effect.andThen(restore(body)),
             Effect.exit,

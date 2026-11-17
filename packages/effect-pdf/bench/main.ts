@@ -1,6 +1,6 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { Console, Effect, FileSystem, Layer, Path } from "effect";
+import { Array, Console, Effect, FileSystem, Layer, Path } from "effect";
 import { encode } from "fast-png";
 import { Bench } from "tinybench";
 
@@ -245,17 +245,21 @@ const program = Effect.gen(function* effectPdfBenchmark() {
           )
         );
 
-        return [
-          `## ${title}`,
-          "",
-          `Riferimento: ${referenceName}. La colonna × è la velocità rispetto al riferimento, sulla stessa fixture.`,
-          ...(note === undefined ? [] : ["", note]),
-          "",
-          "| Fixture | KB | Implementazione | media (ms) | p99 (ms) | × |",
-          "| --- | --: | --- | --: | --: | --: |",
-          ...rows.flat(),
-          "",
-        ].join("\n");
+        return Array.flatten([
+          [
+            `## ${title}`,
+            "",
+            `Riferimento: ${referenceName}. La colonna × è la velocità rispetto al riferimento, sulla stessa fixture.`,
+          ],
+          note === undefined ? [] : ["", note],
+          [
+            "",
+            "| Fixture | KB | Implementazione | media (ms) | p99 (ms) | × |",
+            "| --- | --: | --- | --: | --: | --: |",
+          ],
+          rows.flat(),
+          [""],
+        ]).join("\n");
       })
     )
   );

@@ -288,17 +288,19 @@ describe("View.summary", () => {
               Gate.by("critical", Gate.max(Metric.wrong, 0)),
             ],
             name: "crowded",
-            score: Scorer.make((input: Dataset.Case<string>) =>
-              Effect.succeed([
+            score: Scorer.make((input: Dataset.Case<string>) => {
+              const tags = input.id === "gated-path" ? ["critical"] : [];
+
+              return Effect.succeed([
                 input.id === "unclassified-path"
                   ? Observation.exclude(Scorer.unclassified)(
                       scoredAs({ key: input.id, right: false }).observation
                     )
-                  : Observation.tagged(
-                      ...(input.id === "gated-path" ? ["critical"] : [])
-                    )(scoredAs({ key: input.id, right: false }).observation),
-              ])
-            ),
+                  : Observation.tagged(...tags)(
+                      scoredAs({ key: input.id, right: false }).observation
+                    ),
+              ]);
+            }),
             task: (input) => Effect.succeed(input.id),
           })
         );

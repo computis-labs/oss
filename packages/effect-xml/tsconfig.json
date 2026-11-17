@@ -4,5 +4,10 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "bench/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "bench/**/*.ts",
+    "../../scripts/test-matchers.ts"
+  ]
 }

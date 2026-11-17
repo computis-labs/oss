@@ -15,6 +15,7 @@ import {
 import { Command, Flag } from "effect/cli";
 import { TestConsole } from "effect/testing";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import * as Cli from "../src/cli.ts";
 import * as EvalConfig from "../src/config.ts";
 import * as Dataset from "../src/dataset.ts";
@@ -109,12 +110,12 @@ describe("Cli.command", () => {
       );
 
       expect(decoded).toMatchObject([
-        { _tag: "RunStarted" },
-        { _tag: "CaseStarted" },
-        { _tag: "CaseFinished" },
-        { _tag: "VariantFinished" },
-        { _tag: "GateEvaluated" },
-        { _tag: "RunFinished" },
+        tagged("RunStarted", {}),
+        tagged("CaseStarted", {}),
+        tagged("CaseFinished", {}),
+        tagged("VariantFinished", {}),
+        tagged("GateEvaluated", {}),
+        tagged("RunFinished", {}),
       ]);
     }).pipe(Effect.provide(services))
   );
@@ -141,7 +142,7 @@ const memoryFileSystem = FileSystem.layerNoop({
         () => files.has(path),
         () =>
           PlatformError.systemError({
-            _tag: "NotFound",
+            ...Schema.TaggedStruct("NotFound", {}).make({}),
             method: "readFileString",
             module: "FileSystem",
             pathOrDescriptor: path,
@@ -526,7 +527,7 @@ describe("Cli.command with a history", () => {
 
           const printed = (yield* TestConsole.logLines).map(String).join("\n");
 
-          expect(failure).toMatchObject({ _tag: "EvalGateFailed" });
+          expect(failure).toMatchObject(tagged("EvalGateFailed", {}));
           expect(printed.match(/1 regressions, 0 fixes/gu)).toHaveLength(2);
           expect(printed).not.toContain("observations added");
         })
@@ -619,10 +620,11 @@ describe("Cli.command with a history", () => {
           )(["--reporter", "silent"])
         );
 
-        expect(failure).toMatchObject({
-          _tag: "EvalConfigError",
-          path: "evalName",
-        });
+        expect(failure).toMatchObject(
+          tagged("EvalConfigError", {
+            path: "evalName",
+          })
+        );
       })
     )
   );

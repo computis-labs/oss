@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Array, Effect, Option } from "effect";
 import { plot } from "simple-ascii-chart";
 import type { Color } from "simple-ascii-chart";
 
@@ -90,9 +90,9 @@ export const renderer = (
 
   const palette = (series: number) =>
     whenDefined(options.color === true ? series : undefined, (count) => ({
-      color: Array.from(
-        { length: count },
-        (_, index): Color =>
+      color: Array.makeBy(
+        count,
+        (index): Color =>
           seriesColors[index % seriesColors.length] ?? "ansiWhite"
       ),
     }));
@@ -113,7 +113,7 @@ export const renderer = (
       onSome: at,
     });
 
-    return Array.from({ length: width }, (_, index) => {
+    return Array.makeBy(width, (index) => {
       if (index < Math.min(filled, low)) {
         return FULL;
       }
@@ -149,15 +149,15 @@ export const renderer = (
           grid.flat().flatMap((verdict) => Option.toArray(verdict))
         );
 
-        const legend = [
-          ...Object.entries(verdictGlyphs)
+        const legend = Array.flatten([
+          Object.entries(verdictGlyphs)
             .filter(([verdict]) => seen.has(verdict))
             .map(
               ([verdict, glyph]) =>
                 `${paint(glyph, lookup(verdictCodes, verdict) ?? "2")} ${verdict}`
             ),
-          ...(grid.flat().some(Option.isNone) ? [`${NO_RUN} no run`] : []),
-        ];
+          grid.flat().some(Option.isNone) ? [`${NO_RUN} no run`] : [],
+        ]);
 
         return [
           title,

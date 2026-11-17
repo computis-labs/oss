@@ -2,7 +2,13 @@ import { Predicate, Result, Schema } from "effect";
 import { isAlias, isMap, isScalar, isSeq, parseDocument, Scalar } from "yaml";
 import type { Pair, ParsedNode } from "yaml";
 
-import { identifierPattern, PrimitiveTypes, reservedWords } from "./ast.ts";
+import {
+  identifierPattern,
+  InputSpecs,
+  PrimitiveTypes,
+  reservedWords,
+  TypeNodes,
+} from "./ast.ts";
 import type {
   Field,
   Frontmatter,
@@ -143,7 +149,7 @@ const typeFromNode = (
         fields.push(yield* readField(pair));
       }
 
-      return { _tag: "Struct" as const, fields, span };
+      return TypeNodes.Struct({ fields, span });
     }
 
     if (isSeq(node)) {
@@ -160,11 +166,10 @@ const typeFromNode = (
         );
       }
 
-      return {
-        _tag: "Array" as const,
+      return TypeNodes.Array({
         element: yield* typeFromNode(file, element, base),
         span,
-      };
+      });
     }
 
     const source = scalarText(node);
@@ -246,11 +251,10 @@ const typeFromNode = (
         if (primitive !== undefined) {
           return {
             next: at + 1,
-            type: {
-              _tag: "Primitive" as const,
+            type: TypeNodes.Primitive({
               name: primitive,
               span: { end: token.end, start: token.start },
-            },
+            }),
           };
         }
 
@@ -271,11 +275,10 @@ const typeFromNode = (
 
             return {
               next: closeAt + 1,
-              type: {
-                _tag: "Literal" as const,
+              type: TypeNodes.Literal({
                 span: { end: close.end, start: token.start },
                 values,
-              },
+              }),
             };
           }
 
@@ -286,11 +289,10 @@ const typeFromNode = (
 
             return {
               next: element.next + 1,
-              type: {
-                _tag: "Array" as const,
+              type: TypeNodes.Array({
                 element: element.type,
                 span: { end: close.end, start: token.start },
-              },
+              }),
             };
           }
 
@@ -301,11 +303,10 @@ const typeFromNode = (
 
             return {
               next: inner.next + 1,
-              type: {
-                _tag: "NullOr" as const,
+              type: TypeNodes.NullOr({
                 span: { end: close.end, start: token.start },
                 type: inner.type,
-              },
+              }),
             };
           }
 
@@ -421,7 +422,7 @@ export const parseFrontmatter = (
         const type = yield* typeFromNode(file, value, start);
 
         if (Predicate.isTagged(type, "Struct")) {
-          return { _tag: "Inline" as const, type };
+          return InputSpecs.Inline({ type });
         }
 
         return yield* Result.fail(
@@ -453,15 +454,16 @@ export const parseFrontmatter = (
               "Write the schema reference as '<module>#<ExportName>', for example './invoice.schema.ts#InvoiceInput'."
             )
           )
-        : Result.succeed({
-            _tag: "Reference",
-            exportName,
-            module: reference.slice(0, separator),
-            span: {
-              end: start + value.range[1],
-              start: start + value.range[0],
-            },
-          });
+        : Result.succeed(
+            InputSpecs.Reference({
+              exportName,
+              module: reference.slice(0, separator),
+              span: {
+                end: start + value.range[1],
+                start: start + value.range[0],
+              },
+            })
+          );
     };
 
     const isInputKey = (pair: Pair<ParsedNode, ParsedNode | null>) => {

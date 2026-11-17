@@ -1,4 +1,4 @@
-import { Data, Effect, Option, Predicate } from "effect";
+import { Array, Data, Effect, Option, Predicate } from "effect";
 
 import * as Charts from "./chart.ts";
 import type { Chart } from "./chart.ts";
@@ -273,15 +273,10 @@ export const observationTable = (scored: readonly Scored[]) => {
   );
 
   return Table({
-    columns: [
-      "variant",
-      "case",
-      "key",
-      "verdict",
-      "expected",
-      "actual",
-      ...(noted ? ["note"] : []),
-    ],
+    columns: Array.flatten([
+      ["variant", "case", "key", "verdict", "expected", "actual"],
+      noted ? ["note"] : [],
+    ]),
     rows: shown.map((entry) => {
       const verdict = Verdicts.of(entry.observation);
 
@@ -298,20 +293,22 @@ export const observationTable = (scored: readonly Scored[]) => {
         }
       );
 
-      return [
-        cell(entry.variant),
-        cell(entry.case),
-        cell(entry.observation.key),
-        cell(label, verdictTones[verdict]),
-        cell(entry.observation.detail.expected),
-        cell(
-          Option.getOrElse(
-            entry.observation.failure,
-            () => entry.observation.detail.actual
-          )
-        ),
-        ...(noted ? [cell(entry.observation.detail.note ?? "")] : []),
-      ];
+      return Array.flatten([
+        [
+          cell(entry.variant),
+          cell(entry.case),
+          cell(entry.observation.key),
+          cell(label, verdictTones[verdict]),
+          cell(entry.observation.detail.expected),
+          cell(
+            Option.getOrElse(
+              entry.observation.failure,
+              () => entry.observation.detail.actual
+            )
+          ),
+        ],
+        noted ? [cell(entry.observation.detail.note ?? "")] : [],
+      ]);
     }),
   });
 };
@@ -424,151 +421,155 @@ export const summary = (
     )
   );
 
-  return [
-    header(run),
-    Text({
-      text: run.variants
-        .map(
-          (variant) =>
-            `${variant.variant}: ${String(variant.usage.calls)} calls, ${String(
-              variant.usage.inputTokens + variant.usage.outputTokens
-            )} tokens${Option.match(variant.usage.costUsd, {
-              onNone: () => (variant.usage.calls > 0 ? ", cost unknown" : ""),
-              onSome: (cost) => `, $${cost.toFixed(DIGITS)}`,
-            })}, ${(variant.durationMs / MILLIS_PER_SECOND).toFixed(1)} s`
-        )
-        .join(" · "),
-      tone: tones.neutral,
-    }),
-    Section({
-      children: [
-        Table({
-          columns: ["variant", "metric", "value", "n", "Δ baseline (paired)"],
-          rows: run.variants.flatMap((variant) =>
-            Metric.ratios.map((metric) => {
-              const estimate = variant.summary.ratios[metric.name];
+  return Array.flatten([
+    [
+      header(run),
+      Text({
+        text: run.variants
+          .map(
+            (variant) =>
+              `${variant.variant}: ${String(variant.usage.calls)} calls, ${String(
+                variant.usage.inputTokens + variant.usage.outputTokens
+              )} tokens${Option.match(variant.usage.costUsd, {
+                onNone: () => (variant.usage.calls > 0 ? ", cost unknown" : ""),
+                onSome: (cost) => `, $${cost.toFixed(DIGITS)}`,
+              })}, ${(variant.durationMs / MILLIS_PER_SECOND).toFixed(1)} s`
+          )
+          .join(" · "),
+        tone: tones.neutral,
+      }),
+      Section({
+        children: [
+          Table({
+            columns: ["variant", "metric", "value", "n", "Δ baseline (paired)"],
+            rows: run.variants.flatMap((variant) =>
+              Metric.ratios.map((metric) => {
+                const estimate = variant.summary.ratios[metric.name];
 
-              const delta = comparison.pipe(
-                Option.flatMap((compared) =>
-                  Option.fromNullishOr(
-                    compared.deltas.find(
-                      (entry) =>
-                        entry.variant === variant.variant &&
-                        entry.metric === metric.name
+                const delta = comparison.pipe(
+                  Option.flatMap((compared) =>
+                    Option.fromNullishOr(
+                      compared.deltas.find(
+                        (entry) =>
+                          entry.variant === variant.variant &&
+                          entry.metric === metric.name
+                      )
                     )
-                  )
-                ),
-                Option.flatMap((entry) => entry.delta)
-              );
+                  ),
+                  Option.flatMap((entry) => entry.delta)
+                );
 
-              return [
-                cell(variant.variant),
-                cell(metric.name),
-                cell(
-                  estimate === undefined ? NOTHING : formatEstimate(estimate)
-                ),
-                cell(estimate === undefined ? NOTHING : String(estimate.n)),
-                Option.match(delta, {
-                  onNone: () => cell(NOTHING),
-                  onSome: (change) =>
-                    cell(signed(change), change < 0 ? tones.bad : tones.good),
-                }),
-              ];
-            })
-          ),
-        }),
-        ...Option.toArray(unpaired).map((compared) =>
-          Text({
-            text: `Δ baseline uses only the observations both runs have: ${String(
-              compared.added.length
-            )} added and ${String(compared.removed.length)} removed stay out of it.`,
-            tone: tones.neutral,
-          })
-        ),
-        Table({
-          columns: ["variant", ...countNames],
-          rows: run.variants.map((variant) => [
-            cell(variant.variant),
-            ...countNames.map((name) =>
-              cell(String(variant.summary.counts[name] ?? 0))
+                return [
+                  cell(variant.variant),
+                  cell(metric.name),
+                  cell(
+                    estimate === undefined ? NOTHING : formatEstimate(estimate)
+                  ),
+                  cell(estimate === undefined ? NOTHING : String(estimate.n)),
+                  Option.match(delta, {
+                    onNone: () => cell(NOTHING),
+                    onSome: (change) =>
+                      cell(signed(change), change < 0 ? tones.bad : tones.good),
+                  }),
+                ];
+              })
             ),
-          ]),
-        }),
-      ],
-      title: "Metrics",
-    }),
-    Section({
-      children: [
-        Table({
-          columns: ["variant", "trial", "succeeded", "failed"],
-          rows: run.variants.flatMap((variant) =>
-            Array.from({ length: run.trials }, (_, index) => {
-              const outcomes = run.outputs.filter(
-                (output) =>
-                  output.variant === variant.variant &&
-                  output.trial === index + 1
-              );
-
-              const failed = outcomes.filter((output) =>
-                Option.isSome(output.failure)
-              ).length;
-
-              return [
-                cell(variant.variant),
-                cell(String(index + 1)),
-                cell(String(outcomes.length - failed), tones.good),
-                cell(String(failed), failed > 0 ? tones.bad : tones.neutral),
-              ];
+          }),
+          ...Option.toArray(unpaired).map((compared) =>
+            Text({
+              text: `Δ baseline uses only the observations both runs have: ${String(
+                compared.added.length
+              )} added and ${String(compared.removed.length)} removed stay out of it.`,
+              tone: tones.neutral,
             })
           ),
-        }),
-      ],
-      title: "Cases",
-    }),
-    ...(exclusions.length === 0
+          Table({
+            columns: ["variant", ...countNames],
+            rows: run.variants.map((variant) => [
+              cell(variant.variant),
+              ...countNames.map((name) =>
+                cell(String(variant.summary.counts[name] ?? 0))
+              ),
+            ]),
+          }),
+        ],
+        title: "Metrics",
+      }),
+      Section({
+        children: [
+          Table({
+            columns: ["variant", "trial", "succeeded", "failed"],
+            rows: run.variants.flatMap((variant) =>
+              Array.makeBy(run.trials, (index) => {
+                const outcomes = run.outputs.filter(
+                  (output) =>
+                    output.variant === variant.variant &&
+                    output.trial === index + 1
+                );
+
+                const failed = outcomes.filter((output) =>
+                  Option.isSome(output.failure)
+                ).length;
+
+                return [
+                  cell(variant.variant),
+                  cell(String(index + 1)),
+                  cell(String(outcomes.length - failed), tones.good),
+                  cell(String(failed), failed > 0 ? tones.bad : tones.neutral),
+                ];
+              })
+            ),
+          }),
+        ],
+        title: "Cases",
+      }),
+    ],
+    exclusions.length === 0
       ? []
       : [
           Section({
             children: [table(["variant", "reason", "count"], exclusions)],
             title: "Exclusions",
           }),
-        ]),
-    ...(run.variants.some((variant) => Object.keys(variant.groups).length > 0)
+        ],
+    run.variants.some((variant) => Object.keys(variant.groups).length > 0)
       ? [Section({ children: [groupTable(run)], title: "Groups" })]
-      : []),
-    ...(run.variants.length > 1
+      : [],
+    run.variants.length > 1
       ? [
           Section({
             children: [figure(Charts.variants(run))],
             title: "Variants",
           }),
         ]
-      : []),
-    ...(trialed.length === 0
+      : [],
+    trialed.length === 0
       ? []
       : [
           Section({
-            children: [
-              Table({
-                columns: ["variant", "metric", "mean", "sd"],
-                rows: trialed.flatMap(([variant, stats]) =>
-                  [...Metric.counts, ...Metric.ratios].map((metric) => {
-                    const measured = stats.metrics[metric.name];
+            children: Array.flatten([
+              [
+                Table({
+                  columns: ["variant", "metric", "mean", "sd"],
+                  rows: trialed.flatMap(([variant, stats]) =>
+                    [...Metric.counts, ...Metric.ratios].map((metric) => {
+                      const measured = stats.metrics[metric.name];
 
-                    return [
-                      cell(variant),
-                      cell(metric.name),
-                      cell(optionalNumber(measured?.mean ?? Option.none())),
-                      cell(
-                        optionalNumber(
-                          measured?.standardDeviation ?? Option.none()
-                        )
-                      ),
-                    ];
-                  })
-                ),
-              }),
-              ...trialed.map(([variant, stats]) => {
+                      return [
+                        cell(variant),
+                        cell(metric.name),
+                        cell(optionalNumber(measured?.mean ?? Option.none())),
+                        cell(
+                          optionalNumber(
+                            measured?.standardDeviation ?? Option.none()
+                          )
+                        ),
+                      ];
+                    })
+                  ),
+                }),
+              ],
+              trialed.map(([variant, stats]) => {
                 const k = String(stats.k);
 
                 return Text({
@@ -588,7 +589,7 @@ export const summary = (
                   tone: tones.neutral,
                 });
               }),
-              ...(trialed.some(([, stats]) => stats.flaky.length > 0)
+              trialed.some(([, stats]) => stats.flaky.length > 0)
                 ? [
                     table(
                       ["variant", "case", "key", "verdicts"],
@@ -602,12 +603,12 @@ export const summary = (
                       )
                     ),
                   ]
-                : []),
-            ],
+                : [],
+            ]),
             title: "Trials",
           }),
-        ]),
-    ...(run.gates.length === 0
+        ],
+    run.gates.length === 0
       ? []
       : [
           Section({
@@ -627,49 +628,53 @@ export const summary = (
             ],
             title: "Gates",
           }),
-        ]),
-    ...(failedGates.length === 0
+        ],
+    failedGates.length === 0
       ? []
       : [
           Section({
             children: failedGates.map((gate) =>
               Section({
-                children: [
-                  observationTable(gate.violations.slice(0, Runs.LISTED_LIMIT)),
-                  ...(gate.violations.length > Runs.LISTED_LIMIT
+                children: Array.flatten([
+                  [
+                    observationTable(
+                      gate.violations.slice(0, Runs.LISTED_LIMIT)
+                    ),
+                  ],
+                  gate.violations.length > Runs.LISTED_LIMIT
                     ? [
                         Text({
                           text: `+${String(gate.violations.length - Runs.LISTED_LIMIT)} more; see the JSON reporter or history for all gate violations.`,
                           tone: tones.neutral,
                         }),
                       ]
-                    : []),
-                ],
+                    : [],
+                ]),
                 title: `${gate.variant} · ${gate.gate}`,
               })
             ),
             title: "Gate violations",
           }),
-        ]),
-    ...(toReview.length === 0
+        ],
+    toReview.length === 0
       ? []
       : [
           Section({
-            children: [
-              observationTable(toReview),
-              ...(toReview.length > MAX_ROWS
+            children: Array.flatten([
+              [observationTable(toReview)],
+              toReview.length > MAX_ROWS
                 ? [
                     Text({
                       text: `+${String(toReview.length - MAX_ROWS)} more; see the JSON reporter or history for all observations.`,
                       tone: tones.neutral,
                     }),
                   ]
-                : []),
-            ],
+                : [],
+            ]),
             title: "To look at",
           }),
-        ]),
-    ...(run.skipped.length === 0
+        ],
+    run.skipped.length === 0
       ? []
       : [
           Section({
@@ -681,8 +686,8 @@ export const summary = (
             ],
             title: "Skipped",
           }),
-        ]),
-    ...(notStored.length === 0
+        ],
+    notStored.length === 0
       ? []
       : [
           Section({
@@ -698,8 +703,8 @@ export const summary = (
             ],
             title: "Outputs not stored",
           }),
-        ]),
-  ];
+        ],
+  ]);
 };
 
 const listed = (title: string, scored: readonly Scored[]) =>
@@ -707,27 +712,29 @@ const listed = (title: string, scored: readonly Scored[]) =>
     ? []
     : [
         Section({
-          children: [
-            Table({
-              columns: ["observation", "verdict"],
-              rows: scored.slice(0, Runs.LISTED_LIMIT).map((entry) => {
-                const verdict = Verdicts.of(entry.observation);
+          children: Array.flatten([
+            [
+              Table({
+                columns: ["observation", "verdict"],
+                rows: scored.slice(0, Runs.LISTED_LIMIT).map((entry) => {
+                  const verdict = Verdicts.of(entry.observation);
 
-                return [
-                  cell(Runs.observationLabel(entry)),
-                  cell(verdict, verdictTones[verdict]),
-                ];
+                  return [
+                    cell(Runs.observationLabel(entry)),
+                    cell(verdict, verdictTones[verdict]),
+                  ];
+                }),
               }),
-            }),
-            ...(scored.length > Runs.LISTED_LIMIT
+            ],
+            scored.length > Runs.LISTED_LIMIT
               ? [
                   Text({
                     text: `+${String(scored.length - Runs.LISTED_LIMIT)} more`,
                     tone: tones.neutral,
                   }),
                 ]
-              : []),
-          ],
+              : [],
+          ]),
           title,
         }),
       ];
@@ -736,10 +743,12 @@ export const compare = (base: Run, head: Run): View => {
   const comparison = Runs.compare(head, base);
   const names = [...new Set(comparison.deltas.map((row) => row.variant))];
 
-  return [
-    header(head),
-    Text({ text: `compared with run ${base.id}`, tone: tones.neutral }),
-    ...(comparison.added.length === 0 && comparison.removed.length === 0
+  return Array.flatten([
+    [
+      header(head),
+      Text({ text: `compared with run ${base.id}`, tone: tones.neutral }),
+    ],
+    comparison.added.length === 0 && comparison.removed.length === 0
       ? []
       : [
           Text({
@@ -748,10 +757,10 @@ export const compare = (base: Run, head: Run): View => {
             )} removed since the baseline; the deltas use only the observations both runs have`,
             tone: tones.warn,
           }),
-        ]),
-    ...listed("Added", comparison.added),
-    ...listed("Removed", comparison.removed),
-    ...names.map((name) => {
+        ],
+    listed("Added", comparison.added),
+    listed("Removed", comparison.removed),
+    names.map((name) => {
       const regressions = comparison.regressions
         .filter((transition) => transition.variant === name)
         .map((transition) => transition.after);
@@ -770,44 +779,46 @@ export const compare = (base: Run, head: Run): View => {
       );
 
       return Section({
-        children: [
-          Text({
-            text: `${String(regressions.length)} regressions, ${String(fixes.length)} fixes${Option.match(
-              pValue,
-              {
-                onNone: () => "",
-                onSome: (value) => ` · McNemar p = ${value.toFixed(DIGITS)}`,
-              }
-            )}`,
-            tone: regressions.length > 0 ? tones.bad : tones.good,
-          }),
-          Row({
-            children: [
-              figure(Charts.delta(comparison, name)),
-              figure(Charts.transitions(comparison, name)),
-            ],
-          }),
-          ...(regressions.length === 0
+        children: Array.flatten([
+          [
+            Text({
+              text: `${String(regressions.length)} regressions, ${String(fixes.length)} fixes${Option.match(
+                pValue,
+                {
+                  onNone: () => "",
+                  onSome: (value) => ` · McNemar p = ${value.toFixed(DIGITS)}`,
+                }
+              )}`,
+              tone: regressions.length > 0 ? tones.bad : tones.good,
+            }),
+            Row({
+              children: [
+                figure(Charts.delta(comparison, name)),
+                figure(Charts.transitions(comparison, name)),
+              ],
+            }),
+          ],
+          regressions.length === 0
             ? []
             : [
                 Section({
                   children: [observationTable(regressions)],
                   title: "Regressions",
                 }),
-              ]),
-          ...(fixes.length === 0
+              ],
+          fixes.length === 0
             ? []
             : [
                 Section({
                   children: [observationTable(fixes)],
                   title: "Fixes",
                 }),
-              ]),
-        ],
+              ],
+        ]),
         title: name,
       });
     }),
-  ];
+  ]);
 };
 
 export const dashboard = (

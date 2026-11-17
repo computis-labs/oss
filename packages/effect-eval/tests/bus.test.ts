@@ -9,8 +9,7 @@ import * as Observation from "../src/observation.ts";
 import * as Reporter from "../src/reporter.ts";
 import * as Usage from "../src/usage.ts";
 
-const caseFinished = {
-  _tag: "CaseFinished",
+const caseFinished = Events.eventBodies.CaseFinished({
   case: "p1",
   durationMs: 12,
   inputHash: "abc",
@@ -33,15 +32,14 @@ const caseFinished = {
   trial: 1,
   usage: Usage.empty,
   variant: "default",
-} as const;
+});
 
-const runFinished = {
-  _tag: "RunFinished",
+const runFinished = Events.eventBodies.RunFinished({
   durationMs: 20,
   failedReporters: [],
   interrupted: false,
   passed: true,
-} as const;
+});
 
 const recording = (sink: EvalEvent[], options: Reporter.Options = {}) =>
   Reporter.fromStream(
@@ -59,11 +57,12 @@ describe("Bus.open", () => {
       const seen: EvalEvent[] = [];
       const bus = yield* Bus.open("run-1", [recording(seen)], false);
 
-      yield* bus.emit({
-        _tag: "CaseSkipped",
-        id: "p9",
-        reason: "no golden XML",
-      });
+      yield* bus.emit(
+        Events.eventBodies.CaseSkipped({
+          id: "p9",
+          reason: "no golden XML",
+        })
+      );
       yield* bus.emit(runFinished);
       yield* bus.close;
 
@@ -132,16 +131,17 @@ describe("Bus.open", () => {
 
         const failure = "Invalid response for RSSMRA80A01H501U";
 
-        yield* bus.emit({
-          ...caseFinished,
-          _tag: "CaseErrored",
-          failure,
-          observations: [
-            Observation.errored("codiceFiscale", failure, {
-              expected: "present",
-            }),
-          ],
-        });
+        yield* bus.emit(
+          Events.eventBodies.CaseErrored({
+            ...caseFinished,
+            failure,
+            observations: [
+              Observation.errored("codiceFiscale", failure, {
+                expected: "present",
+              }),
+            ],
+          })
+        );
         yield* bus.emit(runFinished);
         yield* bus.close;
 

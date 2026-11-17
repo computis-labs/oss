@@ -74,7 +74,7 @@ const exact = (ast: SchemaAST.AST): SchemaAST.AST => {
         objects.checks,
         undefined,
         objects.context,
-        [rejectUndeclared, ...(objects.encodingChecks ?? [])]
+        Array.appendAll([rejectUndeclared], objects.encodingChecks ?? [])
       );
     }),
     Match.when(SchemaAST.isArrays, (arrays) => {

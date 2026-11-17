@@ -114,11 +114,11 @@ export const scanPdf = ({
   visibleText,
 }: { readonly hiddenText?: string; readonly visibleText?: string } = {}) =>
   onePagePdf(
-    [
-      fullPage("Scan"),
-      ...(hiddenText === undefined ? [] : [textAt(hiddenText, HIDDEN)]),
-      ...(visibleText === undefined ? [] : [textAt(visibleText, VISIBLE)]),
-    ].join(""),
+    Arr.flatten([
+      [fullPage("Scan")],
+      hiddenText === undefined ? [] : [textAt(hiddenText, HIDDEN)],
+      visibleText === undefined ? [] : [textAt(visibleText, VISIBLE)],
+    ]).join(""),
     { Scan: bilevelImage() }
   );
 

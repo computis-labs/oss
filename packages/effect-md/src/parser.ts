@@ -7,7 +7,7 @@ import {
   reservedWords,
   Roles,
 } from "./ast.ts";
-import type * as Ast from "./ast.ts";
+import * as Ast from "./ast.ts";
 import {
   didYouMean,
   locate,
@@ -167,19 +167,21 @@ const toExpression = (
   const span = { end: lexeme.end, start: lexeme.start };
 
   if (lexeme.kind === LexemeKinds.string) {
-    return Result.succeed({
-      _tag: "Literal",
-      span,
-      value: unescapeString(lexeme.text),
-    });
+    return Result.succeed(
+      Ast.Expressions.Literal({
+        span,
+        value: unescapeString(lexeme.text),
+      })
+    );
   }
 
   if (lexeme.kind === LexemeKinds.number) {
-    return Result.succeed({
-      _tag: "Literal",
-      span,
-      value: Number(lexeme.text),
-    });
+    return Result.succeed(
+      Ast.Expressions.Literal({
+        span,
+        value: Number(lexeme.text),
+      })
+    );
   }
 
   if (lexeme.kind === LexemeKinds.op) {
@@ -194,11 +196,12 @@ const toExpression = (
   }
 
   if (wordLiterals.has(lexeme.text)) {
-    return Result.succeed({
-      _tag: "Literal",
-      span,
-      value: wordLiterals.get(lexeme.text) ?? null,
-    });
+    return Result.succeed(
+      Ast.Expressions.Literal({
+        span,
+        value: wordLiterals.get(lexeme.text) ?? null,
+      })
+    );
   }
 
   if (lexeme.text.startsWith("@")) {
@@ -213,7 +216,7 @@ const toExpression = (
             `Unknown data variable '${lexeme.text}'. Use '@index', '@first' or '@last'.`
           )
         )
-      : Result.succeed({ _tag: "Data", name, span });
+      : Result.succeed(Ast.Expressions.Data({ name, span }));
   }
 
   const [root = "", ...segments] = lexeme.text.split(".");
@@ -231,7 +234,7 @@ const toExpression = (
     );
   }
 
-  return Result.succeed({ _tag: "Path", root, segments, span });
+  return Result.succeed(Ast.Expressions.Path({ root, segments, span }));
 };
 
 const toValue = (file: SourceFile, lexeme: Lexeme) =>
@@ -291,7 +294,7 @@ const parseCondition = (
     const span = { end: (lexemes.at(-1) ?? left).end, start: left.start };
 
     if (operator === undefined) {
-      return { _tag: "Truthy" as const, span, value };
+      return Ast.Conditions.Truthy({ span, value });
     }
 
     const comparison =
@@ -325,13 +328,12 @@ const parseCondition = (
       );
     }
 
-    return {
-      _tag: "Compare" as const,
+    return Ast.Conditions.Compare({
       left: value,
       operator: operatorValue,
       right: compared,
       span,
-    };
+    });
   });
 
 const parseArguments = (file: SourceFile, lexemes: readonly Lexeme[]) =>
@@ -601,13 +603,12 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
 
             return {
               kind: TokenKinds.node,
-              node: {
-                _tag: "Partial" as const,
+              node: Ast.Nodes.Partial({
                 hash,
                 indent: "",
                 source,
                 span,
-              },
+              }),
             };
           });
 
@@ -657,7 +658,7 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
 
               return {
                 kind: TokenKinds.node,
-                node: { _tag: "Output" as const, span, value },
+                node: Ast.Nodes.Output({ span, value }),
               };
             }
 
@@ -672,7 +673,7 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
 
             return {
               kind: TokenKinds.node,
-              node: { _tag: "Helper" as const, args, hash, name, span },
+              node: Ast.Nodes.Helper({ args, hash, name, span }),
             };
           });
 
@@ -1017,11 +1018,10 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
                   ? [
                       {
                         kind: TokenKinds.node,
-                        node: {
-                          _tag: "Text",
+                        node: Ast.Nodes.Text({
                           span: { end: cut.at, start },
                           value,
-                        },
+                        }),
                       },
                     ]
                   : [];
@@ -1055,11 +1055,10 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
                 body: frame.body,
                 condition:
                   token.block === Blocks.unless
-                    ? {
-                        _tag: "Not",
+                    ? Ast.Conditions.Not({
                         condition: token.condition,
                         span: token.condition.span,
-                      }
+                      })
                     : token.condition,
                 start: token.span.start,
               });
@@ -1147,13 +1146,14 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
             const alternate = top.alternate ?? [];
 
             if (top.each !== undefined) {
-              current().nodes.push({
-                _tag: "Each",
-                alternate,
-                body: top.body,
-                ...top.each,
-                span,
-              });
+              current().nodes.push(
+                Ast.Nodes.Each({
+                  alternate,
+                  body: top.body,
+                  ...top.each,
+                  span,
+                })
+              );
 
               return null;
             }
@@ -1171,12 +1171,13 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
             }));
 
             if (first !== undefined) {
-              current().nodes.push({
-                _tag: "If",
-                alternate,
-                branches: [first, ...rest],
-                span,
-              });
+              current().nodes.push(
+                Ast.Nodes.If({
+                  alternate,
+                  branches: [first, ...rest],
+                  span,
+                })
+              );
             }
 
             return null;
@@ -1278,7 +1279,7 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
           }
 
           if (!scanned.some((token) => token.kind === TokenKinds.role)) {
-            return Result.succeed({ _tag: "Fragment", nodes: root.body });
+            return Result.succeed(Ast.Bodies.Fragment({ nodes: root.body }));
           }
 
           const stray = root.body.find(
@@ -1287,7 +1288,7 @@ export const parse = (text: string, options: { readonly path?: string } = {}) =>
           );
 
           return stray === undefined
-            ? Result.succeed({ _tag: "Messages", messages })
+            ? Result.succeed(Ast.Bodies.Messages({ messages }))
             : fail(
                 stray.span.start,
                 Reason.TextOutsideRole,

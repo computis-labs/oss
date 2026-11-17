@@ -4,6 +4,7 @@ import {
   NodeServices,
 } from "@effect/platform-node";
 import {
+  Array,
   Config,
   Console,
   Effect,
@@ -147,14 +148,11 @@ const publish = Effect.fn("publish")(function* publishProgram(
   const tag = isPrerelease(manifest.version) ? ["--tag", "next"] : [];
   yield* run(
     "npm",
-    [
-      "publish",
-      path.join(destination, tarball),
-      "--access",
-      "public",
-      ...tag,
-      ...(dryRun ? ["--dry-run"] : []),
-    ],
+    Array.flatten([
+      ["publish", path.join(destination, tarball), "--access", "public"],
+      Array.copy(tag),
+      dryRun ? ["--dry-run"] : [],
+    ]),
     directory
   );
   yield* Console.log(`Published ${manifest.name}@${manifest.version}.`);
@@ -191,20 +189,22 @@ const ensureGitHubRelease = Effect.fn("ensureGitHubRelease")(
       ? releaseNotes(yield* fs.readFileString(changelog), manifest.version)
       : Option.none<string>();
 
-    const args = [
-      "release",
-      "create",
-      tag,
-      "--repo",
-      repository,
-      "--target",
-      target,
-      "--title",
-      tag,
-      "--notes",
-      Option.getOrElse(notes, () => `Release ${tag}.`),
-      ...(isPrerelease(manifest.version) ? ["--prerelease"] : []),
-    ];
+    const args = Array.flatten([
+      [
+        "release",
+        "create",
+        tag,
+        "--repo",
+        repository,
+        "--target",
+        target,
+        "--title",
+        tag,
+        "--notes",
+        Option.getOrElse(notes, () => `Release ${tag}.`),
+      ],
+      isPrerelease(manifest.version) ? ["--prerelease"] : [],
+    ]);
 
     if (dryRun) {
       yield* Console.log(`Would run: gh ${args.slice(0, 9).join(" ")}`);

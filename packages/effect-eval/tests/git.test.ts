@@ -7,6 +7,7 @@ import {
   Layer,
   Option,
   PlatformError,
+  Schema,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -90,7 +91,7 @@ const noGit = Layer.succeed(
   ChildProcessSpawner.make(() =>
     Effect.fail(
       PlatformError.systemError({
-        _tag: "NotFound",
+        ...Schema.TaggedStruct("NotFound", {}).make({}),
         description: "spawn git ENOENT",
         method: "spawn",
         module: "ChildProcess",

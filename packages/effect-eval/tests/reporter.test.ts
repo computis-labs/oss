@@ -11,6 +11,7 @@ import {
   Stream,
 } from "effect";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import * as Dataset from "../src/dataset.ts";
 import * as Eval from "../src/eval.ts";
 import type { EvalEvent } from "../src/events.ts";
@@ -276,30 +277,30 @@ describe("Reporter lifetime", () => {
 });
 
 describe("Reporter.subscribe", () => {
-  const started = (sequence: number): EvalEvent => ({
-    ...envelope(sequence),
-    _tag: "CaseStarted",
-    case: `m${String(sequence)}`,
-    tags: [],
-    trial: 1,
-    variant: "default",
-  });
+  const started = (sequence: number): EvalEvent =>
+    Events.CaseStarted.make({
+      ...envelope(sequence),
+      case: `m${String(sequence)}`,
+      tags: [],
+      trial: 1,
+      variant: "default",
+    });
 
-  const skipped = (sequence: number): EvalEvent => ({
-    ...envelope(sequence),
-    _tag: "CaseSkipped",
-    id: `s${String(sequence)}`,
-    reason: "no truth",
-  });
+  const skipped = (sequence: number): EvalEvent =>
+    Events.CaseSkipped.make({
+      ...envelope(sequence),
+      id: `s${String(sequence)}`,
+      reason: "no truth",
+    });
 
-  const finished = (sequence: number): EvalEvent => ({
-    ...envelope(sequence),
-    _tag: "RunFinished",
-    durationMs: 0,
-    failedReporters: [],
-    interrupted: false,
-    passed: true,
-  });
+  const finished = (sequence: number): EvalEvent =>
+    Events.RunFinished.make({
+      ...envelope(sequence),
+      durationMs: 0,
+      failedReporters: [],
+      interrupted: false,
+      passed: true,
+    });
 
   it.effect(
     "delivers every event up to RunFinished with the all delivery",
@@ -494,9 +495,9 @@ describe("Reporter.subscribe", () => {
               !Events.isCaseStarted(event) && !Events.isCaseFinished(event)
           )
         ).toMatchObject([
-          { _tag: "RunStarted" },
-          { _tag: "VariantFinished" },
-          { _tag: "RunFinished" },
+          tagged("RunStarted", {}),
+          tagged("VariantFinished", {}),
+          tagged("RunFinished", {}),
         ]);
       })
   );

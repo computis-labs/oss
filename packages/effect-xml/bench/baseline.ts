@@ -1,4 +1,5 @@
 import {
+  Array,
   Effect,
   flow,
   Result,
@@ -23,12 +24,14 @@ const collectArrayElementNames = (
   elementName?: string
 ): ReadonlySet<string> => {
   if (SchemaAST.isArrays(ast)) {
-    return new Set([
-      ...(elementName === undefined ? [] : [elementName]),
-      ...[...ast.elements, ...ast.rest].flatMap((element) => [
-        ...collectArrayElementNames(element),
-      ]),
-    ]);
+    return new Set(
+      Array.flatten([
+        elementName === undefined ? [] : [elementName],
+        [...ast.elements, ...ast.rest].flatMap((element) => [
+          ...collectArrayElementNames(element),
+        ]),
+      ])
+    );
   }
 
   if (SchemaAST.isObjects(ast)) {

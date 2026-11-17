@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import { PromptSyntaxErrorReason } from "../src/errors.ts";
 import { parse } from "../src/parser.ts";
 
@@ -15,22 +16,21 @@ describe("template body", () => {
         "Hello {{customer.name}}, you owe {{total}}."
       );
 
-      expect(document.body).toMatchObject({
-        _tag: "Fragment",
-        nodes: [
-          { _tag: "Text", value: "Hello " },
-          {
-            _tag: "Output",
-            value: { _tag: "Path", root: "customer", segments: ["name"] },
-          },
-          { _tag: "Text", value: ", you owe " },
-          {
-            _tag: "Output",
-            value: { _tag: "Path", root: "total", segments: [] },
-          },
-          { _tag: "Text", value: "." },
-        ],
-      });
+      expect(document.body).toMatchObject(
+        tagged("Fragment", {
+          nodes: [
+            tagged("Text", { value: "Hello " }),
+            tagged("Output", {
+              value: tagged("Path", { root: "customer", segments: ["name"] }),
+            }),
+            tagged("Text", { value: ", you owe " }),
+            tagged("Output", {
+              value: tagged("Path", { root: "total", segments: [] }),
+            }),
+            tagged("Text", { value: "." }),
+          ],
+        })
+      );
     })
   );
 
@@ -57,15 +57,14 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          {
-            _tag: "Helper",
-            args: [{ _tag: "Path", root: "text" }],
+          tagged("Helper", {
+            args: [tagged("Path", { root: "text" })],
             hash: [
-              { name: "tag", value: { _tag: "Literal", value: "document" } },
-              { name: "max", value: { _tag: "Literal", value: 3 } },
+              { name: "tag", value: tagged("Literal", { value: "document" }) },
+              { name: "max", value: tagged("Literal", { value: 3 }) },
             ],
             name: "untrusted",
-          },
+          }),
         ],
       });
     })
@@ -79,29 +78,26 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          {
-            _tag: "If",
-            alternate: [{ _tag: "Text", value: "C" }],
+          tagged("If", {
+            alternate: [tagged("Text", { value: "C" })],
             branches: [
               {
-                body: [{ _tag: "Text", value: "A" }],
-                condition: {
-                  _tag: "Compare",
+                body: [tagged("Text", { value: "A" })],
+                condition: tagged("Compare", {
                   left: { root: "source" },
                   operator: "==",
                   right: { value: "text" },
-                },
+                }),
               },
               {
-                body: [{ _tag: "Text", value: "B" }],
-                condition: {
-                  _tag: "Compare",
+                body: [tagged("Text", { value: "B" })],
+                condition: tagged("Compare", {
                   operator: "!=",
                   right: { value: null },
-                },
+                }),
               },
             ],
-          },
+          }),
         ],
       });
     })
@@ -113,17 +109,15 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          {
-            _tag: "If",
+          tagged("If", {
             branches: [
               {
-                condition: {
-                  _tag: "Not",
-                  condition: { _tag: "Truthy", value: { root: "paid" } },
-                },
+                condition: tagged("Not", {
+                  condition: tagged("Truthy", { value: { root: "paid" } }),
+                }),
               },
             ],
-          },
+          }),
         ],
       });
     })
@@ -139,18 +133,19 @@ describe("template body", () => {
 
         expect(document.body).toMatchObject({
           nodes: [
-            {
-              _tag: "Each",
-              alternate: [{ _tag: "Text", value: "none" }],
+            tagged("Each", {
+              alternate: [tagged("Text", { value: "none" })],
               body: [
-                { _tag: "Output", value: { _tag: "Data", name: "index" } },
-                { _tag: "Text", value: ":" },
-                { _tag: "Output", value: { root: "line", segments: ["text"] } },
+                tagged("Output", { value: tagged("Data", { name: "index" }) }),
+                tagged("Text", { value: ":" }),
+                tagged("Output", {
+                  value: { root: "line", segments: ["text"] },
+                }),
               ],
               index: "i",
               item: "line",
               iterable: { root: "lines" },
-            },
+            }),
           ],
         });
       })
@@ -164,12 +159,11 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          { _tag: "Text", value: "Start\n" },
-          {
-            _tag: "If",
-            branches: [{ body: [{ _tag: "Text", value: "Inside\n" }] }],
-          },
-          { _tag: "Text", value: "End\n" },
+          tagged("Text", { value: "Start\n" }),
+          tagged("If", {
+            branches: [{ body: [tagged("Text", { value: "Inside\n" })] }],
+          }),
+          tagged("Text", { value: "End\n" }),
         ],
       });
     })
@@ -181,9 +175,9 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          { _tag: "Text", value: "Total " },
-          { _tag: "If" },
-          { _tag: "Text", value: "\n" },
+          tagged("Text", { value: "Total " }),
+          tagged("If", {}),
+          tagged("Text", { value: "\n" }),
         ],
       });
     })
@@ -195,9 +189,9 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          { _tag: "Text", value: "A" },
-          { _tag: "Output" },
-          { _tag: "Text", value: "B" },
+          tagged("Text", { value: "A" }),
+          tagged("Output", {}),
+          tagged("Text", { value: "B" }),
         ],
       });
     })
@@ -211,9 +205,9 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          { _tag: "Text", value: "A\n" },
-          { _tag: "Text", value: "B " },
-          { _tag: "Text", value: "C\n" },
+          tagged("Text", { value: "A\n" }),
+          tagged("Text", { value: "B " }),
+          tagged("Text", { value: "C\n" }),
         ],
       });
     })
@@ -227,9 +221,9 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          { _tag: "Text", value: "Write {{name}} to get " },
-          { _tag: "Output" },
-          { _tag: "Text", value: "." },
+          tagged("Text", { value: "Write {{name}} to get " }),
+          tagged("Output", {}),
+          tagged("Text", { value: "." }),
         ],
       });
     })
@@ -243,13 +237,16 @@ describe("template body", () => {
 
       expect(document.body).toMatchObject({
         nodes: [
-          { _tag: "Partial", hash: [], indent: "  ", source: "./contract.md" },
-          {
-            _tag: "Partial",
+          tagged("Partial", {
+            hash: [],
+            indent: "  ",
+            source: "./contract.md",
+          }),
+          tagged("Partial", {
             hash: [{ name: "item", value: { root: "line" } }],
             indent: "",
             source: "./line item.md",
-          },
+          }),
         ],
       });
     })
@@ -263,23 +260,24 @@ describe("role blocks", () => {
         "<system>\nYou are an accountant.\n</system>\n\n<user>\nRead {{text}}\n</user>\n"
       );
 
-      expect(document.body).toMatchObject({
-        _tag: "Messages",
-        messages: [
-          {
-            body: [{ _tag: "Text", value: "You are an accountant.\n" }],
-            role: "system",
-          },
-          {
-            body: [
-              { _tag: "Text", value: "Read " },
-              { _tag: "Output" },
-              { _tag: "Text", value: "\n" },
-            ],
-            role: "user",
-          },
-        ],
-      });
+      expect(document.body).toMatchObject(
+        tagged("Messages", {
+          messages: [
+            {
+              body: [tagged("Text", { value: "You are an accountant.\n" })],
+              role: "system",
+            },
+            {
+              body: [
+                tagged("Text", { value: "Read " }),
+                tagged("Output", {}),
+                tagged("Text", { value: "\n" }),
+              ],
+              role: "user",
+            },
+          ],
+        })
+      );
     })
   );
 
@@ -287,10 +285,13 @@ describe("role blocks", () => {
     Effect.gen(function* () {
       const document = yield* parse("Wrap it in <user> tags.\n\\<user>\n");
 
-      expect(document.body).toMatchObject({
-        _tag: "Fragment",
-        nodes: [{ _tag: "Text", value: "Wrap it in <user> tags.\n<user>\n" }],
-      });
+      expect(document.body).toMatchObject(
+        tagged("Fragment", {
+          nodes: [
+            tagged("Text", { value: "Wrap it in <user> tags.\n<user>\n" }),
+          ],
+        })
+      );
     })
   );
 

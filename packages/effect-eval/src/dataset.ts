@@ -435,15 +435,15 @@ export const guard =
             onSome: (entry) => {
               const options = { denylist, rules: privacy.rules };
 
-              const found: readonly Finding[] = [
-                ...(isJson(entry.input)
+              const found: readonly Finding[] = Array.flatten([
+                isJson(entry.input)
                   ? scan(entry.id, entry.input, options)
-                  : [{ case: entry.id, path: "", rule: NOT_JSON }]),
-                ...Option.match(item.raw, {
+                  : [{ case: entry.id, path: "", rule: NOT_JSON }],
+                Option.match(item.raw, {
                   onNone: (): readonly Finding[] => [],
                   onSome: (raw) => scan(entry.id, raw, options),
                 }),
-              ];
+              ]);
 
               return Array.dedupeWith(
                 found,

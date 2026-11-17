@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { Prompt } from "effect/ai";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import { definePrompt, indent, json, untrusted, user } from "../src/runtime.ts";
 
 describe("untrusted", () => {
@@ -66,10 +67,11 @@ describe("definePrompt", () => {
     Effect.gen(function* () {
       const error = yield* Effect.flip(greeting.decode({ name: "" }));
 
-      expect(error).toMatchObject({
-        _tag: "PromptInputError",
-        prompt: "greeting",
-      });
+      expect(error).toMatchObject(
+        tagged("PromptInputError", {
+          prompt: "greeting",
+        })
+      );
       expect(error.message).toContain(
         "Invalid input for the prompt 'greeting'"
       );

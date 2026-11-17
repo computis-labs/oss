@@ -1,4 +1,4 @@
-import { Effect, Match, Result, Schema, SchemaGetter } from "effect";
+import { Array, Effect, Match, Result, Schema, SchemaGetter } from "effect";
 
 export { element, root } from "../annotations.ts";
 
@@ -174,10 +174,10 @@ export interface RangeOptions {
 }
 
 const describeRange = ({ maximum, minimum }: RangeOptions) =>
-  [
-    ...(minimum === undefined ? [] : [`at least ${minimum}`]),
-    ...(maximum === undefined ? [] : [`at most ${maximum}`]),
-  ].join(" and ");
+  Array.flatten([
+    minimum === undefined ? [] : [`at least ${minimum}`],
+    maximum === undefined ? [] : [`at most ${maximum}`],
+  ]).join(" and ");
 
 const decimalRange = ({ maximum, minimum }: RangeOptions) => {
   if (minimum === undefined && maximum === undefined) {

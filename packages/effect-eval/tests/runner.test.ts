@@ -22,6 +22,7 @@ import {
 import { LanguageModel, OpenAiStructuredOutput, Telemetry } from "effect/ai";
 import type { AiError, Response } from "effect/ai";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import * as Agreement from "../src/agreement.ts";
 import { withLive } from "../src/clock.ts";
 import * as Dataset from "../src/dataset.ts";
@@ -248,16 +249,16 @@ describe("Runner.run", () => {
       );
 
       expect(events).toMatchObject([
-        { _tag: "RunStarted" },
-        { _tag: "CaseSkipped", id: "m4", reason: "no ground truth" },
-        { _tag: "CaseStarted", case: "m1" },
-        { _tag: "CaseFinished", case: "m1" },
-        { _tag: "CaseStarted", case: "m2" },
-        { _tag: "CaseFinished", case: "m2" },
-        { _tag: "CaseStarted", case: "m3" },
-        { _tag: "CaseFinished", case: "m3" },
-        { _tag: "VariantFinished" },
-        { _tag: "RunFinished", passed: true },
+        tagged("RunStarted", {}),
+        tagged("CaseSkipped", { id: "m4", reason: "no ground truth" }),
+        tagged("CaseStarted", { case: "m1" }),
+        tagged("CaseFinished", { case: "m1" }),
+        tagged("CaseStarted", { case: "m2" }),
+        tagged("CaseFinished", { case: "m2" }),
+        tagged("CaseStarted", { case: "m3" }),
+        tagged("CaseFinished", { case: "m3" }),
+        tagged("VariantFinished", {}),
+        tagged("RunFinished", { passed: true }),
       ]);
       expect(events.map((event) => event.sequence)).toEqual([
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9,

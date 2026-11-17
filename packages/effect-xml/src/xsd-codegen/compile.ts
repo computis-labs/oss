@@ -503,14 +503,12 @@ export const compileSchema = (
             ? type
             : `xsdDefault(${type}, ${quote(defaultValue)})`;
 
-        const checks = [
-          ...(occurs.min > 1
-            ? [`Schema.isMinLength(${String(occurs.min)})`]
-            : []),
-          ...(occurs.max === undefined
+        const checks = Array.flatten([
+          occurs.min > 1 ? [`Schema.isMinLength(${String(occurs.min)})`] : [],
+          occurs.max === undefined
             ? []
-            : [`Schema.isMaxLength(${String(occurs.max)})`]),
-        ];
+            : [`Schema.isMaxLength(${String(occurs.max)})`],
+        ]);
 
         const code =
           occurs.max === 1

@@ -4,6 +4,7 @@ import { DateTime, Effect, FileSystem, Layer, Option, Path } from "effect";
 
 import * as Dataset from "../src/dataset.ts";
 import * as Eval from "../src/eval.ts";
+import * as Events from "../src/events.ts";
 import * as Git from "../src/git.ts";
 import * as History from "../src/history.ts";
 import * as Reporter from "../src/reporter.ts";
@@ -257,8 +258,7 @@ const savedWithId = (id: string) =>
   Effect.service(History.History).pipe(
     Effect.flatMap((history) =>
       history.save([
-        {
-          _tag: "RunStarted",
+        Events.RunStarted.make({
           at: DateTime.makeUnsafe(0),
           datasetHash: "",
           eval: "categorizer",
@@ -271,7 +271,7 @@ const savedWithId = (id: string) =>
           trials: 1,
           variants: [],
           version: 1,
-        },
+        }),
       ])
     )
   );

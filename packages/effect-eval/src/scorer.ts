@@ -1,4 +1,4 @@
-import { Array, Effect, Match, Option, Result, pipe } from "effect";
+import { Array, Data, Effect, Match, Option, Result, pipe } from "effect";
 
 import { different, exact } from "./agreement.ts";
 import * as Compare from "./compare.ts";
@@ -17,19 +17,20 @@ export type Scorer<A, O, R = never> = (
   outcome: Outcome<O>
 ) => Effect.Effect<readonly Observation[], never, R>;
 
-export type Expectation<T> =
-  | { readonly _tag: "Present"; readonly value: T }
-  | { readonly _tag: "Absent" }
-  | { readonly _tag: "Unknown" };
+export type Expectation<T> = Data.TaggedEnum<{
+  Present: { readonly value: T };
+  Absent: object;
+  Unknown: object;
+}>;
 
-export const present = <T>(value: T): Expectation<T> => ({
-  _tag: "Present",
-  value,
-});
+const expectations = Data.taggedEnum<Expectation<never>>();
 
-export const absent: Expectation<never> = { _tag: "Absent" };
+export const present = <T>(value: T): Expectation<T> =>
+  Data.taggedEnum<Expectation<T>>().Present({ value });
 
-export const unknown: Expectation<never> = { _tag: "Unknown" };
+export const absent: Expectation<never> = expectations.Absent();
+
+export const unknown: Expectation<never> = expectations.Unknown();
 
 export const unclassified = "unclassified";
 

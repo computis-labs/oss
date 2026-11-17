@@ -1,3 +1,5 @@
+import { Array } from "effect";
+
 const digitClass = (low: string, high: string) =>
   low === high ? low : `[${low}-${high}]`;
 
@@ -31,13 +33,13 @@ const fixedWidthRange = (low: string, high: string): string => {
   const lowNext = Number(lowHead) + 1;
   const highPrevious = Number(highHead) - 1;
 
-  return [
-    `${lowHead}(?:${fixedWidthRange(lowTail, "9".repeat(lowTail.length))})`,
-    ...(lowNext <= highPrevious
+  return Array.flatten([
+    [`${lowHead}(?:${fixedWidthRange(lowTail, "9".repeat(lowTail.length))})`],
+    lowNext <= highPrevious
       ? [`${digitClass(String(lowNext), String(highPrevious))}${anyDigits}`]
-      : []),
-    `${highHead}(?:${fixedWidthRange("0".repeat(lowTail.length), highTail)})`,
-  ].join("|");
+      : [],
+    [`${highHead}(?:${fixedWidthRange("0".repeat(lowTail.length), highTail)})`],
+  ]).join("|");
 };
 
 export const naturalRange = (low: bigint, high: bigint): string => {

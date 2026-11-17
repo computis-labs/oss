@@ -1,3 +1,5 @@
+import { Data } from "effect";
+
 export interface Span {
   readonly start: number;
   readonly end: number;
@@ -21,26 +23,24 @@ export type DataVariable = (typeof DataVariables)[keyof typeof DataVariables];
 
 export type LiteralValue = string | number | boolean | null;
 
-export type Expression =
-  | {
-      readonly _tag: "Path";
-      readonly root: string;
-      readonly segments: readonly string[];
-      readonly span: Span;
-    }
-  | { readonly _tag: "Data"; readonly name: DataVariable; readonly span: Span }
-  | {
-      readonly _tag: "Literal";
-      readonly value: LiteralValue;
-      readonly span: Span;
-    };
+export type Expression = Data.TaggedEnum<{
+  Path: {
+    readonly root: string;
+    readonly segments: readonly string[];
+    readonly span: Span;
+  };
+  Data: { readonly name: DataVariable; readonly span: Span };
+  Literal: {
+    readonly value: LiteralValue;
+    readonly span: Span;
+  };
+}>;
 
-export type LiteralExpression = Extract<
-  Expression,
-  { readonly _tag: "Literal" }
->;
+export type LiteralExpression = Data.TaggedEnum.Value<Expression, "Literal">;
 
-export type ValueExpression = Exclude<Expression, { readonly _tag: "Literal" }>;
+export type ValueExpression = Exclude<Expression, LiteralExpression>;
+
+export const Expressions = Data.taggedEnum<Expression>();
 
 export interface HashArgument {
   readonly name: string;
@@ -56,24 +56,22 @@ export const ComparisonOperators = {
 export type ComparisonOperator =
   (typeof ComparisonOperators)[keyof typeof ComparisonOperators];
 
-export type Condition =
-  | {
-      readonly _tag: "Truthy";
-      readonly value: ValueExpression;
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "Compare";
-      readonly operator: ComparisonOperator;
-      readonly left: ValueExpression;
-      readonly right: LiteralExpression;
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "Not";
-      readonly condition: Condition;
-      readonly span: Span;
-    };
+export type Condition = Data.TaggedEnum<{
+  Truthy: {
+    readonly value: ValueExpression;
+    readonly span: Span;
+  };
+  Compare: {
+    readonly operator: ComparisonOperator;
+    readonly left: ValueExpression;
+    readonly right: LiteralExpression;
+    readonly span: Span;
+  };
+  Not: {
+    readonly condition: Condition;
+    readonly span: Span;
+  };
+}>;
 
 export interface IfBranch {
   readonly condition: Condition;
@@ -81,42 +79,40 @@ export interface IfBranch {
   readonly span: Span;
 }
 
-export type Node =
-  | { readonly _tag: "Text"; readonly value: string; readonly span: Span }
-  | {
-      readonly _tag: "Output";
-      readonly value: ValueExpression;
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "Helper";
-      readonly name: string;
-      readonly args: readonly Expression[];
-      readonly hash: readonly HashArgument[];
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "If";
-      readonly branches: readonly [IfBranch, ...IfBranch[]];
-      readonly alternate: readonly Node[];
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "Each";
-      readonly iterable: ValueExpression;
-      readonly item: string;
-      readonly index?: string;
-      readonly body: readonly Node[];
-      readonly alternate: readonly Node[];
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "Partial";
-      readonly source: string;
-      readonly hash: readonly HashArgument[];
-      readonly indent: string;
-      readonly span: Span;
-    };
+export const Conditions = Data.taggedEnum<Condition>();
+
+export type Node = Data.TaggedEnum<{
+  Text: { readonly value: string; readonly span: Span };
+  Output: {
+    readonly value: ValueExpression;
+    readonly span: Span;
+  };
+  Helper: {
+    readonly name: string;
+    readonly args: readonly Expression[];
+    readonly hash: readonly HashArgument[];
+    readonly span: Span;
+  };
+  If: {
+    readonly branches: readonly [IfBranch, ...IfBranch[]];
+    readonly alternate: readonly Node[];
+    readonly span: Span;
+  };
+  Each: {
+    readonly iterable: ValueExpression;
+    readonly item: string;
+    readonly index?: string;
+    readonly body: readonly Node[];
+    readonly alternate: readonly Node[];
+    readonly span: Span;
+  };
+  Partial: {
+    readonly source: string;
+    readonly hash: readonly HashArgument[];
+    readonly indent: string;
+    readonly span: Span;
+  };
+}>;
 
 export interface Message {
   readonly role: Role;
@@ -124,9 +120,14 @@ export interface Message {
   readonly span: Span;
 }
 
-export type Body =
-  | { readonly _tag: "Fragment"; readonly nodes: readonly Node[] }
-  | { readonly _tag: "Messages"; readonly messages: readonly Message[] };
+export const Nodes = Data.taggedEnum<Node>();
+
+export type Body = Data.TaggedEnum<{
+  Fragment: { readonly nodes: readonly Node[] };
+  Messages: { readonly messages: readonly Message[] };
+}>;
+
+export const Bodies = Data.taggedEnum<Body>();
 
 export const PrimitiveTypes = {
   Boolean: "Boolean",
@@ -148,41 +149,43 @@ export interface Field {
   readonly span: Span;
 }
 
-export type TypeNode =
-  | {
-      readonly _tag: "Primitive";
-      readonly name: PrimitiveType;
-      readonly span: Span;
-    }
-  | {
-      readonly _tag: "Literal";
-      readonly values: readonly [LiteralType, ...LiteralType[]];
-      readonly span: Span;
-    }
-  | { readonly _tag: "Array"; readonly element: TypeNode; readonly span: Span }
-  | { readonly _tag: "NullOr"; readonly type: TypeNode; readonly span: Span }
-  | {
-      readonly _tag: "Struct";
-      readonly fields: readonly Field[];
-      readonly span: Span;
-    };
+export type TypeNode = Data.TaggedEnum<{
+  Primitive: {
+    readonly name: PrimitiveType;
+    readonly span: Span;
+  };
+  Literal: {
+    readonly values: readonly [LiteralType, ...LiteralType[]];
+    readonly span: Span;
+  };
+  Array: { readonly element: TypeNode; readonly span: Span };
+  NullOr: { readonly type: TypeNode; readonly span: Span };
+  Struct: {
+    readonly fields: readonly Field[];
+    readonly span: Span;
+  };
+}>;
 
-export type StructType = Extract<TypeNode, { readonly _tag: "Struct" }>;
+export type StructType = Data.TaggedEnum.Value<TypeNode, "Struct">;
 
-export type InputSpec =
-  | { readonly _tag: "Inline"; readonly type: StructType }
-  | {
-      readonly _tag: "Reference";
-      readonly module: string;
-      readonly exportName: string;
-      readonly span: Span;
-    };
+export const TypeNodes = Data.taggedEnum<TypeNode>();
+
+export type InputSpec = Data.TaggedEnum<{
+  Inline: { readonly type: StructType };
+  Reference: {
+    readonly module: string;
+    readonly exportName: string;
+    readonly span: Span;
+  };
+}>;
 
 export interface Frontmatter {
   readonly description?: string;
   readonly input?: InputSpec;
   readonly span: Span;
 }
+
+export const InputSpecs = Data.taggedEnum<InputSpec>();
 
 export interface PromptDocument {
   readonly path?: string;

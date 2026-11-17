@@ -12,6 +12,7 @@ import {
   pipe,
 } from "effect";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import * as Dataset from "../src/dataset.ts";
 import * as Eval from "../src/eval.ts";
 import * as Events from "../src/events.ts";
@@ -327,14 +328,14 @@ describe("Reporters writing files", () => {
         );
 
         expect(decoded).toMatchObject([
-          { _tag: "RunStarted" },
-          { _tag: "CaseSkipped" },
-          { _tag: "CaseStarted" },
-          { _tag: "CaseFinished" },
-          { _tag: "CaseStarted" },
-          { _tag: "CaseFinished" },
-          { _tag: "VariantFinished" },
-          { _tag: "RunFinished" },
+          tagged("RunStarted", {}),
+          tagged("CaseSkipped", {}),
+          tagged("CaseStarted", {}),
+          tagged("CaseFinished", {}),
+          tagged("CaseStarted", {}),
+          tagged("CaseFinished", {}),
+          tagged("VariantFinished", {}),
+          tagged("RunFinished", {}),
         ]);
       })
     )

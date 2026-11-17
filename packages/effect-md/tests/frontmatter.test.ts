@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import { PromptSyntaxErrorReason } from "../src/errors.ts";
 import { parse } from "../src/parser.ts";
 
@@ -20,7 +21,7 @@ describe("frontmatter", () => {
           description: "Extract an invoice",
         });
         expect(document.body).toMatchObject({
-          nodes: [{ _tag: "Text", value: "Body\n" }],
+          nodes: [tagged("Text", { value: "Body\n" })],
         });
       })
   );
@@ -47,57 +48,54 @@ describe("frontmatter", () => {
         ].join("\n")
       );
 
-      expect(document.frontmatter?.input).toMatchObject({
-        _tag: "Inline",
-        type: {
-          _tag: "Struct",
-          fields: [
-            {
-              name: "text",
-              optional: true,
-              type: { _tag: "Primitive", name: "String" },
-            },
-            { name: "total", optional: false, type: { name: "Number" } },
-            { name: "paid", type: { name: "Boolean" } },
-            { name: "pdf", type: { name: "File" } },
-            {
-              name: "source",
-              type: { _tag: "Literal", values: ["file", "text"] },
-            },
-            {
-              name: "tags",
-              type: { _tag: "Array", element: { name: "String" } },
-            },
-            {
-              name: "note",
-              type: { _tag: "NullOr", type: { name: "String" } },
-            },
-            {
-              name: "customer",
-              type: {
-                _tag: "Struct",
-                fields: [
-                  { name: "name", optional: false },
-                  { name: "vat", optional: true },
-                ],
+      expect(document.frontmatter?.input).toMatchObject(
+        tagged("Inline", {
+          type: tagged("Struct", {
+            fields: [
+              {
+                name: "text",
+                optional: true,
+                type: tagged("Primitive", { name: "String" }),
               },
-            },
-            {
-              name: "lines",
-              type: {
-                _tag: "Array",
-                element: {
-                  _tag: "Struct",
+              { name: "total", optional: false, type: { name: "Number" } },
+              { name: "paid", type: { name: "Boolean" } },
+              { name: "pdf", type: { name: "File" } },
+              {
+                name: "source",
+                type: tagged("Literal", { values: ["file", "text"] }),
+              },
+              {
+                name: "tags",
+                type: tagged("Array", { element: { name: "String" } }),
+              },
+              {
+                name: "note",
+                type: tagged("NullOr", { type: { name: "String" } }),
+              },
+              {
+                name: "customer",
+                type: tagged("Struct", {
                   fields: [
-                    { name: "description", type: { name: "String" } },
-                    { name: "amount", type: { name: "Number" } },
+                    { name: "name", optional: false },
+                    { name: "vat", optional: true },
                   ],
-                },
+                }),
               },
-            },
-          ],
-        },
-      });
+              {
+                name: "lines",
+                type: tagged("Array", {
+                  element: tagged("Struct", {
+                    fields: [
+                      { name: "description", type: { name: "String" } },
+                      { name: "amount", type: { name: "Number" } },
+                    ],
+                  }),
+                }),
+              },
+            ],
+          }),
+        })
+      );
     })
   );
 
@@ -108,8 +106,7 @@ describe("frontmatter", () => {
       );
 
       expect(document.frontmatter?.input).toEqual(
-        expect.objectContaining({
-          _tag: "Reference",
+        tagged("Reference", {
           exportName: "InvoiceInput",
           module: "#/modules/invoice/prompt-input",
         })

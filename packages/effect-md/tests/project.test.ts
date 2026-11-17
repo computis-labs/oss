@@ -2,6 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { expect, layer } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
+import { tagged } from "../../../scripts/test-matchers.ts";
 import { PromptProjectErrorReason } from "../src/project-error.ts";
 import { check, generate, outputName } from "../src/project.ts";
 
@@ -125,10 +126,11 @@ layer(NodeServices.layer)("prompt projects", (it) => {
 
       const error = yield* Effect.flip(generate({ format: "false", root }));
 
-      expect(error).toMatchObject({
-        _tag: "PromptProjectError",
-        reason: PromptProjectErrorReason.FormatFailed,
-      });
+      expect(error).toMatchObject(
+        tagged("PromptProjectError", {
+          reason: PromptProjectErrorReason.FormatFailed,
+        })
+      );
     })
   );
 

@@ -9,12 +9,15 @@ export const publicPackages = [
 export const publicRoot = "oss";
 
 export const publicFiles = [
+  "oxlint-plugins/anti-slop/LICENSE",
+  "oxlint-plugins/anti-slop/UPSTREAM.md",
   "packages/config/tsconfig/base.json",
   "packages/config/tsconfig/node.json",
   "packages/config/tsconfig/paths.json",
   "scripts/oss-check.ts",
   "scripts/oss-packages.ts",
   "scripts/oss-release.ts",
+  "scripts/test-matchers.ts",
 ] as const;
 
 export const privateFileNames = ["AGENTS.md"] as const;

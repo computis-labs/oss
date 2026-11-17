@@ -1,7 +1,8 @@
-/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
+/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
+import { tagged } from "../../../scripts/test-matchers.ts";
 import { element, root } from "../src/annotations.ts";
 import { compile } from "../src/plan.ts";
 import type { ChildPlan, ElementPlan } from "../src/types.ts";
@@ -177,10 +178,11 @@ describe("compile", () => {
 
         const error = yield* compileError(Invoice);
 
-        expect(error).toMatchObject({
-          _tag: "XmlPlanError",
-          path: "Invoice.Scelta",
-        });
+        expect(error).toMatchObject(
+          tagged("XmlPlanError", {
+            path: "Invoice.Scelta",
+          })
+        );
       })
   );
 
@@ -238,10 +240,11 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        path: "Invoice.meta",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          path: "Invoice.meta",
+        })
+      );
     })
   );
 
@@ -257,10 +260,11 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        path: "Invoice.Importo.valuta",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          path: "Invoice.Importo.valuta",
+        })
+      );
     })
   );
 
@@ -304,7 +308,7 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({ _tag: "XmlPlanError", path: "Invoice" });
+      expect(error).toMatchObject(tagged("XmlPlanError", { path: "Invoice" }));
     })
   );
 
@@ -314,7 +318,7 @@ describe("compile", () => {
         Schema.Struct({ Numero: Schema.String })
       );
 
-      expect(error).toMatchObject({ _tag: "XmlPlanError", path: "" });
+      expect(error).toMatchObject(tagged("XmlPlanError", { path: "" }));
     })
   );
 
@@ -326,10 +330,11 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        path: "Invoice.Riepilogo.Totale",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          path: "Invoice.Riepilogo.Totale",
+        })
+      );
     })
   );
 
@@ -341,12 +346,13 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        message:
-          "Schema.optional is not supported because undefined has no XML representation: use Schema.optionalKey.",
-        path: "Invoice.Causale",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          message:
+            "Schema.optional is not supported because undefined has no XML representation: use Schema.optionalKey.",
+          path: "Invoice.Causale",
+        })
+      );
     })
   );
 
@@ -358,12 +364,13 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        message:
-          "Schema.NullOr is not supported because null has no XML representation: use Schema.optionalKey.",
-        path: "Invoice.Sede",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          message:
+            "Schema.NullOr is not supported because null has no XML representation: use Schema.optionalKey.",
+          path: "Invoice.Sede",
+        })
+      );
     })
   );
 
@@ -383,12 +390,13 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        message:
-          "Schema.optional is not supported because undefined has no XML representation: use Schema.optionalKey.",
-        path: "Invoice.versione",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          message:
+            "Schema.optional is not supported because undefined has no XML representation: use Schema.optionalKey.",
+          path: "Invoice.versione",
+        })
+      );
     })
   );
 
@@ -400,10 +408,11 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        path: "Invoice.Extra",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          path: "Invoice.Extra",
+        })
+      );
     })
   );
 
@@ -415,10 +424,11 @@ describe("compile", () => {
 
       const error = yield* compileError(Invoice);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        path: "Invoice.Coppia",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          path: "Invoice.Coppia",
+        })
+      );
     })
   );
 
@@ -438,10 +448,11 @@ describe("compile", () => {
 
       const error = yield* compileError(Catalogo);
 
-      expect(error).toMatchObject({
-        _tag: "XmlPlanError",
-        path: "Catalogo.Categoria.Figli",
-      });
+      expect(error).toMatchObject(
+        tagged("XmlPlanError", {
+          path: "Catalogo.Categoria.Figli",
+        })
+      );
     })
   );
 

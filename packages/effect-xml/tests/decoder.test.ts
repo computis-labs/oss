@@ -1,9 +1,10 @@
-/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Result, Schema, SchemaGetter } from "effect";
 
+/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
+import { tagged } from "../../../scripts/test-matchers.ts";
 import type { Encodable } from "../src/encoder.ts";
 import { XmlParseError } from "../src/errors/xml-parse-error.ts";
 import { codec, element, root } from "../src/index.ts";
@@ -62,11 +63,12 @@ describe("decode union content", () => {
 
         const error = yield* Effect.flip(decode(xml));
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
-          position: { column: 9, line: 37 },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
+            position: { column: 9, line: 37 },
+          })
+        );
       })
   );
 
@@ -92,10 +94,11 @@ describe("decode union content", () => {
         );
 
         expect(order).toStrictEqual({ Item: { Code: "A1" } });
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          path: "Order.Item.Code",
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            path: "Order.Item.Code",
+          })
+        );
       })
   );
 });
@@ -244,14 +247,15 @@ describe("decode on FatturaPA", () => {
         decode(singleLine.replace(NAMESPACE, "http://example.com/other"))
       );
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith(
-          `Invalid document namespace: expected ${NAMESPACE}, found http://example.com/other.`
-        ),
-        path: "FatturaElettronica",
-        position: { column: 39, line: 1 },
-      });
+      expect(error).toMatchObject(
+        tagged("XmlDecodeError", {
+          message: startsWith(
+            `Invalid document namespace: expected ${NAMESPACE}, found http://example.com/other.`
+          ),
+          path: "FatturaElettronica",
+          position: { column: 39, line: 1 },
+        })
+      );
     })
   );
 
@@ -265,11 +269,12 @@ describe("decode on FatturaPA", () => {
           decode(singleLine.replace("<CAP>00100</CAP>", "<CAP>ABC</CAP>"))
         );
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.CAP",
-          position: { column: 9, line: 25 },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.CAP",
+            position: { column: 9, line: 25 },
+          })
+        );
       })
   );
 
@@ -309,12 +314,13 @@ describe("decode on FatturaPA", () => {
           )
         );
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith("Expected a valid xs:date value"),
-          path: "FatturaElettronica.FatturaElettronicaBody[0].DatiGenerali.DatiGeneraliDocumento.Data",
-          position: { column: 9, line: 55 },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith("Expected a valid xs:date value"),
+            path: "FatturaElettronica.FatturaElettronicaBody[0].DatiGenerali.DatiGeneraliDocumento.Data",
+            position: { column: 9, line: 55 },
+          })
+        );
       })
   );
 
@@ -368,12 +374,15 @@ describe("decode on FatturaPA", () => {
           )
         );
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith("Expected one of Denominazione | Nome+Cognome."),
-          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
-          position: { column: 9, line: 37 },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith(
+              "Expected one of Denominazione | Nome+Cognome."
+            ),
+            path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica",
+            position: { column: 9, line: 37 },
+          })
+        );
       })
   );
 
@@ -392,12 +401,13 @@ describe("decode on FatturaPA", () => {
           )
         );
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith("Missing key"),
-          path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica.Cognome",
-          position: { column: 9, line: 37 },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith("Missing key"),
+            path: "FatturaElettronica.FatturaElettronicaHeader.CessionarioCommittente.DatiAnagrafici.Anagrafica.Cognome",
+            position: { column: 9, line: 37 },
+          })
+        );
       })
   );
 
@@ -412,12 +422,13 @@ describe("decode on FatturaPA", () => {
 
       const error = yield* Effect.flip(decode(xml));
 
-      expect(error).toMatchObject({
-        _tag: "XmlDecodeError",
-        message: startsWith("Unexpected element: Scala."),
-        path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede",
-        position: { line: 25 },
-      });
+      expect(error).toMatchObject(
+        tagged("XmlDecodeError", {
+          message: startsWith("Unexpected element: Scala."),
+          path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede",
+          position: { line: 25 },
+        })
+      );
     })
   );
 
@@ -895,12 +906,13 @@ describe("decode with namespace prefixes", () => {
 
         const error = yield* Effect.flip(decode(xml));
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith('Unbound namespace prefix "ds".'),
-          path: "FatturaElettronica",
-          position: { offset: xml.indexOf("<ds:Signature>") },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith('Unbound namespace prefix "ds".'),
+            path: "FatturaElettronica",
+            position: { offset: xml.indexOf("<ds:Signature>") },
+          })
+        );
       })
   );
 
@@ -919,12 +931,13 @@ describe("decode with namespace prefixes", () => {
 
         const error = yield* Effect.flip(decode(xml));
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith('Unbound namespace prefix "ds".'),
-          path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune",
-          position: { offset: xml.indexOf("ds:Id") },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith('Unbound namespace prefix "ds".'),
+            path: "FatturaElettronica.FatturaElettronicaHeader.CedentePrestatore.Sede.Comune",
+            position: { offset: xml.indexOf("ds:Id") },
+          })
+        );
       })
   );
 
@@ -1258,11 +1271,12 @@ describe("decode on small schemas", () => {
         )
       );
 
-      expect(error).toMatchObject({
-        _tag: "XmlParseError",
-        message: startsWith("Maximum element depth of 3 exceeded"),
-        position: { column: 24, line: 1 },
-      });
+      expect(error).toMatchObject(
+        tagged("XmlParseError", {
+          message: startsWith("Maximum element depth of 3 exceeded"),
+          position: { column: 24, line: 1 },
+        })
+      );
     })
   );
 
@@ -1285,11 +1299,12 @@ describe("decode on small schemas", () => {
         );
 
         expect(surrogate).toStrictEqual(control);
-        expect(surrogate).toMatchObject({
-          _tag: "XmlParseError",
-          message: startsWith("Character not allowed in XML 1.0"),
-          position: { column: 10, line: 2, offset: 21 },
-        });
+        expect(surrogate).toMatchObject(
+          tagged("XmlParseError", {
+            message: startsWith("Character not allowed in XML 1.0"),
+            position: { column: 10, line: 2, offset: 21 },
+          })
+        );
       })
   );
 
@@ -1307,11 +1322,12 @@ describe("decode on small schemas", () => {
           )
         );
 
-        expect(error).toMatchObject({
-          _tag: "XmlParseError",
-          message: startsWith("Character not allowed in XML 1.0"),
-          position: { offset: 33 },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlParseError", {
+            message: startsWith("Character not allowed in XML 1.0"),
+            position: { offset: 33 },
+          })
+        );
       })
   );
 });
@@ -1333,14 +1349,15 @@ describe("decode with a default namespace", () => {
 
         const error = yield* Effect.flip(decode(xml));
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith(
-            `Element Number is not in the document namespace ${EXPECTED}.`
-          ),
-          path: "Invoice.Header.Number",
-          position: { offset: xml.indexOf("<Number") },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith(
+              `Element Number is not in the document namespace ${EXPECTED}.`
+            ),
+            path: "Invoice.Header.Number",
+            position: { offset: xml.indexOf("<Number") },
+          })
+        );
       })
   );
 
@@ -1369,14 +1386,15 @@ describe("decode with a default namespace", () => {
 
         const error = yield* Effect.flip(decode(xml));
 
-        expect(error).toMatchObject({
-          _tag: "XmlDecodeError",
-          message: startsWith(
-            `Element Header is not in the document namespace ${EXPECTED}.`
-          ),
-          path: "Invoice.Header",
-          position: { offset: xml.indexOf("<Header") },
-        });
+        expect(error).toMatchObject(
+          tagged("XmlDecodeError", {
+            message: startsWith(
+              `Element Header is not in the document namespace ${EXPECTED}.`
+            ),
+            path: "Invoice.Header",
+            position: { offset: xml.indexOf("<Header") },
+          })
+        );
       })
   );
 

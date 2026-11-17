@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Data, Schema } from "effect";
 
 import { SummarySchema } from "./metric.ts";
 import { ObservationSchema } from "./observation.ts";
@@ -187,6 +187,8 @@ export type EventBody = EvalEvent extends infer Event
     ? Omit<Event, Envelope>
     : never
   : never;
+
+export const eventBodies = Data.taggedEnum<EventBody>();
 
 const EventLine = Schema.fromJsonString(EvalEventSchema);
 

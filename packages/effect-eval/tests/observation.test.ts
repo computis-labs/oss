@@ -109,7 +109,7 @@ describe("ObservationSchema", () => {
         Schema.decodeUnknownResult(Observation.ObservationSchema)({
           ...stored,
           actual: "absent",
-          agreement: { _tag: "Exact" },
+          agreement: Agreement.exact,
         })
       )
     ).toBe(true);
@@ -120,7 +120,7 @@ describe("ObservationSchema", () => {
       Result.isFailure(
         Schema.decodeUnknownResult(Observation.ObservationSchema)({
           ...stored,
-          agreement: { _tag: "Exact" },
+          agreement: Agreement.exact,
           failure: "timeout",
         })
       )

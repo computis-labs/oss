@@ -9,6 +9,7 @@ import {
   Option,
   PlatformError,
   Stream,
+  Schema,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner, CommandLine } from "effect/process";
 import { TestConsole } from "effect/testing";
@@ -109,7 +110,7 @@ describe("EvalTest.describe with split case", () => {
         Effect.andThen(
           Effect.fail(
             PlatformError.systemError({
-              _tag: "NotFound",
+              ...Schema.TaggedStruct("NotFound", {}).make({}),
               description: "no git in this test",
               method: "spawn",
               module: "ChildProcess",

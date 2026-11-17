@@ -1,10 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
+import { Predicate } from "effect";
 
 import * as Agreement from "../src/agreement.ts";
 
 describe("Agreement.partial", () => {
   it("keeps a score strictly between zero and one as a partial agreement", () => {
-    expect(Agreement.partial(0.4)).toEqual({ _tag: "Partial", score: 0.4 });
+    const actual = Agreement.partial(0.4);
+
+    expect(Predicate.isTagged(actual, "Partial")).toBe(true);
+    expect(actual).toMatchObject({ score: 0.4 });
   });
 
   it("turns a full score into an exact agreement", () => {

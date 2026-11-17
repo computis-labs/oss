@@ -180,10 +180,11 @@ layer(NodeServices.layer, { timeout: 120_000 })(
               const draw = (sampleIndex * 12 + step) * 4;
               const position = random(draw, chars.length + 1);
               const char = MUTATIONS[random(draw + 1, MUTATIONS.length)] ?? "";
+              const inserted = random(draw + 3, 4) === 0 ? [] : [char];
               chars.splice(
                 position,
                 random(draw + 2, 3) === 0 ? 0 : 1,
-                ...(random(draw + 3, 4) === 0 ? [] : [char])
+                ...inserted
               );
               values.add(chars.join(""));
             }
