@@ -1,5 +1,11 @@
 # @computis/effect-eval
 
+## 0.1.2
+
+### Patch Changes
+
+- Thanks [@zRelux](https://github.com/zRelux)! - Construct tagged syntax nodes, evaluation events and scorer expectations through their owning Effect constructors while preserving their existing data representation.
+
 ## 0.1.1
 
 ### Patch Changes

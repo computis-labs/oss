@@ -1,5 +1,13 @@
 # @computis/effect-md
 
+## 0.1.3
+
+### Patch Changes
+
+- Thanks [@zRelux](https://github.com/zRelux)! - Define the public syntax tree types with Effect tagged enums while preserving their variants, readonly fields and recursive structure.
+
+- Thanks [@zRelux](https://github.com/zRelux)! - Construct tagged syntax nodes, evaluation events and scorer expectations through their owning Effect constructors while preserving their existing data representation.
+
 ## 0.1.2
 
 ### Patch Changes
