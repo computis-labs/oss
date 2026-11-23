@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Result, Schema, SchemaGetter } from "effect";
 
-/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { tagged } from "../../../scripts/test-matchers.ts";
 import type { Encodable } from "../src/encoder.ts";
 import { XmlParseError } from "../src/errors/xml-parse-error.ts";

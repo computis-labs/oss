@@ -1,4 +1,3 @@
-/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { afterEach, describe, expect, it, vi } from "@effect/vitest";
 import { Effect } from "effect";
 

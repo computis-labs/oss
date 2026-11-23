@@ -1,4 +1,3 @@
-/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test, so sorting the keys changes the documents. */
 import { Effect, Schema } from "effect";
 
 import { codec, root } from "../../src/index.ts";

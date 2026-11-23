@@ -67,10 +67,10 @@
   },
   "devDependencies": {
     "@computis/config": "workspace:*",
-    "@effect/platform-bun": "4.1.4",
-    "@effect/platform-node": "4.1.4",
-    "@effect/vitest": "4.1.4",
-    "effect": "4.1.4",
+    "@effect/platform-bun": "4.1.5",
+    "@effect/platform-node": "4.1.5",
+    "@effect/vitest": "4.1.5",
+    "effect": "4.1.5",
     "vitest": "5.1.0"
   },
   "peerDependencies": {

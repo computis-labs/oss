@@ -1,4 +1,3 @@
-/* oxlint-disable sort-keys -- XML is sequence-typed: the Struct field order is the element order under test. */
 import { fileURLToPath } from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
