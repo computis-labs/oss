@@ -1,5 +1,11 @@
 # @computis/effect-xml
 
+## 0.5.1
+
+### Patch Changes
+
+- Thanks [@zRelux](https://github.com/zRelux)! - Generated schema modules no longer start with an `oxlint-disable sort-keys` comment. The Ultracite preset now turns `sort-keys` off, so the comment was reported as an unused directive.
+
 ## 0.5.0
 
 ### Minor Changes
