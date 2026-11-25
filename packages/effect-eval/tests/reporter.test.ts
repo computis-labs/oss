@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest";
 import {
   DateTime,
+  Deferred,
   Effect,
   Exit,
   FileSystem,
@@ -471,24 +472,48 @@ describe("Reporter.subscribe", () => {
     "keeps the lifecycle events of a real run when the reporter falls behind",
     () =>
       Effect.gen(function* () {
+        const lastCaseStarted = yield* Deferred.make<boolean>();
         const seen: EvalEvent[] = [];
 
-        const slow = Reporter.sliding(
-          Reporter.fromStream(
-            "slow",
-            Stream.runForEach((event) =>
-              Effect.sync(() => seen.push(event)).pipe(
-                Effect.andThen(Effect.yieldNow)
+        const gated = Eval.make({
+          dataset: Dataset.fromIterable(
+            Array.from({ length: 200 }, (_, index) => `m${String(index)}`),
+            { id: (id: string) => id }
+          ),
+          name: "categorizer",
+          score: Scorer.label<string, string>({
+            actual: Option.some,
+            expected: Scorer.present,
+          }),
+          task: (input) =>
+            (input.id === "m199"
+              ? Deferred.succeed(lastCaseStarted, true)
+              : Effect.void
+            ).pipe(Effect.as(input.input)),
+        });
+
+        const behind = Reporter.sliding(
+          Reporter.fromStream("behind", (events) =>
+            Deferred.await(lastCaseStarted).pipe(
+              Effect.andThen(
+                Stream.runForEach(events, (event) =>
+                  Effect.sync(() => seen.push(event))
+                )
               )
             )
           )
         );
 
-        const run = yield* Runner.run(categorizer(600)).pipe(
-          Effect.provide(Reporter.layer([slow]))
+        const run = yield* Runner.run(gated).pipe(
+          Effect.provide(Reporter.layer([behind]))
+        );
+
+        const progress = seen.filter(
+          (event) => Events.isCaseStarted(event) || Events.isCaseFinished(event)
         );
 
         expect(run.failedReporters).toEqual([]);
+        expect(progress.length).toBeLessThan(400);
         expect(
           seen.filter(
             (event) =>
