@@ -14,6 +14,7 @@
     "@arethetypeswrong/cli": "0.18.5",
     "@effect/platform-node": "4.1.5",
     "@effect/tsgo": "0.73.4",
+    "@effect/vitest": "4.1.5",
     "@oxlint/plugins": "1.93.0",
     "@types/node": "26.6.6",
     "effect": "4.1.5",

@@ -17,6 +17,9 @@ importers:
       '@effect/tsgo':
         specifier: 0.73.4
         version: 0.73.4
+      '@effect/vitest':
+        specifier: 4.1.5
+        version: 4.1.5(effect@4.1.5)(vitest@5.1.0(@types/node@26.6.6)(vite@8.3.1(@types/node@26.6.6)(jiti@2.7.0)(yaml@2.9.1)))
       '@oxlint/plugins':
         specifier: 1.93.0
         version: 1.93.0
