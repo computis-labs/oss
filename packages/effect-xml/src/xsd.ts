@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Predicate } from "effect";
+import { Effect, FileSystem, Predicate, Schema } from "effect";
 import type { Path, Scope } from "effect";
 import {
   ParseOption,
@@ -83,6 +83,8 @@ const disposeDocument = (document: XmlDocument) =>
     document.dispose();
   });
 
+const isPathSchema = Schema.is(Schema.Struct({ path: Schema.String }));
+
 export const make: (
   options: XsdValidatorOptions
 ) => Effect.Effect<
@@ -92,21 +94,20 @@ export const make: (
 > = Effect.fn("Xsd.make")(function* makeXsdValidator({ schema }) {
   const fs = yield* FileSystem.FileSystem;
 
-  const source =
-    "path" in schema
-      ? {
-          contents: yield* fs.readFile(schema.path).pipe(
-            Effect.mapError(
-              (cause) =>
-                new XsdSchemaError({
-                  cause,
-                  message: `XSD schema file could not be read: ${schema.path}`,
-                })
-            )
-          ),
-          url: schema.path,
-        }
-      : schema;
+  const source = isPathSchema(schema)
+    ? {
+        contents: yield* fs.readFile(schema.path).pipe(
+          Effect.mapError(
+            (cause) =>
+              new XsdSchemaError({
+                cause,
+                message: `XSD schema file could not be read: ${schema.path}`,
+              })
+          )
+        ),
+        url: schema.path,
+      }
+    : schema;
 
   const schemaDocument = yield* Effect.acquireRelease(
     Effect.try({

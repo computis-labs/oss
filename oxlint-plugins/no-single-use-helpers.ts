@@ -384,6 +384,11 @@ const exemptNames = (
   return exempt;
 };
 
+// `react-state-policy/reducer-hook-api` requires `useReducer` to live inside a
+// `use<Name>Reducer` hook. In test files `reducer-hook-file` is off so the hook can live
+// next to the test component; keep it exempt so the two rules do not fight.
+const REDUCER_HOOK_NAME = /^use[A-Z]\w*Reducer$/;
+
 const namedCandidate = (
   declaration: ESTree.Node,
   exported: boolean,
@@ -410,6 +415,7 @@ const namedCandidate = (
   if (
     declaration.type === "FunctionDeclaration" &&
     declaration.id &&
+    !REDUCER_HOOK_NAME.test(declaration.id.name) &&
     !isTypePredicate(declaration)
   ) {
     return {
@@ -433,6 +439,10 @@ const variableCandidates = (
     isCandidateValue(declarator.init) &&
     !(
       isConstantValue(declarator.init) && declarator.id.typeAnnotation != null
+    ) &&
+    !(
+      isFunctionValue(declarator.init) &&
+      REDUCER_HOOK_NAME.test(declarator.id.name)
     ) &&
     !isTypePredicate(declarator.init)
       ? [
@@ -479,6 +489,16 @@ const markExportedSpecifiers = (
   candidates: ReadonlyMap<string, Candidate>
 ) => {
   for (const statement of program.body) {
+    if (
+      statement.type === "ExportDefaultDeclaration" &&
+      statement.declaration.type === "Identifier"
+    ) {
+      const candidate = candidates.get(statement.declaration.name);
+      if (candidate !== undefined) {
+        candidate.exposed = true;
+      }
+      continue;
+    }
     if (statement.type !== "ExportNamedDeclaration" || statement.source) {
       continue;
     }

@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Stream } from "effect";
+import { Effect, FileSystem, Schema, Stream } from "effect";
 import type { Path } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -32,6 +32,8 @@ interface FormatOptions {
   readonly path: string;
 }
 
+const isPathXsd = Schema.is(Schema.Struct({ path: Schema.String }));
+
 export const generate: (
   options: GenerateOptions
 ) => Effect.Effect<
@@ -42,22 +44,21 @@ export const generate: (
   const fs = yield* FileSystem.FileSystem;
   const { xsd } = options;
 
-  const source =
-    "path" in xsd
-      ? {
-          contents: yield* fs.readFile(xsd.path).pipe(
-            Effect.mapError(
-              (cause) =>
-                new XsdCodegenError({
-                  cause,
-                  message: "The XSD file could not be read.",
-                  path: xsd.path,
-                })
-            )
-          ),
-          url: xsd.path,
-        }
-      : xsd;
+  const source = isPathXsd(xsd)
+    ? {
+        contents: yield* fs.readFile(xsd.path).pipe(
+          Effect.mapError(
+            (cause) =>
+              new XsdCodegenError({
+                cause,
+                message: "The XSD file could not be read.",
+                path: xsd.path,
+              })
+          )
+        ),
+        url: xsd.path,
+      }
+    : xsd;
 
   yield* Effect.scoped(Xsd.make({ schema: source })).pipe(
     Effect.mapError(

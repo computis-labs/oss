@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 
 import { PdfEngineError } from "./errors/pdf-engine-error.ts";
+import { PdfImageSchema } from "./types.ts";
 import type { PdfImage } from "./types.ts";
 
 const SIGNATURE = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
@@ -236,7 +238,7 @@ export const finishImage = Effect.fn("EffectPdf.finishImage")(
   function* finishImage(
     draft: PdfImageDraft
   ): Effect.fn.Return<PdfImage, PdfEngineError> {
-    if ("bytes" in draft) {
+    if (Schema.is(PdfImageSchema)(draft)) {
       return draft;
     }
 

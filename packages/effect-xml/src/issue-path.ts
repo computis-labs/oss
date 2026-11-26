@@ -95,7 +95,8 @@ const locate = (
   const chosen =
     present.length === 1
       ? issue.issues.find(
-          (candidate) => "ast" in candidate && candidate.ast === member
+          (candidate) =>
+            Predicate.hasProperty(candidate, "ast") && candidate.ast === member
         )
       : undefined;
 

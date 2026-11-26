@@ -144,6 +144,7 @@ export default defineConfig({
       rules: { "effect-test-policy/no-manual-effect-runtime": "error" },
     },
     {
+      excludeFiles: ["**/*.d.ts"],
       files: ["packages/**/*.{ts,tsx}"],
       rules: { "helper-policy/no-single-use-helpers": "error" },
     },
@@ -161,6 +162,7 @@ export default defineConfig({
   rules: {
     "anti-slop-core/max-ternary-depth": ["error", { maxDepth: 2 }],
     "anti-slop-core/no-conditional-spread": "error",
+    "anti-slop-core/no-in-operator": "error",
     "anti-slop-core/no-object-parameters": "error",
     "anti-slop-effect/no-manual-effect-error-tag": "error",
     "anti-slop-effect/no-manual-tag-comparison": "error",

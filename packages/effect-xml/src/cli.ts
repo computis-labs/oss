@@ -1,4 +1,4 @@
-import { Console, Effect, FileSystem, Option } from "effect";
+import { Console, Effect, FileSystem, Option, Predicate } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
 
 import { parseDomainTarget } from "./xsd-codegen/domain.ts";
@@ -97,7 +97,7 @@ const generateCommand = Command.make("generate", flags, (config) =>
   }).pipe(
     Effect.tapError((failure) =>
       Console.error(
-        "path" in failure
+        Predicate.isTagged(failure, "XsdCodegenError")
           ? `${failure.path}: ${failure.message}`
           : failure.message
       )
